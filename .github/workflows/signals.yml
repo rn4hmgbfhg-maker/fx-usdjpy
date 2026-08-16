@@ -1,0 +1,67 @@
+name: fx-signals
+
+# 全シグナル系を1ジョブに集約して毎時回す。
+# ・チェックアウト／pip導入のコストを1回で済ませる
+# ・各ラッパは冪等なので多めに回して取りこぼしを潰す
+on:
+  schedule:
+    # UTC日曜〜金曜の15分ごと ＝ JST月6:05〜土8:50
+    # ★UTC月〜金(1-5)だとJST月曜朝6〜9時が抜ける
+    - cron: '5,20,35,50 * * * 0-5'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: fx-signals
+  cancel-in-progress: false
+
+jobs:
+  signals:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      TZ: Asia/Tokyo
+      FX_GMAIL_APP_PASSWORD: ${{ secrets.FX_GMAIL_APP_PASSWORD }}
+      FX_GMAIL_ACCOUNT: ${{ secrets.FX_GMAIL_ACCOUNT }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - name: デイトレ15分
+        run: python3 src/run_intraday15.py
+        continue-on-error: true
+
+      - name: デイトレ2H
+        run: python3 src/run_intraday.py
+        continue-on-error: true
+
+      - name: 日足2システム（JST6-8時台のみ）
+        run: |
+          H=$(TZ=Asia/Tokyo date +%H)
+          if [ "$H" -ge 6 ] && [ "$H" -le 8 ]; then
+            python3 src/run_morning.py
+          else
+            echo "JST ${H}時のため日足2システムはスキップ"
+          fi
+        continue-on-error: true
+
+      - name: 状態と結果をコミット
+        run: |
+          git config user.name  "fx-actions"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A state.json state_intraday.json state_intraday15.json results data 2>/dev/null || true
+          if git diff --staged --quiet; then
+            echo "変更なし"
+          else
+            git commit -m "signals $(TZ=Asia/Tokyo date +'%F %H:%M JST')"
+            git push
+          fi
