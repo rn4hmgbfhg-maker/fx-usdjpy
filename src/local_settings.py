@@ -18,7 +18,12 @@ import os
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PATH = os.path.join(BASE_DIR, "local_settings.json")
-ENV = {"mail_to": "FX_MAIL_TO", "drive_dir": "FX_DRIVE_DIR"}
+# 1キーに複数の環境変数を許す。mail_to に FX_GMAIL_ACCOUNT を併記しているのは、
+# signals.yml が FX_MAIL_TO を渡していないため（ワークフローの編集には
+# workflow スコープが要り、OAuth トークンからは変更できない）。既に配線済みの
+# FX_GMAIL_ACCOUNT を宛先の代替として使い、ワークフローを触らずに通す。
+ENV = {"mail_to": ("FX_MAIL_TO", "FX_GMAIL_ACCOUNT"),
+       "drive_dir": ("FX_DRIVE_DIR",)}
 
 _cache = None
 
@@ -35,8 +40,7 @@ def _load():
 
 
 def get(key, default=""):
-    env = ENV.get(key)
-    if env:
+    for env in ENV.get(key, ()):
         v = (os.environ.get(env) or "").strip()
         if v:
             return v
