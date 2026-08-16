@@ -1,0 +1,374 @@
+<title>FXドル円 運用ボード</title>
+<style>
+:root {
+  --ground:#F6F8FA; --panel:#FFFFFF; --ink:#1A2B3F; --sub:#5B6B7E;
+  --navy:#1F4E79; --gold:#B8901F; --buy:#C0392B; --sell:#2E5FA3;
+  --up:#1E7E34; --down:#C0392B; --line:#DFE6EE; --chipbg:#EDF2F7;
+}
+@media (prefers-color-scheme: dark) { :root {
+  --ground:#0E1826; --panel:#16233A; --ink:#E8EEF5; --sub:#93A5B8;
+  --navy:#7FA8D0; --gold:#D8B24A; --buy:#E06A5A; --sell:#6E9BD8;
+  --up:#5BBF75; --down:#E06A5A; --line:#263850; --chipbg:#1E2E47;
+} }
+:root[data-theme="light"] {
+  --ground:#F6F8FA; --panel:#FFFFFF; --ink:#1A2B3F; --sub:#5B6B7E;
+  --navy:#1F4E79; --gold:#B8901F; --buy:#C0392B; --sell:#2E5FA3;
+  --up:#1E7E34; --down:#C0392B; --line:#DFE6EE; --chipbg:#EDF2F7;
+}
+:root[data-theme="dark"] {
+  --ground:#0E1826; --panel:#16233A; --ink:#E8EEF5; --sub:#93A5B8;
+  --navy:#7FA8D0; --gold:#D8B24A; --buy:#E06A5A; --sell:#6E9BD8;
+  --up:#5BBF75; --down:#E06A5A; --line:#263850; --chipbg:#1E2E47;
+}
+* { box-sizing:border-box }
+body { margin:0; background:var(--ground); color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Yu Gothic",sans-serif;
+  line-height:1.55; -webkit-text-size-adjust:100%; }
+.wrap { max-width:960px; margin:0 auto; padding:16px 14px 48px; }
+header.top { display:flex; flex-wrap:wrap; align-items:baseline; gap:6px 14px;
+  padding:6px 2px 2px; }
+header.top h1 { font-size:1.15rem; margin:0; letter-spacing:.02em; }
+header.top .rate { font-size:1.5rem; font-weight:700;
+  font-variant-numeric:tabular-nums; }
+header.top .meta { color:var(--sub); font-size:.78rem; width:100%; }
+.banner { margin:12px 0; padding:10px 14px; border-radius:10px;
+  font-weight:700; font-size:.95rem; color:#fff; }
+.banner.act { background:var(--gold); }
+.banner.ok { background:var(--navy); }
+.grid { display:grid; gap:12px; grid-template-columns:1fr; }
+@media (min-width:700px) { .grid { grid-template-columns:1fr 1fr; }
+  .grid .span2 { grid-column:1/-1; } }
+.card { background:var(--panel); border:1px solid var(--line);
+  border-radius:14px; padding:14px 16px; }
+.card h2, .card h3 { margin:0; font-size:.95rem; }
+.card-head { display:flex; justify-content:space-between; align-items:baseline;
+  gap:8px; flex-wrap:wrap; }
+.params { color:var(--sub); font-size:.75rem; }
+.action { font-size:1.45rem; font-weight:800; margin:8px 0 4px; }
+.action.buy { color:var(--buy); } .action.sell { color:var(--sell); }
+.action.gold { color:var(--gold); } .action.flat { color:var(--sub); }
+.posline { display:flex; gap:12px; align-items:center; flex-wrap:wrap;
+  font-size:.9rem; }
+.pos { font-weight:700; } .pos.buy { color:var(--buy); }
+.pos.sell { color:var(--sell); } .pos.flat { color:var(--sub); }
+.stop { color:var(--sub); font-variant-numeric:tabular-nums; }
+.chips { display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
+.chip { background:var(--chipbg); border-radius:999px; padding:3px 10px;
+  font-size:.72rem; color:var(--sub); font-variant-numeric:tabular-nums; }
+.kpis { display:grid; gap:10px;
+  grid-template-columns:repeat(auto-fit,minmax(112px,1fr)); }
+.kpi .l { color:var(--sub); font-size:.72rem; }
+.kpi .v { font-size:1.15rem; font-weight:700;
+  font-variant-numeric:tabular-nums; }
+.up { color:var(--up); } .down { color:var(--down); }
+pre.order { margin:8px 0 0; padding:12px; background:var(--chipbg);
+  border-radius:10px; font-size:.78rem; line-height:1.5; overflow-x:auto;
+  font-family:ui-monospace,"SF Mono",Menlo,monospace; }
+svg { width:100%; height:auto; display:block; margin-top:6px; }
+svg .grid { stroke:var(--line); stroke-width:1; }
+svg .line { fill:none; stroke:var(--navy); stroke-width:2.2; }
+svg .area { fill:var(--navy); opacity:.12; stroke:none; }
+svg .dot { fill:var(--gold); }
+.tablewrap { overflow-x:auto; margin-top:8px; }
+table { border-collapse:collapse; width:100%; font-size:.8rem;
+  font-variant-numeric:tabular-nums; white-space:nowrap; }
+th, td { text-align:left; padding:6px 10px;
+  border-bottom:1px solid var(--line); }
+th { color:var(--sub); font-weight:600; font-size:.72rem; }
+.note { color:var(--sub); font-size:.75rem; margin-top:6px; }
+footer { color:var(--sub); font-size:.7rem; margin-top:22px;
+  line-height:1.6; }
+</style>
+<div class="wrap">
+<header class="top">
+  <h1>FXドル円 運用ボード</h1>
+  <span class="rate">159.305<small>円</small></span>
+  <span class="meta">更新 2026-08-16 20:12（朝6・7・8時台の3回＋デイトレ毎時判定）
+   ｜ 運用先: MATRIX TRADER（発注は手動）<br>本日の配信 速報① 未 ／ 速報② 未 ／ 最終確定 未　⚠配信遅延あり　｜ 完成率(直近10営業日) 30/30</span>
+</header>
+<div class="banner act">本日は発注作業があります（下の指示書どおりに）</div>
+<div class="grid">
+
+<article class="card">
+  <div class="card-head"><h2>長期トレンド</h2>
+    <span class="params">ドンチャン40/10・ATR×3.5</span></div>
+  <div class="action gold">ストップ切上げ</div>
+  <div class="posline"><span class="pos sell">売 2,000通貨</span><span class="stop">ストップ <b>161.502</b>円　スワップ <b>-368</b>円（12日分）</span></div>
+  <div class="posline"><span class="stop">決済ライン（今回の引けで判定）<b>159.495</b>円（ドンチャン10日高値を終値で超えたら決済／到達なら損失 <b>-4,814</b>円・スワップ込み概算）　← 先に効くのはこちら　現値からの距離 0.16ATR（★過去の同方向保有時の下位2%＝かなり接近中。値動き次第で近日中に決済判定が入りうる）</span></div>
+  <div class="note">※決済ラインは<b>終値での判定</b>。指値注文としては置かない
+    （日中に触れただけでは決済せず、終値で超えた翌朝の指示書が決済指示になる）。
+    MATRIX TRADERに実際に置く注文は上のストップのみ。<br>
+    ※この線は<b>利確ではなくトレンド転換の撤退線</b>。含み損のまま到達すれば
+    損切りとして働く（利益が出る保証はない）。</div>
+  <div class="chips">
+    <span class="chip">15年検証 PF 2.57</span>
+    <span class="chip">勝率 44%</span>
+    <span class="chip">最大DD -3.2%</span>
+    <span class="chip">総リターン +27.2%</span>
+  </div>
+</article>
+<article class="card">
+  <div class="card-head"><h2>短期スイング</h2>
+    <span class="params">ドンチャン20/8・ATR×1.5</span></div>
+  <div class="action gold">ストップ切上げ</div>
+  <div class="posline"><span class="pos sell">売 2,000通貨</span><span class="stop">ストップ <b>161.052</b>円　スワップ <b>-153</b>円（5日分）</span></div>
+  <div class="posline"><span class="stop">決済ライン（今回の引けで判定）<b>159.495</b>円（ドンチャン8日高値を終値で超えたら決済／到達なら損失 <b>-645</b>円・スワップ込み概算）　← 先に効くのはこちら　現値からの距離 0.16ATR（★過去の同方向保有時の下位3%＝かなり接近中。値動き次第で近日中に決済判定が入りうる）</span></div>
+  <div class="note">※決済ラインは<b>終値での判定</b>。指値注文としては置かない
+    （日中に触れただけでは決済せず、終値で超えた翌朝の指示書が決済指示になる）。
+    MATRIX TRADERに実際に置く注文は上のストップのみ。<br>
+    ※この線は<b>利確ではなくトレンド転換の撤退線</b>。含み損のまま到達すれば
+    損切りとして働く（利益が出る保証はない）。</div>
+  <div class="chips">
+    <span class="chip">15年検証 PF 1.61</span>
+    <span class="chip">勝率 46%</span>
+    <span class="chip">最大DD -3.5%</span>
+    <span class="chip">総リターン +30.4%</span>
+  </div>
+</article>
+<article class="card span2">
+  <div class="card-head"><h2>デイトレ複合時間軸（試験運転）</h2>
+    <span class="params">2H 12/6 ATR×3.0 F30 確認MACD順行・毎時判定・指標発表を常時監視</span></div>
+  <div class="action flat">待機</div>
+  <div class="posline"><span class="pos flat">ポジションなし</span><span class="stop">ストップ設定なし</span>
+    <span class="stop">最終判定 2026-08-15 06:03</span></div>
+  <div class="chips"><span class="chip">2.8年検証 PF 1.38</span><span class="chip">勝率 41.9%</span><span class="chip">最大DD -3.0%</span><span class="chip">約0.4回転/日</span><span class="chip">完成率 101/103（98%）</span></div>
+</article>
+<article class="card span2">
+  <div class="card-head"><h2>デイトレ15分（試験運転）</h2>
+    <span class="params">1時間足ドンチャン24/12・フィルタ無・ATR×3.0
+     ・利確ATR×6.0
+     ・15分ごと判定・指標発表を常時監視</span></div>
+  <div class="action flat">保有継続</div>
+  <div class="posline"><span class="pos sell">売 5,000通貨</span><span class="stop">ストップ <b>159.863</b>円　利確 <b>158.349</b>円　スワップ <b>-0</b>円（0日分）</span>
+    <span class="stop">最終判定 2026-08-15 06:49</span></div>
+  <div class="chips"><span class="chip">3年検証 PF 1.1</span><span class="chip">勝率 35.1%</span><span class="chip">最大DD -4.6%</span><span class="chip">約0.86回転/日</span><span class="chip">合議15分 売り（-0.38）</span><span class="chip">合議1H 強い買い（+0.68）</span><span class="chip">完成率 132/136（97%）</span></div>
+</article>
+
+<section class="card span2">
+  <h3>リスクリワード管理（保有中の全建玉）</h3>
+  <div class="kpis" style="margin-top:10px">
+    <div class="kpi"><div class="l">合計リスク額<br><small>全ストップ同時到達</small></div>
+      <div class="v down">-15,113円</div></div>
+    <div class="kpi"><div class="l">口座資金に対する比率</div>
+      <div class="v">1.51%</div></div>
+    <div class="kpi"><div class="l">現在の含み損益</div>
+      <div class="v down">
+        -4,335円</div></div>
+    <div class="kpi"><div class="l">ネット建玉</div>
+      <div class="v">売
+        9,000</div></div>
+  </div>
+  <div class="tablewrap"><table>
+    <tr><th>系</th><th>売買/数量</th><th>建値</th><th>現値</th><th>含み損益</th>
+      <th>ストップ到達</th><th>利確到達</th><th>RR</th><th>評価</th></tr>
+    <tr><td>長期</td><td>売 2,000</td><td>157.272</td><td>159.305</td><td class="down">-4,434円</td><td class="down">-8,828円</td><td>－</td><td>－</td><td>利確目標を置かない設計（トレンド追随）。検証PF 2.57 が実質のリスクリワード</td></tr><tr><td>短期</td><td>売 2,000</td><td>159.249</td><td>159.305</td><td class="down">-265円</td><td class="down">-3,759円</td><td>－</td><td>－</td><td>利確目標を置かない設計（トレンド追随）。検証PF 1.61 が実質のリスクリワード</td></tr><tr><td>15分</td><td>売 5,000</td><td>159.358</td><td>159.285</td><td class="up">+365円</td><td class="down">-2,525円</td><td>+5,045円</td><td>1.62</td><td>利益余地がリスクを上回る位置</td></tr>
+  </table></div>
+  <div class="note">※「ストップ到達」「利確到達」は<b>建値との差＋スワップ</b>で
+    計算した決済損益の概算。含み益が乗っていればストップ到達でも利益になる
+    （トレール後の正常な状態）。RR＝ここから先の利益余地÷損失余地で、
+    利確目標を置かない日足2系統は「－」。
+    現値は<b>各システム自身の最終確定バー終値</b>（日足系＝日足終値／デイ＝2時間足
+    ／15分＝1時間足）のため、行によって時点が異なることがある。</div>
+  <div class="note">※スリッページ・窓開けは考慮していない。指標発表時や
+    週明けの窓ではストップを超えて約定することがある。</div>
+</section>
+<section class="card span2">
+  <h3>運用成績（全4システム合算・実現＋含み）</h3>
+  <div class="kpis" style="margin-top:10px">
+    <div class="kpi"><div class="l">モデル資産</div><div class="v">952,569円</div></div>
+    <div class="kpi"><div class="l">累計実現損益</div><div class="v"><span class="down">-42,997円</span></div></div>
+    <div class="kpi"><div class="l">含み損益（159.305円評価）</div><div class="v"><span class="down">-4,434円</span><small style="font-weight:400">／3建玉・内スワップ -522円</small></div></div>
+    <div class="kpi"><div class="l">勝率</div><div class="v">11%</div></div>
+    <div class="kpi"><div class="l">PF</div><div class="v">0.03</div></div>
+    <div class="kpi"><div class="l">決済取引</div><div class="v">9回</div></div>
+  </div>
+  <div class="chips" style="margin-top:10px"><span class="chip">長期 -14,862円<small>／1回・勝率0%</small></span><span class="chip">短期 -22,784円<small>／2回・勝率0%</small></span><span class="chip">デイ -1,409円<small>／4回・勝率25%</small></span><span class="chip">15分 -3,942円<small>／2回・勝率0%</small></span></div>
+  <div class="note">※モデル資産＝口座資金1,000,000円
+    ＋累計実現損益＋含み損益（4システム合算・毎回その場で再計算）。</div>
+  
+  <div class="note">※含み損益は全建玉を日足終値159.305円で統一評価（下の指示書本文のデイトレ欄は2時間足終値評価のため数十円の差が出ることがある）。スワップ込み。スワップ 買+124円／売-153円（1万通貨・1日）　出典: JFX公表 2026-08-12(水)ロールオーバー 買37.2/売-46.2(1Lot=1,000通貨・付与3日分)を1万通貨・1日換算／現在の金利差2.95%（米2年3.70%−日本0.75%）とドル円159.30円で自動補正 ×1.00</div>
+</section>
+<section class="card span2">
+  <h3>決済履歴（全4システム・新しい順）</h3>
+  <div class="tablewrap"><table>
+    <tr><th>決済</th><th>系</th><th>売買/数量</th><th>建値→決済値</th>
+      <th>スワップ</th><th>損益円</th></tr>
+    <tr><td>2026-08-15 03:00</td><td>15分</td><td>売 6,000</td><td>158.918→159.394</td><td>+0</td><td class="down">-2,904</td></tr><tr><td>2026-08-14 23:00</td><td>デイ</td><td>売 6,000</td><td>158.941→158.941</td><td>-0</td><td class="down">-48</td></tr><tr><td>2026-08-14 15:00</td><td>デイ</td><td>買 5,000</td><td>159.495→159.259</td><td>+248</td><td class="down">-972</td></tr><tr><td>2026-08-13 22:00</td><td>15分</td><td>買 6,000</td><td>159.334→159.169</td><td>+0</td><td class="down">-1,038</td></tr><tr><td>2026-08-12 19:00</td><td>デイ</td><td>買 4,000</td><td>158.480→158.813</td><td>+99</td><td class="up">+1,399</td></tr><tr><td>2026-08-11</td><td>短期</td><td>売 2,000</td><td>157.272→159.259</td><td>-216</td><td class="down">-4,206</td></tr><tr><td>2026-08-10 15:00</td><td>デイ</td><td>売 4,000</td><td>157.900→158.339</td><td>+0</td><td class="down">-1,788</td></tr><tr><td>2026-07-31</td><td>短期</td><td>買 5,000</td><td>163.319→159.599</td><td>+62</td><td class="down">-18,578</td></tr><tr><td>2026-07-31</td><td>長期</td><td>買 4,000</td><td>163.319→159.599</td><td>+50</td><td class="down">-14,862</td></tr>
+  </table></div>
+  <div class="note">※スワップは建玉からのロールオーバー跨ぎ回数で計上
+    （JST火〜金の朝6時・木曜は3日分）。
+    2026-08-13より前に決済した行は現在のレートでの遡及概算。</div>
+</section>
+<section class="card span2">
+  <h3>資産推移（実運用モデル・全4システム）</h3>
+  <svg viewBox="0 0 640 180" role="img" aria-label="資産推移"><line x1="12" y1="12.0" x2="628" y2="12.0" class="grid"/><line x1="12" y1="64.0" x2="628" y2="64.0" class="grid"/><line x1="12" y1="116.0" x2="628" y2="116.0" class="grid"/><line x1="12" y1="168.0" x2="628" y2="168.0" class="grid"/><polygon points="12,168 12.0,12.0 59.4,12.0 106.8,122.0 154.2,122.0 201.5,125.8 248.9,128.2 296.3,126.9 343.7,137.4 391.1,136.2 438.5,154.7 485.8,150.0 533.2,156.8 580.6,161.1 628.0,168.0 628,168" class="area"/><polyline points="12.0,12.0 59.4,12.0 106.8,122.0 154.2,122.0 201.5,125.8 248.9,128.2 296.3,126.9 343.7,137.4 391.1,136.2 438.5,154.7 485.8,150.0 533.2,156.8 580.6,161.1 628.0,168.0" class="line"/><circle cx="628.0" cy="168.0" r="4" class="dot"/></svg>
+  <div class="note">2026-07-29 1,000,000円 → 2026-08-16 952,569円（-47,431円・14営業日）　※各点＝口座資金＋その日までの4システム累計実現損益（スワップ込）＋日足2システムの評価損益。デイトレ2系統の過去の含み損益は点に含まない（最終点のみ全建玉を評価）。</div>
+</section>
+<section class="card span2">
+  <h3>本日の注文指示書（最終確定・指標イベント欄含む）</h3>
+  <pre class="order">■ ドル円 注文指示書【最終確定】 2026-08-14
+  終値: 159.442円  ATR(14): 1.209円
+----------------------------------------------
+▼ 長期トレンド（ドンチャン40/10・ATR×3.5・リスク1.0%）
+【変更】決済逆指値を 161.708 → 161.502円へ変更（トレイリング）
+
+▼ 短期スイング（ドンチャン20/8・ATR×1.5・リスク0.5%）
+【変更】決済逆指値を 161.140 → 161.052円へ変更（トレイリング）
+
+▼ デイトレ複合時間軸（2Hドンチャン12/6・ATR×3.0・利確ATR×6.0・毎時判定）【試験運転】
+【現況】買 5,000通貨 保有（建値159.495円） 逆指値 158.853円／目標利確 161.078円 を維持
+  ※発注カード・変更指示は毎時のデイトレ通知が正（本欄は朝時点の現況）。
+
+◆ 現在の建玉損益（終値評価・概算／スワップ込み）
+  長期トレンド: -4,709円（値動き -4,340円／スワップ -369円・12日分）
+  短期スイング: -540円（値動き -386円／スワップ -154円・5日分）
+  デイトレ複合時間軸: +338円（値動き +90円／スワップ +248円・4日分）
+  合計 -4,911円（値動き -4,636円／スワップ -275円）
+  ※スワップ 買+124円／売-154円（1万通貨・1日）　出典: JFX公表 2026-08-12(水)ロールオーバー 買37.2/売-46.2(1Lot=1,000通貨・付与3日分)を1万通貨・1日換算／現在の金利差2.95%（米2年3.70%−日本0.75%）とドル円159.44円で自動補正 ×1.00
+
+◆ 指標イベント（今後24時間・変動率★5級のみ警戒）
+  なし
+----------------------------------------------
+※発注はMATRIX TRADERで本人が手動で行うこと(JFXはEA等の自動発注禁止)。
+※逆指値は建玉と必ずセットで維持すること。
+
+==============================================
+◆ 発注カード（MATRIX TRADERへそのまま転記）
+  本日の発注作業: 2件
+
+［1/2］長期トレンド ─ 決済逆指値の変更
+  通貨ペア　　: USD/JPY
+  対象　　　　: 売ポジション
+  数量　　　　: 2,000 通貨
+  注文方法　　: 逆指値（決済）
+  変更前　　　: 161.708 円
+  変更後　　　: 161.502 円   ← この値を入力
+  有効期限　　: 無期限
+  手順　　　　: 注文一覧から対象の決済逆指値を選び、レートのみ変更
+
+［2/2］短期スイング ─ 決済逆指値の変更
+  通貨ペア　　: USD/JPY
+  対象　　　　: 売ポジション
+  数量　　　　: 2,000 通貨
+  注文方法　　: 逆指値（決済）
+  変更前　　　: 161.140 円
+  変更後　　　: 161.052 円   ← この値を入力
+  有効期限　　: 無期限
+  手順　　　　: 注文一覧から対象の決済逆指値を選び、レートのみ変更
+
+※値はエンジンの確定値。転記後、送信は必ずご本人が行うこと。
+==============================================
+
+==============================================
+▼ デイトレ複合時間軸 最新指示（毎時更新）
+==============================================
+■ ドル円 デイトレ指示書 2026-08-15 00:30【試験運転】
+  確定バー: 2026-08-14 23:00（2時間足）  終値: 158.941円  ATR(14): 0.218円
+----------------------------------------------
+▼ デイトレ複合時間軸（2Hドンチャン12/6・ATR×3.0・4Hフィルタ30・確認MACD順行・リスク0.4%）
+【決済】売ポジションを全決済（先に決済逆指値を取消→成行）
+
+◆ 指標イベント（★5級のみ・90分前から新規停止）
+  今後24時間: なし
+----------------------------------------------
+※発注はMATRIX TRADERで本人が手動で行うこと(JFXはEA等の自動発注禁止)。
+※逆指値は建玉と必ずセットで維持すること。
+
+==============================================
+◆ 発注カード（MATRIX TRADERへそのまま転記）
+  本日の発注作業: 1件
+
+［1/1］デイトレ複合時間軸 ─ 決済
+  通貨ペア　　: USD/JPY
+  売買　　　　: 買
+  数量　　　　: 6,000 通貨
+  注文方法　　: 成行（決済）
+  有効期限　　: —
+  手順　　　　: 先に既存の決済逆指値を取消 → 成行で全決済
+
+※値はエンジンの確定値。転記後、送信は必ずご本人が行うこと。
+==============================================
+
+==============================================
+▼ デイトレ15分 最新指示（15分ごと更新）
+==============================================
+■ ドル円 デイトレ15分指示書 2026-08-15 03:04【試験運転】
+  確定バー: 2026-08-15 03:00（1時間足）  終値: 159.358円  ATR(14): 0.168円
+----------------------------------------------
+▼ デイトレ15分（1時間足ドンチャン24/12・フィルタ無・ATR×3.0・利確ATR×6.0・リスク0.3%）
+【確認】直近バーでストップ(159.394円)到達 → 逆指値で決済済みのはず。モデル損益 -2,856円。未決済なら手動決済すること。
+【新規】USD/JPY 売(ショート)  5,000通貨（5Lot）
+  発注: 成行 → 建玉に決済OCO（逆指値 159.863円 ／ 目標利確指値 158.349円）を必ずセット
+  ストップ幅: 0.505円 ≒50pips  利確幅: 1.009円 ≒101pips
+  想定リスク: 約2,523円（資金の0.3%）  目標利益: 約5,046円
+  ⚠参考: 1時間足テクニカル合議は「強い買い」で逆方向。サイズ注意
+
+◆ テクニカル合議（TradingView型・参考）
+  15分足: 強い買い（+1.00 MA+1.00/OSC+1.00）　1時間足: 強い買い（+1.00）
+
+◆ ファンダメンタルズ（参考・発注判定には未使用）
+  レジーム: ドル全面主導（ドル指数と順相関 +0.60）
+  翌日予測: 上昇（円安）（上昇確率56%） 想定レンジ 159.16〜159.78円（検証52%＝エッジなし・表示のみ）
+  次の焦点: 最大の観察点は、159.00円を明確に下抜けた今回の円買いが週明けも続くのか、それともストップ一巡後の戻りに飲まれるのか。直近の下値メドは日中安値158.595
+
+◆ 現在の建玉損益（終値評価・概算）
+  値動き -0円　スワップ -0円（0日分）　合計 -0円
+
+◆ 指標イベント（★5級のみ・45分前から新規停止）
+  今後24時間: なし
+----------------------------------------------
+※発注はMATRIX TRADERで本人が手動で行うこと(JFXはEA等の自動発注禁止)。
+※逆指値は建玉と必ずセットで維持すること。
+
+==============================================
+◆ 発注カード（MATRIX TRADERへそのまま転記）
+  本日の発注作業: 1件／要確認 1件
+
+［1/2］デイトレ15分 ─ 新規建て
+  通貨ペア　　: USD/JPY
+  売買　　　　: 売
+  数量　　　　: 5,000 通貨
+  注文方法　　: 成行
+  決済逆指値　: 159.863 円   ← この値を入力
+  決済指値(利確): 158.349 円   ← この値を入力
+  ストップ幅pips: 約50 pips
+  有効期限　　: 無期限（OCO）
+  手順　　　　: 成行で建てた直後に決済OCO（逆指値+利確指値）を必ずセット
+
+［2/2］デイトレ15分 ─ 要確認
+  通貨ペア　　: USD/JPY
+  数量　　　　: 6,000 通貨
+  内容　　　　: 逆指値159.394円の約定をポジション一覧で確認。残っていれば成行で決済
+
+※値はエンジンの確定値。転記後、送信は必ずご本人が行うこと。
+==============================================</pre>
+</section>
+<section class="card">
+  <h3>直近の記録</h3>
+  <div class="tablewrap"><table>
+    <tr><th>日付</th><th>系</th><th>アクション</th><th>ストップ</th></tr>
+    <tr><td>08-15 03:04</td><td>15分</td><td>新規売(ショート)</td><td>159.863</td></tr><tr><td>08-15 00:30</td><td>デイ</td><td>決済</td><td>—</td></tr><tr><td>08-14 23:03</td><td>デイ</td><td>新規売(ショート)</td><td>159.596</td></tr><tr><td>08-14 22:34</td><td>15分</td><td>新規売(ショート)</td><td>159.394</td></tr><tr><td>08-14 15:03</td><td>デイ</td><td>決済</td><td>—</td></tr><tr><td>2026-08-14</td><td>長期</td><td>ストップ変更</td><td>161.502</td></tr><tr><td>2026-08-14</td><td>短期</td><td>ストップ変更</td><td>161.052</td></tr><tr><td>08-13 22:05</td><td>15分</td><td>決済</td><td>—</td></tr><tr><td>08-13 21:46</td><td>15分</td><td>利確設定</td><td>158.901</td></tr><tr><td>08-13 21:37</td><td>15分</td><td>新規買(ロング)</td><td>158.901</td></tr>
+  </table></div>
+</section>
+
+<section class="card span2">
+  <div class="card-head"><h3>ファンダ・予測研究（毎日更新・発注には未使用）</h3>
+    <span class="params">更新 2026-08-16T20:11</span></div>
+  <div class="action flat" style="font-size:1.1rem">ドル全面主導（ドル指数と順相関 +0.60）</div>
+  <div class="chips"><span class="chip">ドル指数 +0.60</span><span class="chip">VIX +0.33</span><span class="chip">S&amp;P500 -0.25</span><span class="chip">米2年金利 +0.23</span><span class="chip">金 -0.22</span></div>
+  <div class="posline" style="margin-top:10px"><span class="pos sell">下落（円高） 確率49%</span><span class="stop">想定レンジ 158.92〜159.65円（基準 2026-08-14 159.285円）</span></div>
+  <p class="note">学習外検証 1606日・的中率 52.1%（常に上昇と答えた場合 55.3%）／ボラ予測 順位相関 +0.14／実運用の前向き採点 4件・的中率 25.0%</p>
+  <p class="note">※方向予測は現時点で「常に上昇」に勝てておらず、
+    発注判断には一切使っていない（研究・記録のみ）。</p>
+  <p class="note">ニュース総括（更新 2026-08-14T23:20）：8/14 21時台（差分更新・23時台に実施）。★本日最大の材料が確定した。21:30発表の米7月小売売上高は前月比-0.6%と、市場予想+0.1%に反して予想外のマイナス。ガソリン高（中東情勢由来）による消費の冷え込みが背景とされ、CPI・PPIに続く3本目の米景気/インフレ減速シグナルとなった。これを受けFRBの早期利上げ観測が一段と後退し、ドル売り・円買いが加速。ドル円は159.00円割れのストップロスを巻き込んで158.89円まで急落し、自前1時間足では12:00UTC（JST21時台）に日中安値158.595円を記録した。JST23時15分時点は158.94円前後（15分足13:45UTC終値158.941円）で、東京早朝の高値159.53円からは約59銭の下落。★前回18時台に立てた「8月で初めて円買い材料の押し戻しが効いていない」という観察は、小売の下振れによってさらに裏づけられた。8月はCPI・日銀早期利上げ報道・PPIと円買い材料が3度出ながらいずれも当日中に押し戻されてきたが、今回は押し戻されないまま159.00円の心理的節目を明確に下抜けた。日銀の9月利上げ・ペース加速観測（本日東京時間の報道）と米側の利上げ観測後退が同じ方向（円高）に重なったのが今回の特徴で、日米金融政策の方向が逆向きに開き始めたという中期テーマが実際の値動きに現れた形。★変化なしの確認事項：(a)レジーム判定は「ドル全面主導」（DXYと+0.60）で朝一から不変、(c)翌日予測は55.5%＝上昇（円安）で6時台から方向反転なし（同一基準日のため forecast_log.csv への二重記録はスキップ＝正常）、(d)events.py の72時間内★5イベントは該当なし（取得成功・空リスト＝ニュースとカレンダーに食い違いなし）。★未取得：23:00発表の米8月ミシガン大消費者態度指数・期待インフレ（速報）は、JST23時15分時点で検索に結果が反映されておらず数値を取得できなかった。次回6時台に遡及確認する。検証的中率52.1%は「常に上昇」55.3%を下回りエッジなしのため、予測は発注には一切使わない。</p><div class="tablewrap"><table><tr><th>含意</th><th>材料</th></tr><tr><td>円高</td><td>【新規・重要度5】米7月小売売上高が前月比-0.6%と予想外のマイナス（予想+0.1%）。FRB早期利上げ観測が一段と後退しドル売り加速</td></tr><tr><td>円高</td><td>【新規・重要度5】159.00円のストップロスを巻き込み158.595円まで急落。8月の「押し戻し」パターンが初めて崩れた</td></tr><tr><td>中立</td><td>【新規・未取得】23:00の米8月ミシガン大（速報）は結果が検索に未反映。次回6時台に遡及確認</td></tr><tr><td>円高</td><td>【既出・状況変化なし】通信社が『日銀は早ければ9月利上げを提案、ペース加速も視野』と報道。東京午後の下落の引き金</td></tr><tr><td>円高</td><td>【既出・発展】欧州時間に159.056円まで下落 → NY時間に159.00円割れへ発展</td></tr></table></div>
+</section>
+<section class="card">
+  <h3>研究・進化</h3>
+  <p class="note">日次研究: 最終研究 2026-08-14・進化 累計2回・直近 短期スイング 現行が最良</p>
+  <p class="note">週次ペア研究: 2026-08-15: ドル円優位継続(長期score2.13、次点フラン/円 1.36)</p>
+</section>
+</div>
+<footer>発注はMATRIX TRADERで本人が手動で行う（JFXはEA・自動売買禁止）。逆指値は建玉と必ずセット。
+検証値は過去データによるもので将来の成果を保証しない。高重要度指標イベント日は新規建てを自動見送り。
+本ページは情報提供であり投資助言ではない。</footer>
+</div>

@@ -1,0 +1,20 @@
+__pycache__/
+*.pyc
+.DS_Store
+
+# 実行ログ（肥大化する・状態復元に不要）
+logs/
+results/launchd*.log
+results/cache/
+
+# 一時ファイル
+*.tmp
+.fx_ff_cache/
+
+# 個人情報（メール宛先・Driveパス）— リポジトリには入れない
+local_settings.json
+
+# 実行時ログ・送信マーカー（個人情報とホームパスを含む）
+results/*.log
+results/orders/*.sent
+scripts/set_mail_password.command
