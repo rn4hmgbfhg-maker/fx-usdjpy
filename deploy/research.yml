@@ -1,0 +1,76 @@
+name: fx-research
+
+# 日次研究（パラメータ探索と自動進化）。シグナル配信とは独立して回す。
+# ★パブリックリポジトリはActions無料枠が無制限なので、実測19分＋16分の
+#   重い探索もクラウドへ寄せられる（プライベートの2,000分/月では不可能だった）。
+on:
+  schedule:
+    - cron: '0 6 * * 1-5'     # UTC 6:00 = JST 15:00（平日）
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: fx-research
+  cancel-in-progress: false
+
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90        # 実測: 第3が約19分・第4が約16分
+    env:
+      TZ: Asia/Tokyo
+      FX_GMAIL_APP_PASSWORD: ${{ secrets.FX_GMAIL_APP_PASSWORD }}
+      FX_MAIL_TO: ${{ secrets.FX_MAIL_TO }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      # 頑健性ゲートを通った時だけ config.json を書き換える（＝自動進化）
+      - name: 日足2システムの研究
+        run: python3 src/research.py
+        continue-on-error: true
+
+      - name: デイトレ2Hの研究
+        run: python3 src/research_intraday.py
+        continue-on-error: true
+
+      - name: デイトレ15分の研究
+        run: python3 src/research_15m.py
+        continue-on-error: true
+
+      - name: ファンダ・予測研究（定量パートのみ）
+        run: python3 src/research_fundamental.py
+        continue-on-error: true
+
+      # ★進化が起きたら config.json が変わる。その場合は
+      #   docs/クラウド運用プロンプト/01〜03 の定数も手で合わせること
+      #   （合わせないとクラウド代行版とActions版で判定が食い違う）
+      - name: 進化の有無を表示
+        run: |
+          if git diff --quiet config.json; then
+            echo "::notice::パラメータ進化なし（現行維持）"
+          else
+            echo "::warning::パラメータが進化した。docs/クラウド運用プロンプト/01〜03 の定数を更新すること"
+            git diff config.json
+          fi
+
+      - name: 研究結果をコミット
+        run: |
+          git config user.name  "fx-actions"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A config.json results data
+          if git diff --staged --quiet; then
+            echo "変更なし"
+          else
+            git commit -m "research $(TZ=Asia/Tokyo date +'%F JST')"
+            git push
+          fi

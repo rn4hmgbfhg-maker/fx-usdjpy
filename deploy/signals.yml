@@ -1,0 +1,80 @@
+name: fx-signals
+
+# 全シグナル系を1ジョブに集約して毎時回す。
+# ・チェックアウト／pip導入のコストを1回で済ませる（Actionsの課金は分単位切上げのため
+#   システムごとにジョブを分けると同じ処理を何度も払うことになる）
+# ・各ラッパは「市場休場」「未処理バー無し」を自分で判定して静かにスキップするので、
+#   余分に回しても実害は無い（冪等）
+on:
+  schedule:
+    # UTC日曜〜金曜の15分ごと ＝ JST月6:05〜土8:50（為替の週の開閉に一致）。
+    # ★UTC月〜金(1-5)にするとJST月曜朝6〜9時が抜け、日足2システムの月曜配信が落ちる。
+    # ★15分間隔にしている理由: Actionsのcronは混雑時に数分〜十数分遅延し、
+    #   実行がスキップされることもある（GitHub公式仕様）。各ラッパは未処理バーが
+    #   無ければ即終了する冪等設計なので、多めに回して取りこぼしを潰す。
+    #   パブリックリポジトリはActions無料枠が無制限のため回数を気にしなくてよい。
+    - cron: '5,20,35,50 * * * 0-5'
+  workflow_dispatch:          # 手動実行
+
+permissions:
+  contents: write             # 状態ファイルのコミットに必要
+
+concurrency:
+  group: fx-signals           # 遅延で実行が重なっても二重判定させない
+  cancel-in-progress: false
+
+jobs:
+  signals:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      TZ: Asia/Tokyo
+      FX_GMAIL_APP_PASSWORD: ${{ secrets.FX_GMAIL_APP_PASSWORD }}
+      FX_GMAIL_ACCOUNT: ${{ secrets.FX_GMAIL_ACCOUNT }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip                       # pip導入時間を短縮＝課金分の節約
+
+      - run: pip install -r requirements.txt
+
+      # --- 第4システム: デイトレ15分（実体は1時間足ドンチャン24/12）
+      #     毎正時に確定するので毎時5分の実行がちょうど合う
+      - name: デイトレ15分
+        run: python3 src/run_intraday15.py
+        continue-on-error: true            # 1系統の失敗で他を巻き添えにしない
+
+      # --- 第3システム: デイトレ複合時間軸（2時間足）
+      #     バーはJST奇数時に確定。ラッパが未処理バー無しなら即終了する
+      - name: デイトレ2H
+        run: python3 src/run_intraday.py
+        continue-on-error: true
+
+      # --- 第1・第2システム: 日足2システム（JST8時台のみ）
+      #     run_morning.py が時刻から段階を判定し、当日分が生成済みならスキップする
+      - name: 日足2システム（JST6-8時台のみ）
+        run: |
+          H=$(TZ=Asia/Tokyo date +%H)
+          if [ "$H" -ge 6 ] && [ "$H" -le 8 ]; then
+            python3 src/run_morning.py
+          else
+            echo "JST ${H}時のため日足2システムはスキップ"
+          fi
+        continue-on-error: true
+
+      - name: 状態と結果をコミット
+        run: |
+          git config user.name  "fx-actions"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A state.json state_intraday.json state_intraday15.json \
+                     results data 2>/dev/null || true
+          if git diff --staged --quiet; then
+            echo "変更なし（休場中・未処理バー無し）"
+          else
+            git commit -m "signals $(TZ=Asia/Tokyo date +'%F %H:%M JST')"
+            git push
+          fi
