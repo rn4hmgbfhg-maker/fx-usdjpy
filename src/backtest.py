@@ -70,6 +70,16 @@ class Backtester:
         sig = signal.reindex(df.index).fillna(0).astype(int)
         atr_s = atr(df)
 
+        # 高速化: ループ内の df.loc 参照をやめ、numpy 配列へ一括変換する
+        # （2026-08-17 研究グリッド探索の所要時間対策。計算ロジックは不変）
+        o_a = df["Open"].to_numpy(dtype=float)
+        h_a = df["High"].to_numpy(dtype=float)
+        l_a = df["Low"].to_numpy(dtype=float)
+        c_a = df["Close"].to_numpy(dtype=float)
+        date_a = df["Date"].to_numpy()
+        atr_a = atr_s.to_numpy(dtype=float)
+        sig_a = sig.to_numpy(dtype=int)
+
         equity = self.initial_capital
         peak = equity
         pos = 0          # 現在ポジション方向
@@ -96,12 +106,12 @@ class Backtester:
             best = np.nan; ent_date = None
 
         for i in range(1, len(df)):
-            o, h, l, c = df.loc[i, ["Open", "High", "Low", "Close"]]
-            date = df.loc[i, "Date"]
-            a = atr_s.iloc[i - 1]
+            o, h, l, c = o_a[i], h_a[i], l_a[i], c_a[i]
+            date = date_a[i]
+            a = atr_a[i - 1]
 
             # --- 1) 寄付: 前日引けシグナルに基づく執行
-            target = sig.iloc[i - 1] if not halted else 0
+            target = sig_a[i - 1] if not halted else 0
             if pos != 0 and target != pos:
                 close_position(o, date, "signal")
             if pos == 0 and target != 0 and not halted and not np.isnan(a) and a > 0:
@@ -130,13 +140,13 @@ class Backtester:
                 close_position(tp, date, "tp")
 
             # --- 3) 引け: トレイリングストップ更新
-            if pos != 0 and not np.isnan(atr_s.iloc[i]):
+            if pos != 0 and not np.isnan(atr_a[i]):
                 if pos > 0:
                     best = max(best, c)
-                    stop = max(stop, best - self.atr_stop_mult * atr_s.iloc[i])
+                    stop = max(stop, best - self.atr_stop_mult * atr_a[i])
                 else:
                     best = min(best, c)
-                    stop = min(stop, best + self.atr_stop_mult * atr_s.iloc[i])
+                    stop = min(stop, best + self.atr_stop_mult * atr_a[i])
 
             # --- 4) 評価損益込みのエクイティとキルスイッチ
             mtm = equity + (units * (c - entry) * pos if pos != 0 else 0.0)

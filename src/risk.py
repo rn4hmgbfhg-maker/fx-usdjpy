@@ -17,6 +17,59 @@
 のまま到達すれば損切りとして働く。RR の分子には入れない。
 """
 
+PIP = 0.01   # 対円ペアの1pip（USD/JPY = 0.01円）
+
+
+def to_pips(width_yen):
+    """円建ての値幅を pips に換算する（符号はそのまま保つ）。"""
+    return None if width_yen is None else float(width_yen) / PIP
+
+
+def order_widths(side, base, stop=None, tp=None, units=0, entry=None):
+    """発注カードの「損切り幅／利確幅 pips」の唯一の計算元
+    （2026-08-18 ユーザー指示。カード側で幅を再計算しないこと）。
+
+    引数:
+      side   "買"/"売" または +1/-1
+      base   幅の起点。新規建て＝成行の想定約定値（現値）、
+             既存玉の注文変更＝現値。
+      stop   決済逆指値のレート（無ければ None）
+      tp     決済指値(利確)のレート（無ければ None）
+      units  数量（通貨）。円換算の到達時損益に使う
+      entry  建玉の建値（既存玉のみ）。トレール後の逆指値は建値より有利側に
+             あることがあり、その注文に当たった時は「損」ではなく確定利益に
+             なる。到達時の金額は base ではなく必ず建値基準で測る。
+
+    戻り値（幅は常に正の距離。逆行していれば 逆行 フラグが立つ）:
+      損切り幅pips / 損切り幅円 / 損切り到達額円 / 損切り逆行
+      利確幅pips   / 利確幅円   / 利確到達額円
+      RR
+    """
+    sign = 1 if (side in ("買", "買(ロング)", "ロング") or
+                 (isinstance(side, (int, float)) and side > 0)) else -1
+    base = float(base)
+    ref = float(entry) if entry else base
+    units = float(units or 0)
+    out = {"損切り幅pips": None, "損切り幅円": None, "損切り到達額円": None,
+           "損切り逆行": False, "利確幅pips": None, "利確幅円": None,
+           "利確到達額円": None, "RR": None}
+
+    d_stop = d_tp = None
+    if stop:
+        d_stop = (base - float(stop)) * sign      # 正なら現値はストップの有利側
+        out["損切り逆行"] = d_stop < 0
+        out["損切り幅円"] = abs(d_stop)
+        out["損切り幅pips"] = abs(to_pips(d_stop))
+        out["損切り到達額円"] = (float(stop) - ref) * units * sign
+    if tp:
+        d_tp = (float(tp) - base) * sign
+        out["利確幅円"] = abs(d_tp)
+        out["利確幅pips"] = abs(to_pips(d_tp))
+        out["利確到達額円"] = (float(tp) - ref) * units * sign
+    if d_stop and d_tp and d_stop > 0 and d_tp > 0:
+        out["RR"] = d_tp / d_stop
+    return out
+
 
 def position_rr(pos, units, entry, price, stop, tp=None, swap_yen=0.0):
     """1ポジションのリスクリワードを dict で返す。pos==0 なら None。

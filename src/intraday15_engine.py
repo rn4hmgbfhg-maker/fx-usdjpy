@@ -269,6 +269,7 @@ def main():
     ops = []
     action = "待機"
     pos = int(st.get("position", 0))
+    entry0 = st.get("entry")      # 判定前の建値（決済で state が空になる前に控える）
     stop_dist = atr_k * a
 
     # --- ストップ到達検知
@@ -365,7 +366,6 @@ def main():
                       "売買": "買" if signal > 0 else "売",
                       "数量": units, "注文方法": "成行",
                       "決済逆指値": round(stop_px, 3),
-                      "ストップ幅pips": round(stop_dist * 100),
                       "有効期限": "無期限（OCO）",
                       "手順": "成行で建てた直後に決済OCO"
                               "（逆指値+利確指値）を必ずセット"}
@@ -412,7 +412,9 @@ def main():
         elif action == "待機":
             tp_s = (f"／目標利確 {float(st['tp']):.3f}円" if st.get("tp") else "")
             lines.append(f"【継続】ポジション保有継続。注文変更なし"
-                         f"（逆指値 {cur_stop:.3f}円{tp_s} を維持）。")
+                         f"（逆指値 {cur_stop:.3f}円{tp_s} を維持）。"
+                         + order_card.hold_pips(pos, close, cur_stop,
+                                                st.get("tp")))
             action = "継続"
         st["best"] = round(best, 3)
     else:
@@ -454,6 +456,9 @@ def main():
     else:
         lines.append("  今後24時間: なし")
 
+    # 幅(pips)は発注カード・通知・JSONが同じ値を見るよう、ここで1回だけ付ける
+    order_card.enrich(ops, mark=close, entry=entry0,
+                      stop=st.get("stop"), tp=st.get("tp"))
     lines += ["-" * 46,
               "※発注はMATRIX TRADERで本人が手動で行うこと(JFXはEA等の自動発注禁止)。",
               "※逆指値は建玉と必ずセットで維持すること。",
@@ -476,9 +481,11 @@ def main():
             summary = f"デイトレ15分: {action}"
             if ops and ops[0].get("種別") == "新規建て":
                 summary += (f" {ops[0]['数量']:,}通貨"
-                            f"・逆指値{ops[0]['決済逆指値']:.3f}円")
+                            f"・逆指値{ops[0]['決済逆指値']:.3f}円"
+                            + order_card.pips_tail(ops[0]))
             elif ops and "変更後" in ops[0]:
-                summary += f" → {ops[0]['変更後']:.3f}円"
+                summary += (f" → {ops[0]['変更後']:.3f}円"
+                            + order_card.pips_tail(ops[0]))
             notify_mac(f"ドル円デイトレ15分{'(試験運転)' if trial else ''}",
                        summary)
             mail_ok, mail_msg = notify_mail(
@@ -514,6 +521,7 @@ def main():
             "更新": now.isoformat(timespec="minutes"),
             "確定バー": last_bar, "終値": round(close, 3),
             "ATR": round(a, 3), "アクション": action,
+            "鮮度警告": False,
             "ポジション": int(st.get("position", 0)),
             "数量": int(st.get("units", 0) or 0),
             "ストップ": st.get("stop"),

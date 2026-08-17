@@ -82,6 +82,64 @@ def _read_csv(path, cols):
     return pd.DataFrame(columns=cols)
 
 
+def _width_html(pos, entry, mark, stop, tp):
+    """保有玉の「利確幅・損切り幅 pips」をボードにも出す（2026-08-18ユーザー指示）。
+
+    幅は発注カード（order_card.enrich）と同じ建値基準で、計算は
+    risk.order_widths() だけに任せる。ボード側で *100 を書くと、同じ数字を
+    2箇所で計算して片方だけ直し残る事故になる（memory
+    feedback_fix_all_output_targets）。現値からの距離も併記する
+    （転記直後に効くのは建値基準の幅ではなくこちらの距離のため）。
+    """
+    if not pos or entry in (None, ""):
+        return ""
+    w = risk.order_widths(pos, entry, stop=stop, tp=tp)
+    now = risk.order_widths(pos, mark, stop=stop, tp=tp)
+    bits = []
+    if w["利確幅pips"] is not None:
+        bits.append(f'利確幅 <b>{w["利確幅pips"]:.0f}</b> pips')
+    if w["損切り幅pips"] is not None:
+        over = (float(stop) - float(entry)) * pos > 0   # 建値より有利側
+        bits.append(f'損切り幅 <b>{w["損切り幅pips"]:.0f}</b> pips'
+                    + ("（建値超え＝到達しても利益）" if over else ""))
+    if not bits:
+        return ""
+    near = []
+    if now["損切り幅pips"] is not None:
+        near.append(f'逆指値まで {now["損切り幅pips"]:.0f}'
+                    + ("（★超過）" if now["損切り逆行"] else ""))
+    if now["利確幅pips"] is not None:
+        near.append(f'利確まで {now["利確幅pips"]:.0f}')
+    tail = (f'　<span class="stop">現値から '
+            + "／".join(near) + " pips</span>") if near else ""
+    return '　' + "／".join(bits) + tail
+
+
+def _bar_html(status):
+    """デイトレ系カードに「判定に使った確定バー」を出す。
+
+    2026-08-17 追加: カードには実行時刻（最終判定）しか出ておらず、週明けの
+    ように新しい足がまだ立っていない時間帯でも「今の値で判定した」と読めて
+    しまった。判定の土台になったバーを必ず並記する。
+    """
+    bar = str(status.get("確定バー") or "")
+    if not bar:
+        return ""
+    return f'<span class="stop">判定バー {html.escape(bar)}</span>'
+
+
+def _stale_note(status, tf_name):
+    """データ鮮度不足のときだけ、何が起きているかを1行で説明する。"""
+    if not status.get("鮮度警告"):
+        return ""
+    bar = html.escape(str(status.get("確定バー") or "－"))
+    return (f'<div class="note">※<b>データ鮮度不足</b>＝{tf_name}の最新確定バー'
+            f'（{bar}）が古く、新しい判定を保留している状態'
+            f'（週明けや配信元の遅延で起きる）。'
+            f'保有中の建玉と決済注文（逆指値・利確）はそのまま維持し、'
+            f'新規の建て玉は足が更新されるまで見送る。</div>')
+
+
 def _spark_svg(values, w=640, h=180):
     """資産カーブのSVG(エリア+終点強調)。valuesは数値list。"""
     if len(values) < 2:
@@ -257,6 +315,9 @@ def build():
                     if pos < 0 else '<span class="pos flat">ポジションなし</span>')
         stop_html = (f'ストップ <b>{float(st["stop"]):.3f}</b>円'
                      if st.get("stop") else "ストップ設定なし")
+        if pos and st.get("stop"):
+            stop_html += _width_html(pos, st.get("entry"), close,
+                                     st.get("stop"), None)
         _sy = 0.0
         if pos:
             _sy, _sd = swap.accrued(pos, float(st.get("units") or 0),
@@ -380,6 +441,9 @@ def build():
             _sy, _sd = swap.accrued(dpos, float(dst.get("units") or 0),
                                     dst.get("entry_date"), sw=swap.load(cfg))
             dstop_html += f'　スワップ <b>{_sy:+,.0f}</b>円（{_sd}日分）'
+            dstop_html += _width_html(dpos, dst.get("entry"),
+                                      float(dstate.get("last_close") or close),
+                                      dst.get("stop"), dst.get("tp"))
             # デイトレは利確指値を置くのでRRが確定値で出せる。
             # 現値は必ず自系統の最終確定バー終値を使う。2026-08-15: ここが日足
             # 終値(close)だったため、金曜夜建ての玉が金曜朝の日足終値で評価され
@@ -419,7 +483,8 @@ def build():
     <span class="params">{dparams}・毎時判定・指標発表を常時監視</span></div>
   <div class="action {dcls}">{html.escape(dact)}</div>
   <div class="posline">{dpos_html}<span class="stop">{dstop_html}</span>
-    <span class="stop">最終判定 {upd}</span></div>
+    <span class="stop">最終判定 {upd}</span>{_bar_html(dstatus)}</div>
+  {_stale_note(dstatus, "2時間足")}
   <div class="chips">{chips}</div>
 </article>""")
 
@@ -450,6 +515,10 @@ def build():
             _sy, _sd = swap.accrued(p15, float(d15st.get("units") or 0),
                                     d15st.get("entry_date"), sw=swap.load(cfg))
             stop15_html += f'　スワップ <b>{_sy:+,.0f}</b>円（{_sd}日分）'
+            stop15_html += _width_html(p15, d15st.get("entry"),
+                                       float(d15state.get("last_close")
+                                             or close),
+                                       d15st.get("stop"), d15st.get("tp"))
             # 現値は自系統の1時間足最終終値（日足closeで評価しない。上のデイ
             # トレ欄のコメント参照）。
             mark15 = float(d15state.get("last_close") or close)
@@ -493,7 +562,8 @@ def build():
      ・15分ごと判定・指標発表を常時監視</span></div>
   <div class="action {cls15}">{html.escape(act15)}</div>
   <div class="posline">{pos15_html}<span class="stop">{stop15_html}</span>
-    <span class="stop">最終判定 {upd15}</span></div>
+    <span class="stop">最終判定 {upd15}</span>{_bar_html(d15status)}</div>
+  {_stale_note(d15status, "1時間足")}
   <div class="chips">{chips15}</div>
 </article>""")
 

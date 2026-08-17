@@ -145,6 +145,7 @@ def process_system(name, scfg, df, st, cfg, final, gate_new):
     """
     ops = []
     last = df.iloc[-1]
+    entry0 = st.get("entry")      # 判定前の建値（決済で state が空になる前に控える）
     a = float(atr(df).iloc[-1])
     close = float(last["Close"])
     signal = int(make_signal(scfg, df).iloc[-1])
@@ -219,7 +220,6 @@ def process_system(name, scfg, df, st, cfg, final, gate_new):
                             "売買": "買" if signal > 0 else "売",
                             "数量": units, "注文方法": "成行",
                             "決済逆指値": round(stop_px, 3),
-                            "ストップ幅pips": round(stop_dist * 100),
                             "有効期限": "無期限（逆指値）",
                             "手順": "成行で建てた直後に決済逆指値を必ずセット"})
                 action = f"新規{side}"
@@ -244,13 +244,16 @@ def process_system(name, scfg, df, st, cfg, final, gate_new):
                         "手順": "注文一覧から対象の決済逆指値を選び、レートのみ変更"})
             action = "ストップ変更"
         else:
-            lines.append("【継続】ポジション保有継続。注文変更なし。")
+            lines.append("【継続】ポジション保有継続。注文変更なし。"
+                         + order_card.hold_pips(pos, close, cur_stop))
             action = "継続"
         st["stop"] = round(new_stop, 3)
         st["best"] = round(best, 3)
     else:
         lines.append("【待機】新規シグナルなし。発注不要。")
 
+    # 幅(pips)は発注カード・JSONの双方が同じ値を見るよう、ここで1回だけ付ける
+    order_card.enrich(ops, mark=close, entry=entry0)
     return lines, action, st, signal, ops
 
 
