@@ -1,0 +1,23 @@
+%YAML 1.2
+---
+# 判定基盤（GitHub Actions）の生存監視。異常時のみ鳴らす
+routine:
+  name: fx-watch-hourly
+  enabled: true
+  schedule:
+    cron: "10 * * * *"           # UTC 毎時10分（JST 毎時19分）
+    timezone: UTC
+    jst: 毎時19分
+  skill: fx-watch
+  prompt: >-
+    fx-watch スキルを使い、判定結果の鮮度を確認する。正常なら通知せず1行で終える。
+    60分を超えて更新が無い場合（市場休場中を除く）のみ PushNotification を送り、
+    Actionsタブの確認と手動実行の手順を添える。データ経路そのものに到達できない
+    場合も通知する。自分でActionsを再実行しようとしないこと。
+  notify:
+    always: false
+    max_chars: 200
+  timeout_min: 5
+  on_failure:
+    action: notify
+    message: 【FX異常】見張り番自体が失敗しました。クラウドからの経路を確認してください

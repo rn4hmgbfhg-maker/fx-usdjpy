@@ -1,0 +1,7 @@
+{
+  "name": "fx-usdjpy-cowork",
+  "version": "1.0.0",
+  "description": "FXドル円半自動売買スキームのCowork（クラウド）運用一式。GitHub Actionsが出した判定結果を読み、利確幅・損切り幅pips入りの発注カードを提示する。発注は本人が手動で行う（JFXはEA禁止）。",
+  "author": { "name": "落合康友" },
+  "keywords": ["fx", "usdjpy", "trading", "donchian", "github-actions"]
+}

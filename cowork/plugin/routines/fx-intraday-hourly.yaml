@@ -1,0 +1,22 @@
+%YAML 1.2
+---
+# デイトレ2系統の毎時チェック。アクションがある時だけ鳴らす
+routine:
+  name: fx-intraday-hourly
+  enabled: true
+  schedule:
+    cron: "50 * * * 0-5"         # UTC 毎時50分（JST 毎時59分近辺）月〜土
+    timezone: UTC
+    jst: 月〜土 毎時59分ごろ
+  skill: fx-intraday
+  prompt: >-
+    fx-intraday スキルを使い、--since-min 70 で直近のデイトレアクションを確認する。
+    アクションが無ければ何も通知せず「変化なし」で終える。アクションがあれば
+    該当系統の発注カードを提示し、要旨をそのまま PushNotification で1本送る
+    （複数系統が同時なら1本にまとめる）。pipsは転記のみ。試験運転中である旨を添える。
+  notify:
+    always: false                # 沈黙が既定。アクション時のみ鳴らす
+    max_chars: 200
+  timeout_min: 8
+  on_failure:
+    action: silent               # 毎時のため失敗で鳴らさない。連続失敗は fx-watch が拾う

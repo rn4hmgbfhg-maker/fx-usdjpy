@@ -1,0 +1,23 @@
+%YAML 1.2
+---
+# 日次研究（パラメータ自動進化）の結果確認。採用提案がある時だけ鳴らす
+routine:
+  name: fx-research-daily
+  enabled: true
+  schedule:
+    cron: "30 6 * * 1-5"         # UTC 平日06:30（JST 平日 15:30・Actionsの研究実行後）
+    timezone: UTC
+    jst: 平日 15:30
+  skill: fx-research
+  prompt: >-
+    fx-research スキルを使い、日次研究（results/research_log.csv）の最新結果を要約する。
+    現行パラメータを上回る候補が出ている場合のみ PushNotification を送り、
+    スコア・PF・勝率・トレード数を並べて採用可否の判断を仰ぐ。トレード数が少ない
+    候補は過剰適合の懸念を添える。config を自分で書き換えない。
+    既に結論の出た方針（短期スイングへの利確追加など）は再提案しない。
+  notify:
+    always: false
+    max_chars: 200
+  timeout_min: 10
+  on_failure:
+    action: silent

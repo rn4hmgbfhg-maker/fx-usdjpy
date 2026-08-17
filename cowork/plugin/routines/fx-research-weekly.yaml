@@ -1,0 +1,23 @@
+%YAML 1.2
+---
+# 週次の通貨ペア横断研究（市場休場中の土曜に実施）
+routine:
+  name: fx-research-weekly
+  enabled: true
+  schedule:
+    cron: "0 0 * * 6"            # UTC 土00:00（JST 土 09:00）
+    timezone: UTC
+    jst: 土 09:00
+  skill: fx-research
+  prompt: >-
+    fx-research スキルを使い、週次ペア研究（results/pair_scan_log.csv）の最新結果を
+    要約する。判定が「ドル円優位継続」「接近」「要注目」のどれかを明示し、
+    PushNotification を1本送る。「要注目」の場合は JFX公式スプレッド一覧での
+    実スプレッド確認が必要な旨を必ず添える。ペアの追加・乗り換えを自分で決めない。
+  notify:
+    always: true
+    max_chars: 200
+  timeout_min: 10
+  on_failure:
+    action: notify
+    message: 【FX】週次ペア研究の結果取得に失敗しました（週次のため翌週リカバリで支障なし）

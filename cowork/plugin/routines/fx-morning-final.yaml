@@ -1,0 +1,23 @@
+%YAML 1.2
+---
+# 平日朝の最終確定カードを届ける（このスキームの主役）
+routine:
+  name: fx-morning-final
+  enabled: true
+  schedule:
+    cron: "20 23 * * 0-4"        # UTC。JST 平日 08:20（Actionsの8時台判定の直後）
+    timezone: UTC
+    jst: 平日 08:20
+  skill: fx-morning
+  prompt: >-
+    fx-morning スキルを使い、本日の日足2システム（長期トレンド／短期スイング）の
+    最終確定の指示書を取得して発注カードを提示する。段階が「確定」でなければ
+    その旨を明示し、発注を促さないこと。発注カードの利確幅・損切り幅pipsは
+    カードからの転記のみで、自分で計算しない。完了後、PushNotification を1本送る。
+  notify:
+    always: true                 # 発注が無い日も「なし」と伝える（沈黙は不安になるため）
+    max_chars: 200
+  timeout_min: 10
+  on_failure:
+    action: notify
+    message: 【FX】朝の指示書取得に失敗しました。GitHub Actions と経路を確認してください
