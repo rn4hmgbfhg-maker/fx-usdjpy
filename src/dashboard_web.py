@@ -208,6 +208,22 @@ def build():
     # 本日の配信メタ（各ステージの実際の生成時刻・遅延印・完成率）
     # 2026-08-12: launchdの発火遅れ+エンジンの長時間ハングで最終確定が09:34になった
     # が、ボード上に痕跡が無く遅延に気づけなかった。以後ヘッダで常時可視化する。
+    def _run_log_time(label):
+        """当日そのステージが実際に生成された時刻（最初の成功行）を返す。"""
+        log = R("results", "run_log.csv")
+        if not os.path.exists(log):
+            return None
+        today_iso = date.today().isoformat()
+        for line in open(log, encoding="utf-8"):
+            c = line.rstrip("\n").split(",")
+            if len(c) >= 4 and c[1] == today_iso and c[2] == label \
+                    and c[3] == "成功":
+                try:
+                    return datetime.fromisoformat(c[0])
+                except ValueError:
+                    return None
+        return None
+
     delivery = ""
     if os.path.isdir(odir):
         today = date.today().isoformat()
@@ -216,7 +232,12 @@ def build():
                                     ("最終確定", "確定", 8)):
             p = os.path.join(odir, f"{today}_指示_{tag}.txt")
             if os.path.exists(p):
-                t = datetime.fromtimestamp(os.path.getmtime(p))
+                # 配信時刻は run_log.csv（実際の生成記録）を正とする。
+                # 2026-08-18: git pull が results/orders も含む76ファイルを
+                # 07:05に書き戻し、mtime基準だと定刻生成(06:05)の速報①まで
+                # 「⚠遅延」と誤表示した。mtimeは記録が無い時だけの保険。
+                t = _run_log_time(label) or datetime.fromtimestamp(
+                    os.path.getmtime(p))
                 late = (t.hour, t.minute) >= (sched_h, 20)
                 warn = warn or late
                 parts.append(f"{label} {t:%H:%M}" + ("⚠遅延" if late else ""))
@@ -618,7 +639,7 @@ def build():
       <div class="v down">{pr["合計リスク額円"]:+,.0f}円</div></div>
     <div class="kpi"><div class="l">口座資金に対する比率</div>
       <div class="v">{pr["合計リスク率"]:.2%}</div></div>
-    <div class="kpi"><div class="l">現在の含み損益</div>
+    <div class="kpi"><div class="l">現在の含み損益<br><small>各系の最終確定バー評価</small></div>
       <div class="v {"up" if pr["合計含み損益円"] >= 0 else "down"}">
         {pr["合計含み損益円"]:+,.0f}円</div></div>
     <div class="kpi"><div class="l">ネット建玉</div>
@@ -903,6 +924,11 @@ def build():
     else:
         banner = '<div class="banner ok">本日の発注作業はありません</div>'
 
+    # 生成元（Mac／GitHub Actions）。ボードがどちらの系で作られたかを一目で判別する
+    # （Mac沈黙時はクラウド補完routineがActions生成のHTMLを同一URLへ公開する設計）
+    origin = ("クラウド(GitHub Actions)" if os.environ.get("GITHUB_ACTIONS") == "true"
+              else "Mac")
+
     page = f"""<title>FXドル円 運用ボード</title>
 <style>
 :root {{
@@ -989,6 +1015,7 @@ footer {{ color:var(--sub); font-size:.7rem; margin-top:22px;
   <h1>FXドル円 運用ボード</h1>
   <span class="rate">{close:.3f}<small>円</small></span>
   <span class="meta">更新 {datetime.now():%Y-%m-%d %H:%M}（朝6・7・8時台の3回＋デイトレ毎時判定）
+   ｜ 生成元: {origin}
    ｜ 運用先: MATRIX TRADER（発注は手動）{delivery}</span>
 </header>
 {banner}
