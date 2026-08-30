@@ -1,18 +1,18 @@
 {
   "長期トレンド": {
-    "position": -1,
-    "entry": 157.27200317382812,
-    "stop": 160.57,
-    "units": 2000,
-    "best": 157.272,
-    "entry_date": "2026-08-03"
+    "position": 0,
+    "entry": null,
+    "stop": null,
+    "units": 0,
+    "best": null,
+    "entry_date": null
   },
   "短期スイング": {
-    "position": -1,
-    "entry": 159.24899291992188,
-    "stop": 159.639,
-    "units": 2000,
-    "best": 158.225,
-    "entry_date": "2026-08-11"
+    "position": 1,
+    "entry": 160.15199279785156,
+    "stop": 158.68,
+    "units": 3000,
+    "best": 160.15199279785156,
+    "entry_date": "2026-08-31"
   }
 }
