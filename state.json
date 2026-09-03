@@ -8,11 +8,11 @@
     "entry_date": null
   },
   "短期スイング": {
-    "position": 1,
-    "entry": 158.82899475097656,
-    "stop": 157.241,
-    "units": 3000,
-    "best": 158.82899475097656,
-    "entry_date": "2026-09-03"
+    "position": 0,
+    "entry": null,
+    "stop": null,
+    "units": 0,
+    "best": null,
+    "entry_date": null
   }
 }
