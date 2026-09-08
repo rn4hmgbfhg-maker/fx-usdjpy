@@ -82,18 +82,18 @@ footer { color:var(--sub); font-size:.7rem; margin-top:22px;
 <div class="wrap">
 <header class="top">
   <h1>FXドル円 運用ボード</h1>
-  <span class="rate">154.118<small>円</small></span>
-  <span class="meta">更新 2026-09-09 03:44（朝6・7・8時台の3回＋デイトレ毎時判定）
+  <span class="rate">153.935<small>円</small></span>
+  <span class="meta">更新 2026-09-09 06:27（朝6・7・8時台の3回＋デイトレ毎時判定）
    ｜ 生成元: クラウド(GitHub Actions)
-   ｜ 運用先: MATRIX TRADER（発注は手動）<br>本日の配信 速報① 未 ／ 速報② 未 ／ 最終確定 未　｜ 完成率(直近10営業日) 25/30　⚠欠落あり</span>
+   ｜ 運用先: MATRIX TRADER（発注は手動）<br>本日の配信 速報① 06:27⚠遅延 ／ 速報② 未 ／ 最終確定 未　⚠配信遅延あり　｜ 完成率(直近10営業日) 23/28　⚠欠落あり</span>
 </header>
-<div class="banner act">本日は発注作業があります（下の指示書どおりに）</div>
+<div class="banner ok">速報配信中——正式な発注判断は8時すぎの【最終確定】で</div>
 <div class="grid">
 
 <article class="card">
   <div class="card-head"><h2>長期トレンド</h2>
     <span class="params">ドンチャン40/10・ATR×3.5</span></div>
-  <div class="action flat">待機</div>
+  <div class="action sell">新規 売</div>
   <div class="posline"><span class="pos flat">ポジションなし</span><span class="stop">ストップ設定なし</span></div>
   <div class="posline"><span class="stop">決済ライン —（建玉なし。建てた時点でドンチャン10日の逆側チャネルが決済ラインになる）</span></div>
   <div class="note">※決済ラインは<b>終値での判定</b>。指値注文としては置かない
@@ -102,18 +102,18 @@ footer { color:var(--sub); font-size:.7rem; margin-top:22px;
     ※この線は<b>利確ではなくトレンド転換の撤退線</b>。含み損のまま到達すれば
     損切りとして働く（利益が出る保証はない）。</div>
   <div class="chips">
-    <span class="chip">15年検証 PF 2.55</span>
-    <span class="chip">勝率 44%</span>
+    <span class="chip">15年検証 PF 2.56</span>
+    <span class="chip">勝率 45%</span>
     <span class="chip">最大DD -3.2%</span>
-    <span class="chip">総リターン +27.1%</span>
+    <span class="chip">総リターン +27.2%</span>
   </div>
 </article>
 <article class="card">
   <div class="card-head"><h2>短期スイング</h2>
     <span class="params">ドンチャン20/8・ATR×1.5</span></div>
-  <div class="action flat">保有継続</div>
-  <div class="posline"><span class="pos buy">買 2,000通貨</span><span class="stop">ストップ <b>154.014</b>円　損切り幅 <b>210</b> pips　<span class="stop">現値から 逆指値まで 10 pips</span>　スワップ <b>+24</b>円（1日分）</span></div>
-  <div class="posline"><span class="stop">決済ライン（今回の引けで判定）<b>154.064</b>円（ドンチャン8日安値を終値で割ったら決済／到達なら損失 <b>-4,076</b>円・スワップ込み概算）　← 先に効くのはこちら　現値からの距離 0.03ATR（★過去の同方向保有時の下位0%＝かなり接近中。値動き次第で近日中に決済判定が入りうる）</span></div>
+  <div class="action gold">ストップ到達→決済確認</div>
+  <div class="posline"><span class="pos buy">買 2,000通貨</span><span class="stop">ストップ <b>154.014</b>円 到達 （決済見込み -4,216円・8時最終確定で正式計上）</span></div>
+  <div class="posline"><span class="stop">決済ライン（今回の引けで判定）<b>152.897</b>円（ドンチャン8日安値を終値で割ったら決済／到達なら損失 <b>-6,385</b>円・スワップ込み概算）　現値からの距離 3.95ATR</span><br><span class="stop">　└ 次の引け以降は <b>152.881</b>円へ切り下がる見込み（到達なら損失 -6,417円）　※当日バーが確定するまでは暫定値</span></div>
   <div class="note">※決済ラインは<b>終値での判定</b>。指値注文としては置かない
     （日中に触れただけでは決済せず、終値で超えた翌朝の指示書が決済指示になる）。
     MATRIX TRADERに実際に置く注文は上のストップのみ。<br>
@@ -123,40 +123,40 @@ footer { color:var(--sub); font-size:.7rem; margin-top:22px;
     <span class="chip">15年検証 PF 1.57</span>
     <span class="chip">勝率 46%</span>
     <span class="chip">最大DD -3.5%</span>
-    <span class="chip">総リターン +29.3%</span>
+    <span class="chip">総リターン +29.4%</span>
   </div>
 </article>
 <article class="card span2">
   <div class="card-head"><h2>デイトレ複合時間軸（試験運転）</h2>
     <span class="params">2H 12/6 ATR×3.0 F30 確認MACD順行・毎時判定・指標発表を常時監視</span></div>
   <div class="action flat">保有継続</div>
-  <div class="posline"><span class="pos sell">売 2,000通貨</span><span class="stop">ストップ <b>154.588</b>円　利確 <b>151.883</b>円　スワップ <b>-30</b>円（1日分）　利確幅 <b>284</b> pips／損切り幅 <b>14</b> pips（建値超え＝到達しても利益）　<span class="stop">現値から 逆指値まで 37／利確まで 234 pips</span></span>
-    <span class="stop">最終判定 2026-09-09 03:44</span><span class="stop">判定バー 2026-09-09 03:00</span></div>
+  <div class="posline"><span class="pos sell">売 2,000通貨</span><span class="stop">ストップ <b>154.588</b>円　利確 <b>151.883</b>円　スワップ <b>-60</b>円（2日分）　利確幅 <b>284</b> pips／損切り幅 <b>14</b> pips（建値超え＝到達しても利益）　<span class="stop">現値から 逆指値まで 61／利確まで 210 pips</span></span>
+    <span class="stop">最終判定 2026-09-09 06:27</span><span class="stop">判定バー 2026-09-09 05:00</span></div>
   
-  <div class="chips"><span class="chip">2.8年検証 PF 1.41</span><span class="chip">勝率 42.1%</span><span class="chip">最大DD -3.0%</span><span class="chip">約0.4回転/日</span><span class="chip">完成率 22/77（29%）</span></div>
+  <div class="chips"><span class="chip">2.8年検証 PF 1.41</span><span class="chip">勝率 42.1%</span><span class="chip">最大DD -3.0%</span><span class="chip">約0.4回転/日</span><span class="chip">完成率 24/80（30%）</span></div>
 </article>
 <article class="card span2">
   <div class="card-head"><h2>デイトレ15分（試験運転）</h2>
     <span class="params">1時間足ドンチャン24/12・フィルタ無・ATR×3.0
      ・利確ATR×6.0
      ・15分ごと判定・指標発表を常時監視</span></div>
-  <div class="action sell">新規 売</div>
-  <div class="posline"><span class="pos sell">売 3,000通貨</span><span class="stop">ストップ <b>155.177</b>円　利確 <b>152.300</b>円　スワップ <b>-0</b>円（0日分）　利確幅 <b>192</b> pips／損切り幅 <b>96</b> pips　<span class="stop">現値から 逆指値まで 96／利確まで 192 pips</span></span>
-    <span class="stop">最終判定 2026-09-09 03:44</span><span class="stop">判定バー 2026-09-09 03:00</span></div>
+  <div class="action flat">保有継続</div>
+  <div class="posline"><span class="pos sell">売 3,000通貨</span><span class="stop">ストップ <b>155.177</b>円　利確 <b>152.300</b>円　スワップ <b>-45</b>円（1日分）　利確幅 <b>192</b> pips／損切り幅 <b>96</b> pips　<span class="stop">現値から 逆指値まで 122／利確まで 166 pips</span></span>
+    <span class="stop">最終判定 2026-09-09 06:27</span><span class="stop">判定バー 2026-09-09 06:00</span></div>
   
-  <div class="chips"><span class="chip">3年検証 PF 1.11</span><span class="chip">勝率 35.2%</span><span class="chip">最大DD -4.6%</span><span class="chip">約0.86回転/日</span><span class="chip">合議15分 中立（-0.02）</span><span class="chip">合議1H 買い（+0.28）</span><span class="chip">完成率 13/183（7%）</span></div>
+  <div class="chips"><span class="chip">3年検証 PF 1.11</span><span class="chip">勝率 35.2%</span><span class="chip">最大DD -4.6%</span><span class="chip">約0.86回転/日</span><span class="chip">合議15分 売り（-0.30）</span><span class="chip">合議1H 売り（-0.40）</span><span class="chip">完成率 14/194（7%）</span></div>
 </article>
 
 <section class="card span2">
   <h3>リスクリワード管理（保有中の全建玉）</h3>
   <div class="kpis" style="margin-top:10px">
     <div class="kpi"><div class="l">合計リスク額<br><small>全ストップ同時到達</small></div>
-      <div class="v down">-6,805円</div></div>
+      <div class="v down">-6,856円</div></div>
     <div class="kpi"><div class="l">口座資金に対する比率</div>
-      <div class="v">0.68%</div></div>
+      <div class="v">0.69%</div></div>
     <div class="kpi"><div class="l">現在の含み損益<br><small>各系の最終確定バー評価</small></div>
       <div class="v down">
-        -2,980円</div></div>
+        -2,140円</div></div>
     <div class="kpi"><div class="l">ネット建玉</div>
       <div class="v">売
         3,000</div></div>
@@ -164,7 +164,7 @@ footer { color:var(--sub); font-size:.7rem; margin-top:22px;
   <div class="tablewrap"><table>
     <tr><th>系</th><th>売買/数量</th><th>建値</th><th>現値</th><th>含み損益</th>
       <th>ストップ到達</th><th>利確到達</th><th>RR</th><th>評価</th></tr>
-    <tr><td>短期</td><td>買 2,000</td><td>156.114</td><td>154.118</td><td class="down">-3,968円</td><td class="down">-4,176円</td><td>－</td><td>－</td><td>利確目標を置かない設計（トレンド追随）。検証PF 1.57 が実質のリスクリワード</td></tr><tr><td>デイ</td><td>売 2,000</td><td>154.727</td><td>154.218</td><td class="up">+988円</td><td class="up">+248円</td><td>+5,658円</td><td>6.31</td><td>リスク1に対し利益2以上を狙える位置</td></tr><tr><td>15分</td><td>売 3,000</td><td>154.218</td><td>154.218</td><td class="up">+0円</td><td class="down">-2,877円</td><td>+5,754円</td><td>2.00</td><td>リスク1に対し利益2以上を狙える位置</td></tr>
+    <tr><td>短期</td><td>買 2,000</td><td>156.114</td><td>153.935</td><td class="down">-4,309円</td><td class="down">-4,151円</td><td>－</td><td>－</td><td>利確目標を置かない設計（トレンド追随）。検証PF 1.57 が実質のリスクリワード　<b>★ストップ超過</b></td></tr><tr><td>デイ</td><td>売 2,000</td><td>154.727</td><td>153.981</td><td class="up">+1,432円</td><td class="up">+218円</td><td>+5,628円</td><td>3.46</td><td>リスク1に対し利益2以上を狙える位置</td></tr><tr><td>15分</td><td>売 3,000</td><td>154.218</td><td>153.957</td><td class="up">+738円</td><td class="down">-2,922円</td><td>+5,709円</td><td>1.36</td><td>利益余地がリスクを上回る位置</td></tr>
   </table></div>
   <div class="note">※「ストップ到達」「利確到達」は<b>建値との差＋スワップ</b>で
     計算した決済損益の概算。含み益が乗っていればストップ到達でも利益になる
@@ -178,18 +178,18 @@ footer { color:var(--sub); font-size:.7rem; margin-top:22px;
 <section class="card span2">
   <h3>運用成績（全4システム合算・実現＋含み）</h3>
   <div class="kpis" style="margin-top:10px">
-    <div class="kpi"><div class="l">モデル資産</div><div class="v">954,973円</div></div>
-    <div class="kpi"><div class="l">累計実現損益</div><div class="v"><span class="down">-42,547円</span></div></div>
-    <div class="kpi"><div class="l">含み損益（154.118円評価）</div><div class="v"><span class="down">-2,480円</span><small style="font-weight:400">／3建玉・内スワップ -6円</small></div></div>
+    <div class="kpi"><div class="l">モデル資産</div><div class="v">955,564円</div></div>
+    <div class="kpi"><div class="l">累計実現損益</div><div class="v"><span class="down">-46,763円</span><small style="font-weight:400">（暫定）</small></div></div>
+    <div class="kpi"><div class="l">含み損益（153.935円評価）</div><div class="v"><span class="up">+2,327円</span><small style="font-weight:400">／2建玉・内スワップ -106円</small></div></div>
     <div class="kpi"><div class="l">勝率</div><div class="v">31%</div></div>
-    <div class="kpi"><div class="l">PF</div><div class="v">0.48</div></div>
-    <div class="kpi"><div class="l">決済取引</div><div class="v">35回</div></div>
+    <div class="kpi"><div class="l">PF</div><div class="v">0.45</div></div>
+    <div class="kpi"><div class="l">決済取引</div><div class="v">36回</div></div>
   </div>
-  <div class="chips" style="margin-top:10px"><span class="chip">長期 -21,387円<small>／2回・勝率0%</small></span><span class="chip">短期 -38,326円<small>／5回・勝率0%</small></span><span class="chip">デイ +10,023円<small>／13回・勝率38%</small></span><span class="chip">15分 +7,143円<small>／15回・勝率40%</small></span></div>
+  <div class="chips" style="margin-top:10px"><span class="chip">長期 -21,387円<small>／2回・勝率0%</small></span><span class="chip">短期 -42,542円<small>／6回・勝率0%</small></span><span class="chip">デイ +10,023円<small>／13回・勝率38%</small></span><span class="chip">15分 +7,143円<small>／15回・勝率40%</small></span></div>
   <div class="note">※モデル資産＝口座資金1,000,000円
     ＋累計実現損益＋含み損益（4システム合算・毎回その場で再計算）。</div>
-  
-  <div class="note">※含み損益は全建玉を日足終値154.118円で統一評価（下の指示書本文のデイトレ欄は2時間足終値評価のため数十円の差が出ることがある）。スワップ込み。スワップ 買+122円／売-151円（1万通貨・1日）　出典: JFX公表 2026-08-12(水)ロールオーバー 買37.2/売-46.2(1Lot=1,000通貨・付与3日分)を1万通貨・1日換算／現在の金利差3.01%（米2年3.76%−日本0.75%）とドル円154.12円で自動補正 ×0.98</div>
+  <div class="note">※速報段階のため本日のストップ到達分（-4,216円）を暫定反映。正式計上は8時すぎの最終確定。</div>
+  <div class="note">※含み損益は全建玉を日足終値153.935円で統一評価（下の指示書本文のデイトレ欄は2時間足終値評価のため数十円の差が出ることがある）。スワップ込み。スワップ 買+122円／売-151円（1万通貨・1日）　出典: JFX公表 2026-08-12(水)ロールオーバー 買37.2/売-46.2(1Lot=1,000通貨・付与3日分)を1万通貨・1日換算／現在の金利差3.01%（米2年3.76%−日本0.75%）とドル円153.93円で自動補正 ×0.98</div>
 </section>
 <section class="card span2">
   <h3>決済履歴（全4システム・新しい順）</h3>
@@ -204,39 +204,83 @@ footer { color:var(--sub); font-size:.7rem; margin-top:22px;
 </section>
 <section class="card span2">
   <h3>資産推移（実運用モデル・全4システム）</h3>
-  <svg viewBox="0 0 640 180" role="img" aria-label="資産推移"><line x1="12" y1="12.0" x2="628" y2="12.0" class="grid"/><line x1="12" y1="64.0" x2="628" y2="64.0" class="grid"/><line x1="12" y1="116.0" x2="628" y2="116.0" class="grid"/><line x1="12" y1="168.0" x2="628" y2="168.0" class="grid"/><polygon points="12,168 12.0,12.0 33.2,12.0 54.5,119.4 75.7,119.4 97.0,123.1 118.2,125.4 139.4,124.2 160.7,134.5 181.9,133.3 203.2,151.3 224.4,146.7 245.7,153.4 266.9,157.6 288.1,164.1 309.4,168.0 330.6,161.0 351.9,128.5 373.1,141.4 394.3,141.3 415.6,141.7 436.8,143.2 458.1,158.0 479.3,160.1 500.6,158.7 521.8,164.8 543.0,122.4 564.3,151.4 585.5,151.4 606.8,164.1 628.0,156.6 628,168" class="area"/><polyline points="12.0,12.0 33.2,12.0 54.5,119.4 75.7,119.4 97.0,123.1 118.2,125.4 139.4,124.2 160.7,134.5 181.9,133.3 203.2,151.3 224.4,146.7 245.7,153.4 266.9,157.6 288.1,164.1 309.4,168.0 330.6,161.0 351.9,128.5 373.1,141.4 394.3,141.3 415.6,141.7 436.8,143.2 458.1,158.0 479.3,160.1 500.6,158.7 521.8,164.8 543.0,122.4 564.3,151.4 585.5,151.4 606.8,164.1 628.0,156.6" class="line"/><circle cx="628.0" cy="156.6" r="4" class="dot"/></svg>
-  <div class="note">2026-07-29 1,000,000円 → 2026-09-09 954,973円（-45,027円・30営業日）　※各点＝口座資金＋その日までの4システム累計実現損益（スワップ込）＋日足2システムの評価損益。デイトレ2系統の過去の含み損益は点に含まない（最終点のみ全建玉を評価）。</div>
+  <svg viewBox="0 0 640 180" role="img" aria-label="資産推移"><line x1="12" y1="12.0" x2="628" y2="12.0" class="grid"/><line x1="12" y1="64.0" x2="628" y2="64.0" class="grid"/><line x1="12" y1="116.0" x2="628" y2="116.0" class="grid"/><line x1="12" y1="168.0" x2="628" y2="168.0" class="grid"/><polygon points="12,168 12.0,12.0 33.2,12.0 54.5,119.4 75.7,119.4 97.0,123.1 118.2,125.4 139.4,124.2 160.7,134.5 181.9,133.3 203.2,151.3 224.4,146.7 245.7,153.4 266.9,157.6 288.1,164.1 309.4,168.0 330.6,161.0 351.9,128.5 373.1,141.4 394.3,141.3 415.6,141.7 436.8,143.2 458.1,158.0 479.3,160.1 500.6,158.7 521.8,164.8 543.0,122.4 564.3,151.4 585.5,151.4 606.8,164.1 628.0,154.7 628,168" class="area"/><polyline points="12.0,12.0 33.2,12.0 54.5,119.4 75.7,119.4 97.0,123.1 118.2,125.4 139.4,124.2 160.7,134.5 181.9,133.3 203.2,151.3 224.4,146.7 245.7,153.4 266.9,157.6 288.1,164.1 309.4,168.0 330.6,161.0 351.9,128.5 373.1,141.4 394.3,141.3 415.6,141.7 436.8,143.2 458.1,158.0 479.3,160.1 500.6,158.7 521.8,164.8 543.0,122.4 564.3,151.4 585.5,151.4 606.8,164.1 628.0,154.7" class="line"/><circle cx="628.0" cy="154.7" r="4" class="dot"/></svg>
+  <div class="note">2026-07-29 1,000,000円 → 2026-09-09 955,564円（-44,436円・30営業日）　※各点＝口座資金＋その日までの4システム累計実現損益（スワップ込）＋日足2システムの評価損益。デイトレ2系統の過去の含み損益は点に含まない（最終点のみ全建玉を評価）。</div>
 </section>
 <section class="card span2">
   <h3>本日の注文指示書（最終確定・指標イベント欄含む）</h3>
-  <pre class="order">■ ドル円 注文指示書【最終確定】 2026-09-08
-  終値: 154.118円  ATR(14): 1.553円
+  <pre class="order">■ ドル円 注文指示書【速報①】 2026-09-09
+  終値: 153.935円  ATR(14): 1.632円
 ----------------------------------------------
 ▼ 長期トレンド（ドンチャン40/10・ATR×3.5・リスク1.0%）
-【待機】新規シグナルなし。発注不要。
+【新規】USD/JPY 売(ショート)  1,000通貨（1Lot）
+  発注: 成行 → 建玉に決済逆指値 159.648円 を必ずセット
+  ストップ幅: 5.713円 ≒571pips（決済pip差設定に使う場合はこの値）
+  想定リスク: 約5,713円（資金の0.6%）
 
 ▼ 短期スイング（ドンチャン20/8・ATR×1.5・リスク0.5%）
-【継続】ポジション保有継続。注文変更なし。　現値154.118円 → 逆指値まで 10 pips
+【確認】前バーでストップ(154.014円)到達 → 逆指値で決済済みのはず。モデル損益 -4,200円。未決済なら手動決済すること。
+【新規】USD/JPY 売(ショート)  2,000通貨（2Lot）
+  発注: 成行 → 建玉に決済逆指値 156.384円 を必ずセット
+  ストップ幅: 2.449円 ≒245pips（決済pip差設定に使う場合はこの値）
+  想定リスク: 約4,897円（資金の0.5%）
 
 ▼ デイトレ複合時間軸（2Hドンチャン12/6・ATR×3.0・利確ATR×6.0・毎時判定）【試験運転】
-【現況】売 2,000通貨 保有（建値154.727円） 逆指値 155.556円／目標利確 151.883円 を維持
+【現況】売 2,000通貨 保有（建値154.727円） 逆指値 154.588円／目標利確 151.883円 を維持
   ※発注カード・変更指示は毎時のデイトレ通知が正（本欄は朝時点の現況）。
 
 ◆ 現在の建玉損益（終値評価・概算／スワップ込み）
-  短期スイング: -3,968円（値動き -3,992円／スワップ +24円・1日分）
-  デイトレ複合時間軸: +716円（値動き +746円／スワップ -30円・1日分）
-  合計 -3,252円（値動き -3,246円／スワップ -6円）
-  ※スワップ 買+122円／売-151円（1万通貨・1日）　出典: JFX公表 2026-08-12(水)ロールオーバー 買37.2/売-46.2(1Lot=1,000通貨・付与3日分)を1万通貨・1日換算／現在の金利差3.01%（米2年3.76%−日本0.75%）とドル円154.12円で自動補正 ×0.98
+  長期トレンド: -0円（値動き -0円／スワップ -0円・0日分）
+  短期スイング: -0円（値動き -0円／スワップ -0円・0日分）
+  デイトレ複合時間軸: +1,432円（値動き +1,492円／スワップ -60円・2日分）
+  合計 +1,432円（値動き +1,492円／スワップ -60円）
+  ※スワップ 買+122円／売-151円（1万通貨・1日）　出典: JFX公表 2026-08-12(水)ロールオーバー 買37.2/売-46.2(1Lot=1,000通貨・付与3日分)を1万通貨・1日換算／現在の金利差3.01%（米2年3.76%−日本0.75%）とドル円153.93円で自動補正 ×0.98
 
 ◆ 指標イベント（今後24時間・変動率★5級のみ警戒）
   なし
 ----------------------------------------------
 ※発注はMATRIX TRADERで本人が手動で行うこと(JFXはEA等の自動発注禁止)。
 ※逆指値は建玉と必ずセットで維持すること。
+※本書は速報(参考)。発注判断は8時配信の【最終確定】に従うこと。
 
 ==============================================
 ◆ 発注カード（MATRIX TRADERへそのまま転記）
-  本日の発注作業: なし（新規・注文変更ともに不要）
+  本日の発注作業: 2件／要確認 1件
+
+［1/3］長期トレンド ─ 新規建て
+  通貨ペア    : USD/JPY
+  売買        : 売
+  数量        : 1,000 通貨
+  注文方法    : 成行
+  決済逆指値  : 159.648 円   ← この値を入力
+  有効期限    : 無期限（逆指値）
+  手順        : 成行で建てた直後に決済逆指値を必ずセット
+  ──── 幅（pips）────
+  利確幅      : —（利確目標を置かない設計）
+  損切り幅    : 約571 pips／-5,713円（想定約定153.935 → 逆指値159.648）
+
+［2/3］短期スイング ─ 新規建て
+  通貨ペア    : USD/JPY
+  売買        : 売
+  数量        : 2,000 通貨
+  注文方法    : 成行
+  決済逆指値  : 156.384 円   ← この値を入力
+  有効期限    : 無期限（逆指値）
+  手順        : 成行で建てた直後に決済逆指値を必ずセット
+  ──── 幅（pips）────
+  利確幅      : —（利確目標を置かない設計）
+  損切り幅    : 約245 pips／-4,898円（想定約定153.935 → 逆指値156.384）
+
+［3/3］短期スイング ─ 要確認
+  通貨ペア    : USD/JPY
+  数量        : 2,000 通貨
+  内容        : 逆指値154.014円が約定済みかポジション一覧で確認。残っていれば成行で決済
+  ──── 幅（pips）────
+  利確幅      : —（約定確認のみ。新たな注文は出さない）
+  損切り幅    : —（約定確認のみ。新たな注文は出さない）
+
+※値はエンジンの確定値。転記後、送信は必ずご本人が行うこと。
+※速報段階のため暫定。発注は【最終確定】のカードで行うこと。
 ==============================================
 
 ==============================================
