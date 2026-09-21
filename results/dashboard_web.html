@@ -36,6 +36,9 @@ header.top .meta { color:var(--sub); font-size:.78rem; width:100%; }
 .banner.act { background:var(--gold); }
 .banner.ok { background:var(--navy); }
 .grid { display:grid; gap:12px; grid-template-columns:1fr; }
+/* 2026-09-21: 指示書preの長い1行がカードを押し広げ、スマホでページ全体が
+   横スクロールになっていた（幅7,000px超）。グリッド子要素の最小幅を0にする */
+.grid > * { min-width:0; }
 @media (min-width:700px) { .grid { grid-template-columns:1fr 1fr; }
   .grid .span2 { grid-column:1/-1; } }
 .card { background:var(--panel); border:1px solid var(--line);
@@ -76,6 +79,25 @@ th, td { text-align:left; padding:6px 10px;
   border-bottom:1px solid var(--line); }
 th { color:var(--sub); font-weight:600; font-size:.72rem; }
 .note { color:var(--sub); font-size:.75rem; margin-top:6px; }
+.fbar-head { display:flex; gap:10px; align-items:baseline; flex-wrap:wrap;
+  margin-top:12px; font-size:.9rem; }
+.fbar { display:flex; height:10px; border-radius:999px; overflow:hidden;
+  margin-top:6px; gap:2px; }
+.fbar-legend { display:flex; justify-content:space-between;
+  color:var(--sub); font-size:.7rem; margin-top:3px; }
+.fbox { margin-top:12px; padding:10px 12px; border-left:3px solid var(--gold);
+  background:var(--chipbg); border-radius:0 10px 10px 0; font-size:.82rem; }
+.fbox .l { color:var(--sub); font-size:.72rem; font-weight:700;
+  margin-bottom:2px; }
+h4.fh { margin:14px 0 4px; font-size:.82rem; color:var(--sub); }
+ul.focus { margin:0; padding-left:1.2em; font-size:.8rem; }
+ul.focus li { margin:3px 0; }
+.theme { padding:8px 0; border-bottom:1px solid var(--line); }
+.theme-meta { display:flex; gap:10px; align-items:baseline; font-size:.75rem; }
+.theme-meta .gold { color:var(--gold); letter-spacing:.05em; }
+.theme-h { font-size:.82rem; font-weight:600; margin-top:2px; }
+details { margin-top:6px; font-size:.78rem; color:var(--sub); }
+details summary { cursor:pointer; }
 footer { color:var(--sub); font-size:.7rem; margin-top:22px;
   line-height:1.6; }
 </style>
@@ -83,11 +105,11 @@ footer { color:var(--sub); font-size:.7rem; margin-top:22px;
 <header class="top">
   <h1>FXドル円 運用ボード</h1>
   <span class="rate">156.986<small>円</small></span>
-  <span class="meta">更新 2026-09-21 16:04（朝6・7・8時台の3回＋デイトレ毎時判定）
+  <span class="meta">更新 2026-09-21 17:00（朝6・7・8時台の3回＋デイトレ毎時判定）
    ｜ 生成元: クラウド(GitHub Actions)
    ｜ 運用先: MATRIX TRADER（発注は手動）<br>本日の配信 速報① 06:45⚠遅延 ／ 速報② 08:34⚠遅延 ／ 最終確定 08:34⚠遅延　⚠配信遅延あり　｜ 完成率(直近10営業日) 24/30　⚠欠落あり</span>
 </header>
-<div class="banner act">本日は発注作業があります（下の指示書どおりに）</div>
+<div class="banner act">本日は発注作業があります（下の指示書どおりに）</div><div class="banner act">⚠ ファンダ研究停止 36日（詳細は下部）</div>
 <div class="grid">
 
 <article class="card">
@@ -106,6 +128,7 @@ footer { color:var(--sub); font-size:.7rem; margin-top:22px;
     <span class="chip">勝率 43%</span>
     <span class="chip">最大DD -3.2%</span>
     <span class="chip">総リターン +26.3%</span>
+    <span class="chip">ファンダ 追い風<small>・参考</small></span>
   </div>
 </article>
 <article class="card">
@@ -124,39 +147,41 @@ footer { color:var(--sub); font-size:.7rem; margin-top:22px;
     <span class="chip">勝率 46%</span>
     <span class="chip">最大DD -3.6%</span>
     <span class="chip">総リターン +28.4%</span>
+    <span class="chip">ファンダ 追い風<small>・参考</small></span>
   </div>
 </article>
 <article class="card span2">
   <div class="card-head"><h2>デイトレ複合時間軸（試験運転）</h2>
     <span class="params">2H 12/6 ATR×3.0 F30 確認MACD順行・毎時判定・指標発表を常時監視</span></div>
   <div class="action gold">ストップ切上げ</div>
-  <div class="posline"><span class="pos buy">買 2,000通貨</span><span class="stop">ストップ <b>155.868</b>円　利確 <b>159.452</b>円　スワップ <b>+0</b>円（0日分）　利確幅 <b>278</b> pips／損切り幅 <b>80</b> pips　<span class="stop">現値から 逆指値まで 119／利確まで 240 pips</span></span>
-    <span class="stop">最終判定 2026-09-21 16:04</span><span class="stop">判定バー 2026-09-21 15:00</span></div>
+  <div class="posline"><span class="pos buy">買 2,000通貨</span><span class="stop">ストップ <b>156.099</b>円　利確 <b>159.452</b>円　スワップ <b>+0</b>円（0日分）　利確幅 <b>278</b> pips／損切り幅 <b>57</b> pips　<span class="stop">現値から 逆指値まで 117／利確まで 219 pips</span></span>
+    <span class="stop">最終判定 2026-09-21 17:00</span><span class="stop">判定バー 2026-09-21 17:00</span></div>
   
-  <div class="chips"><span class="chip">2.8年検証 PF 1.42</span><span class="chip">勝率 42.3%</span><span class="chip">最大DD -3.0%</span><span class="chip">約0.4回転/日</span><span class="chip">完成率 25/89（28%）</span></div>
+  <div class="chips"><span class="chip">2.8年検証 PF 1.42</span><span class="chip">勝率 42.3%</span><span class="chip">最大DD -3.0%</span><span class="chip">約0.4回転/日</span><span class="chip">完成率 26/90（29%）</span><span class="chip">ファンダ 向かい風<small>・参考</small></span></div>
 </article>
 <article class="card span2">
   <div class="card-head"><h2>デイトレ15分（試験運転）</h2>
     <span class="params">1時間足ドンチャン24/12・フィルタ無・ATR×3.0
      ・利確ATR×6.0
      ・15分ごと判定・指標発表を常時監視</span></div>
-  <div class="action gold">ストップ切上げ</div>
-  <div class="posline"><span class="pos buy">買 2,000通貨</span><span class="stop">ストップ <b>156.265</b>円　利確 <b>158.842</b>円　スワップ <b>+0</b>円（0日分）　利確幅 <b>217</b> pips／損切り幅 <b>41</b> pips　<span class="stop">現値から 逆指値まで 80／利確まで 178 pips</span></span>
-    <span class="stop">最終判定 2026-09-21 16:04</span><span class="stop">判定バー 2026-09-21 16:00</span></div>
+  <div class="action flat">保有継続</div>
+  <div class="posline"><span class="pos buy">買 2,000通貨</span><span class="stop">ストップ <b>156.265</b>円　利確 <b>158.842</b>円　スワップ <b>+0</b>円（0日分）　利確幅 <b>217</b> pips／損切り幅 <b>41</b> pips　<span class="stop">現値から 逆指値まで 100／利確まで 158 pips</span></span>
+    <span class="stop">最終判定 2026-09-21 17:00</span><span class="stop">判定バー 2026-09-21 17:00</span></div>
   
-  <div class="chips"><span class="chip">3年検証 PF 1.12</span><span class="chip">勝率 35.3%</span><span class="chip">最大DD -4.6%</span><span class="chip">約0.86回転/日</span><span class="chip">合議15分 強い買い（+0.90）</span><span class="chip">合議1H 強い買い（+0.65）</span><span class="chip">完成率 12/164（7%）</span></div>
+  <div class="chips"><span class="chip">3年検証 PF 1.12</span><span class="chip">勝率 35.3%</span><span class="chip">最大DD -4.6%</span><span class="chip">約0.86回転/日</span><span class="chip">合議15分 強い買い（+1.00）</span><span class="chip">合議1H 強い買い（+0.75）</span><span class="chip">完成率 13/168（8%）</span><span class="chip">ファンダ 向かい風<small>・参考</small></span></div>
 </article>
 
 <section class="card span2">
   <h3>リスクリワード管理（保有中の全建玉）</h3>
   <div class="kpis" style="margin-top:10px">
     <div class="kpi"><div class="l">合計リスク額<br><small>全ストップ同時到達</small></div>
-      <div class="v down">-11,698円</div></div>
+      <div class="v down">-11,236円</div></div>
     <div class="kpi"><div class="l">口座資金に対する比率</div>
-      <div class="v">1.17%</div></div>
+      <div class="v">1.12%</div></div>
     <div class="kpi"><div class="l">現在の含み損益<br><small>各系の最終確定バー評価</small></div>
       <div class="v down">
-        -3,871円</div></div>
+        -3,045円</div>
+      <div class="l"><small>日足終値156.986円で統一評価すると -4,161円（下の運用成績と一致）</small></div></div>
     <div class="kpi"><div class="l">ネット建玉</div>
       <div class="v">買
         1,000</div></div>
@@ -164,7 +189,7 @@ footer { color:var(--sub); font-size:.7rem; margin-top:22px;
   <div class="tablewrap"><table>
     <tr><th>系</th><th>売買/数量</th><th>建値</th><th>現値</th><th>含み損益</th>
       <th>ストップ到達</th><th>利確到達</th><th>RR</th><th>評価</th></tr>
-    <tr><td>長期</td><td>売 1,000</td><td>153.609</td><td>156.986</td><td class="down">-3,542円</td><td class="down">-5,069円</td><td>－</td><td>－</td><td>利確目標を置かない設計（トレンド追随）。検証PF 2.44 が実質のリスクリワード</td></tr><tr><td>短期</td><td>売 2,000</td><td>156.064</td><td>156.986</td><td class="down">-1,877円</td><td class="down">-4,209円</td><td>－</td><td>－</td><td>利確目標を置かない設計（トレンド追随）。検証PF 1.55 が実質のリスクリワード</td></tr><tr><td>デイ</td><td>買 2,000</td><td>156.667</td><td>157.056</td><td class="up">+778円</td><td class="down">-1,598円</td><td>+5,570円</td><td>2.02</td><td>リスク1に対し利益2以上を狙える位置</td></tr><tr><td>15分</td><td>買 2,000</td><td>156.676</td><td>157.061</td><td class="up">+770円</td><td class="down">-822円</td><td>+4,332円</td><td>2.24</td><td>リスク1に対し利益2以上を狙える位置</td></tr>
+    <tr><td>長期</td><td>売 1,000</td><td>153.609</td><td>156.986</td><td class="down">-3,542円</td><td class="down">-5,069円</td><td>－</td><td>－</td><td>利確目標を置かない設計（トレンド追随）。検証PF 2.44 が実質のリスクリワード</td></tr><tr><td>短期</td><td>売 2,000</td><td>156.064</td><td>156.986</td><td class="down">-1,877円</td><td class="down">-4,209円</td><td>－</td><td>－</td><td>利確目標を置かない設計（トレンド追随）。検証PF 1.55 が実質のリスクリワード</td></tr><tr><td>デイ</td><td>買 2,000</td><td>156.667</td><td>157.265</td><td class="up">+1,196円</td><td class="down">-1,136円</td><td>+5,570円</td><td>1.88</td><td>利益余地がリスクを上回る位置</td></tr><tr><td>15分</td><td>買 2,000</td><td>156.676</td><td>157.265</td><td class="up">+1,178円</td><td class="down">-822円</td><td>+4,332円</td><td>1.58</td><td>利益余地がリスクを上回る位置</td></tr>
   </table></div>
   <div class="note">※「ストップ到達」「利確到達」は<b>建値との差＋スワップ</b>で
     計算した決済損益の概算。含み益が乗っていればストップ到達でも利益になる
@@ -175,10 +200,25 @@ footer { color:var(--sub); font-size:.7rem; margin-top:22px;
   <div class="note">※スリッページ・窓開けは考慮していない。指標発表時や
     週明けの窓ではストップを超えて約定することがある。</div>
 </section>
+
+<section class="card span2">
+  <div class="banner act">⚠ ファンダ研究が35.9日更新されていません（3時間おき更新の想定・専任タスクの停止を確認してください）</div>
+  <div class="card-head"><h3>ファンダメンタルズ研究（3時間おき更新・発注判定には未使用）</h3>
+    <span class="params">定量 2026-08-16 20:11／ニュース 2026-08-14 23:20</span></div>
+  <div class="action flat" style="font-size:1.1rem">ドル全面主導（ドル指数と順相関 +0.60）</div>
+  <div class="chips"><span class="chip">ドル指数 +0.60</span><span class="chip">VIX +0.33</span><span class="chip">S&amp;P500 -0.25</span><span class="chip">米2年金利 +0.23</span><span class="chip">金 -0.22</span></div>
+  <div class="fbar-head"><b>円高材料が優勢</b><span class="stop">材料の重み（重要度の合計）　円高 33／両方向 7／円安 6</span></div><div class="fbar"><span style="flex:33;background:var(--sell)"></span><span style="flex:7;background:var(--line)"></span><span style="flex:6;background:var(--buy)"></span></div><div class="fbar-legend"><span>← 円高（ドル安）</span><span>円安（ドル高）→</span></div>
+  <div class="posline" style="margin-top:10px"><span class="pos sell">下落（円高） 確率49%</span><span class="stop">想定レンジ 158.92〜159.65円（基準 2026-08-14 159.285円）</span></div>
+  <p class="note">学習外検証 1606日・的中率 52.1%（常に上昇と答えた場合 55.3%）／ボラ予測 順位相関 +0.14／実運用の前向き採点 4件・的中率 25.0%（高信頼 3件・33.3%）</p>
+  <p class="note">※方向予測は現時点で「常に上昇」に勝てておらず、
+    発注判断には一切使っていない（研究・記録のみ）。</p>
+  <div class="fbox"><div class="l">保有ポジションへの含意</div>★売り持ち3本すべてに追い風。本回で建玉構成が変わった点に注意する。JST23:00にデイトレ（1時間足システム）が新規売り6,000通貨・建値158.941円でエントリーし（逆指値159.596円／利確目標157.631円）、ノーポジションだった状態から売り持ちに転じた（state_intraday.json 更新23:03）。これにより現在の建玉は、日足2システムの売り持ち2本＋デイトレ売り持ち1本の計3本、すべて売り方向で揃った。内訳は、長期トレンド2,000通貨・建値157.272円（逆指値161.502円）、短期スイング2,000通貨・建値159.249円（逆指値161.052円）、デイトレ6,000通貨・建値158.941円（逆指値159.596円）。JST23時15分の現値158.94円前後では、短期スイングが約0.31円の含み益方向（18時台の0.13円から改善）、長期トレンドは約1.67円の含み損方向（18時台の1.85円から縮小）、デイトレはほぼ建値。日足2本の逆指値は現値から2.11円以上の距離があり抵触の危険はない。デイトレの逆指値159.596円だけは現値から0.65円と近く、週明けの戻り次第では抵触しうるが、これはシステムの設計どおりの水準であり手を触れない。★方向感の評価：今回の下落は日銀の利上げペース加速観測（円買い）と米小売の下振れによるFRB利上げ観測後退（ドル売り）が同方向に重なったもので、材料の裏づけという意味では8月中で最も強い。売り持ち3本にとっては18時台時点よりさらに前向きに評価できる。ただし本邦勢が夏季休暇中で流動性が薄く、ストップ一巡後の週明けに戻りが入る可能性は残るため、いずれの逆指値も動かさず現状維持でよい。売り持ちはスワップが支払い側で日々目減りする点も不変（実測 売-154円／1万通貨・1日）で、本回で建玉が計10,000通貨に増えたため支払いスワップの日次負担も比例して増える（概算-154円/日）。★予測モデルは55.5%＝上昇（円安）で6時台から方向反転なし。ただし本日の実際の値動きは59銭の下落で、予測とは逆方向に動いた。検証的中率52.1%が「常に上昇」55.3%を下回りエッジなしであることの実例が一つ増えた形で、発注判断には引き続き一切使わない。</div><h4 class="fh">次の焦点</h4><ul class="focus"><li>最</li><li>大</li><li>の</li><li>観</li><li>察</li><li>点</li></ul><details><summary>残り567件</summary><ul class="focus"><li>は</li><li>、</li><li>1</li><li>5</li><li>9</li><li>.</li><li>0</li><li>0</li><li>円</li><li>を</li><li>明</li><li>確</li><li>に</li><li>下</li><li>抜</li><li>け</li><li>た</li><li>今</li><li>回</li><li>の</li><li>円</li><li>買</li><li>い</li><li>が</li><li>週</li><li>明</li><li>け</li><li>も</li><li>続</li><li>く</li><li>の</li><li>か</li><li>、</li><li>そ</li><li>れ</li><li>と</li><li>も</li><li>ス</li><li>ト</li><li>ッ</li><li>プ</li><li>一</li><li>巡</li><li>後</li><li>の</li><li>戻</li><li>り</li><li>に</li><li>飲</li><li>ま</li><li>れ</li><li>る</li><li>の</li><li>か</li><li>。</li><li>直</li><li>近</li><li>の</li><li>下</li><li>値</li><li>メ</li><li>ド</li><li>は</li><li>日</li><li>中</li><li>安</li><li>値</li><li>1</li><li>5</li><li>8</li><li>.</li><li>5</li><li>9</li><li>5</li><li>円</li><li>、</li><li>そ</li><li>の</li><li>下</li><li>は</li><li>8</li><li>月</li><li>上</li><li>旬</li><li>の</li><li>介</li><li>入</li><li>後</li><li>安</li><li>値</li><li>圏</li><li>。</li><li>上</li><li>値</li><li>は</li><li>1</li><li>5</li><li>9</li><li>.</li><li>0</li><li>0</li><li>円</li><li>の</li><li>節</li><li>目</li><li>回</li><li>復</li><li>が</li><li>戻</li><li>り</li><li>の</li><li>第</li><li>一</li><li>関</li><li>門</li><li>で</li><li>、</li><li>こ</li><li>こ</li><li>を</li><li>回</li><li>復</li><li>で</li><li>き</li><li>な</li><li>い</li><li>う</li><li>ち</li><li>は</li><li>円</li><li>高</li><li>方</li><li>向</li><li>の</li><li>モ</li><li>メ</li><li>ン</li><li>タ</li><li>ム</li><li>が</li><li>優</li><li>勢</li><li>と</li><li>判</li><li>断</li><li>で</li><li>き</li><li>る</li><li>。</li><li>次</li><li>い</li><li>で</li><li>、</li><li>(</li><li>1</li><li>)</li><li>2</li><li>3</li><li>:</li><li>0</li><li>0</li><li>発</li><li>表</li><li>の</li><li>米</li><li>8</li><li>月</li><li>ミ</li><li>シ</li><li>ガ</li><li>ン</li><li>大</li><li>消</li><li>費</li><li>者</li><li>態</li><li>度</li><li>指</li><li>数</li><li>・</li><li>期</li><li>待</li><li>イ</li><li>ン</li><li>フ</li><li>レ</li><li>（</li><li>速</li><li>報</li><li>）</li><li>の</li><li>結</li><li>果</li><li>＝</li><li>本</li><li>回</li><li>未</li><li>取</li><li>得</li><li>の</li><li>た</li><li>め</li><li>次</li><li>回</li><li>6</li><li>時</li><li>台</li><li>に</li><li>遡</li><li>及</li><li>確</li><li>認</li><li>（</li><li>期</li><li>待</li><li>イ</li><li>ン</li><li>フ</li><li>レ</li><li>が</li><li>高</li><li>止</li><li>ま</li><li>り</li><li>な</li><li>ら</li><li>「</li><li>消</li><li>費</li><li>は</li><li>弱</li><li>い</li><li>が</li><li>物</li><li>価</li><li>期</li><li>待</li><li>は</li><li>高</li><li>い</li><li>」</li><li>と</li><li>い</li><li>う</li><li>読</li><li>み</li><li>が</li><li>生</li><li>じ</li><li>、</li><li>単</li><li>純</li><li>な</li><li>円</li><li>高</li><li>一</li><li>辺</li><li>倒</li><li>に</li><li>な</li><li>ら</li><li>な</li><li>い</li><li>可</li><li>能</li><li>性</li><li>）</li><li>、</li><li>(</li><li>2</li><li>)</li><li>小</li><li>売</li><li>を</li><li>受</li><li>け</li><li>た</li><li>9</li><li>月</li><li>F</li><li>O</li><li>M</li><li>C</li><li>利</li><li>上</li><li>げ</li><li>確</li><li>率</li><li>の</li><li>再</li><li>集</li><li>計</li><li>値</li><li>（</li><li>4</li><li>5</li><li>%</li><li>か</li><li>ら</li><li>ど</li><li>こ</li><li>ま</li><li>で</li><li>低</li><li>下</li><li>し</li><li>た</li><li>か</li><li>）</li><li>、</li><li>(</li><li>3</li><li>)</li><li>『</li><li>日</li><li>銀</li><li>は</li><li>早</li><li>け</li><li>れ</li><li>ば</li><li>9</li><li>月</li><li>利</li><li>上</li><li>げ</li><li>を</li><li>提</li><li>案</li><li>、</li><li>ペ</li><li>ー</li><li>ス</li><li>加</li><li>速</li><li>も</li><li>視</li><li>野</li><li>』</li><li>報</li><li>道</li><li>に</li><li>対</li><li>す</li><li>る</li><li>政</li><li>府</li><li>高</li><li>官</li><li>・</li><li>日</li><li>銀</li><li>か</li><li>ら</li><li>の</li><li>追</li><li>認</li><li>/</li><li>否</li><li>定</li><li>コ</li><li>メ</li><li>ン</li><li>ト</li><li>、</li><li>(</li><li>4</li><li>)</li><li>週</li><li>末</li><li>〜</li><li>週</li><li>明</li><li>け</li><li>の</li><li>内</li><li>閣</li><li>改</li><li>造</li><li>・</li><li>高</li><li>市</li><li>政</li><li>権</li><li>の</li><li>財</li><li>政</li><li>運</li><li>営</li><li>を</li><li>め</li><li>ぐ</li><li>る</li><li>政</li><li>局</li><li>報</li><li>道</li><li>（</li><li>こ</li><li>れ</li><li>ま</li><li>で</li><li>円</li><li>買</li><li>い</li><li>の</li><li>効</li><li>き</li><li>を</li><li>削</li><li>い</li><li>で</li><li>き</li><li>た</li><li>最</li><li>大</li><li>の</li><li>要</li><li>素</li><li>）</li><li>、</li><li>(</li><li>5</li><li>)</li><li>中</li><li>東</li><li>・</li><li>イ</li><li>ラ</li><li>ン</li><li>情</li><li>勢</li><li>と</li><li>原</li><li>油</li><li>価</li><li>格</li><li>（</li><li>ガ</li><li>ソ</li><li>リ</li><li>ン</li><li>高</li><li>が</li><li>今</li><li>回</li><li>の</li><li>消</li><li>費</li><li>減</li><li>速</li><li>の</li><li>主</li><li>因</li><li>と</li><li>さ</li><li>れ</li><li>た</li><li>た</li><li>め</li><li>、</li><li>原</li><li>油</li><li>の</li><li>動</li><li>向</li><li>が</li><li>そ</li><li>の</li><li>ま</li><li>ま</li><li>次</li><li>の</li><li>米</li><li>指</li><li>標</li><li>の</li><li>読</li><li>み</li><li>に</li><li>直</li><li>結</li><li>す</li><li>る</li><li>）</li><li>。</li><li>中</li><li>期</li><li>で</li><li>は</li><li>8</li><li>/</li><li>2</li><li>7</li><li>〜</li><li>2</li><li>9</li><li>ジ</li><li>ャ</li><li>ク</li><li>ソ</li><li>ン</li><li>ホ</li><li>ー</li><li>ル</li><li>の</li><li>ウ</li><li>ォ</li><li>ー</li><li>シ</li><li>ュ</li><li>F</li><li>R</li><li>B</li><li>議</li><li>長</li><li>講</li><li>演</li><li>。</li><li>な</li><li>お</li><li>本</li><li>日</li><li>は</li><li>米</li><li>側</li><li>の</li><li>材</li><li>料</li><li>が</li><li>出</li><li>そ</li><li>ろ</li><li>っ</li><li>た</li><li>た</li><li>め</li><li>、</li><li>来</li><li>週</li><li>前</li><li>半</li><li>は</li><li>日</li><li>銀</li><li>サ</li><li>イ</li><li>ド</li><li>の</li><li>発</li><li>信</li><li>が</li><li>相</li><li>場</li><li>を</li><li>主</li><li>導</li><li>し</li><li>や</li><li>す</li><li>い</li><li>局</li><li>面</li><li>に</li><li>移</li><li>る</li><li>。</li></ul></details><h4 class="fh">材料一覧（新しい順・上位8件／全12件）</h4><div class="themes"><div class="theme"><div class="theme-meta"><span class="gold">★★★★★</span><span class="pos sell">円高</span></div><div class="theme-h">【新規・重要度5】米7月小売売上高が前月比-0.6%と予想外のマイナス（予想+0.1%）。FRB早期利上げ観測が一段と後退しドル売り加速</div><details><summary>要旨</summary>米商務省が21:30に発表した7月小売売上高は前月比-0.6%と、市場予想+0.1%に反してマイナスに転落した。中東情勢に起因するガソリン高止まりのなかで消費者心理が冷え込んだことが背景とされる。12日のCPI（総合前月比・コア前年比とも2カ月連続鈍化）、13日のPPI（全項目が予想割れ）に続く3本目の米減速シグナルで、「雇用悪化→消費減速→インフレ鈍化の連鎖でFRB見通しが逆回転する」という前回まで仮説として置いていたシナリオが、消費側でも裏づけを得た。FRBの早期利上げ観測は一段と後退し、発表直後から円買い・ドル売りが加速した。前回18時台に外為どっとコムが示していた「強い小売なら160円試し」の見立ては完全に外れ、逆方向に振れた点が重要。</details></div><div class="theme"><div class="theme-meta"><span class="gold">★★★★★</span><span class="pos sell">円高</span></div><div class="theme-h">【新規・重要度5】159.00円のストップロスを巻き込み158.595円まで急落。8月の「押し戻し」パターンが初めて崩れた</div><details><summary>要旨</summary>小売発表後、ドル円は159.00円割れのストップロスをつけると158.89円まで下げ足を速め、自前1時間足では12:00UTC（JST21時台）に日中安値158.595円を記録した。JST23時15分時点は158.94円前後（15分足13:45UTC終値158.941円）で、東京早朝の高値159.53円からは約59銭安。8月はCPI・日銀早期利上げ報道・PPIと円買い材料が3度出ながらいずれも当日中に押し戻されてきたが、今回は押し戻されないまま159.00円の心理的節目を明確に下抜けた。前回18時台に「地合いに変化が生じている可能性」と記録した観察が、実際のストップ巻き込みという形で確認された。クロス円もユーロ円が184.10円付近から183.80円台へ、ポンド円が215.46円付近から215.15円付近へ反落しており、ドル単独の弱さではなく円全面高の色彩がある。ただし本邦勢の多くが夏季休暇中で流動性が薄く、ストップを一巡した後の週明けに戻りが入る可能性は残る。</details></div><div class="theme"><div class="theme-meta"><span class="gold">★★★</span><span class="pos flat">中立</span></div><div class="theme-h">【新規・未取得】23:00の米8月ミシガン大（速報）は結果が検索に未反映。次回6時台に遡及確認</div><details><summary>要旨</summary>JST23:00発表の米8月ミシガン大消費者態度指数・期待インフレ（いずれも速報値）は、本回の収集時点（JST23時15分）で結果が検索に反映されておらず数値を取得できなかった。13日のPPIでも同じ取りこぼしが起きており（21:30発表→21:45時点で未反映→翌6時台に遡及確定）、発表から30分以内の回では同種の未取得が構造的に起きる。期待インフレは原油高止まりの影響が出やすく、小売の下振れと組み合わせると「消費は弱いが期待インフレは高い」というスタグフレーション的な読みも生じうるため、次回6時台に必ず遡及確認する。EU4-6月期GDP（18:00発表）についても本回は個別の反応報道を確認できていない。</details></div><div class="theme"><div class="theme-meta"><span class="gold">★★★★★</span><span class="pos sell">円高</span></div><div class="theme-h">【既出・状況変化なし】通信社が『日銀は早ければ9月利上げを提案、ペース加速も視野』と報道。東京午後の下落の引き金</div><details><summary>要旨</summary>14日の東京時間に一部通信社が関係者筋の話として『日銀は早ければ9月利上げを提案、ペース加速も視野』と報じ、ドル円は159.143〜159.17円まで円買いが進んだ。前回15時台の回では『下押しの引き金となる指標・要人発言・介入観測は確認できず、材料なきポジション調整』と記録したが、これは誤りだったので訂正する。13日のブルームバーグ報道（政府が早期利上げを支持／日銀は9月か10月の利上げを視野）とは別の新規報道で、『利上げのペースそのものを加速させる』＝年内2回の利上げも視野、まで踏み込んだ点が既出分との差分。国内債券市場でも利上げペース加速を織り込む動きが強まり、OIS市場の9月追加利上げ確率は約8割。9月利上げ単独は既に織り込み済みだが、『ペース加速』は織り込みを超える前倒し示唆に該当するため、6時台以降で初めて新規の円買い材料として機能した。 ／21時台の追記：本報道に対する政府高官・日銀からの追認/否定コメントは23時15分時点で確認できていない。ただし米小売の下振れが同じ円高方向に重なったため、追認がなくても円買いが持続する条件は整った形。</details></div><div class="theme"><div class="theme-meta"><span class="gold">★★★★★</span><span class="pos sell">円高</span></div><div class="theme-h">【既出・発展】欧州時間に159.056円まで下落 → NY時間に159.00円割れへ発展</div><details><summary>要旨</summary>東京午後の安値159.129円を欧州時間がさらに下回り、JST17時台（08:00UTC）に日中安値159.056円を記録。JST18時25分時点は159.12円前後（1時間足08:00UTC終値159.174円・15分足09:00UTC終値159.120円）で、東京早朝の高値159.53円からは40銭超の下落。ロンドン朝方の159.25円近辺からも一段安で、戻りが限定的なまま推移している。8月はCPI・日銀早期利上げ報道・PPIと円買い材料が3度出ながらいずれも当日中に押し戻されてきたが、今回は押し戻しが効いておらず、地合いに変化が生じている可能性がある。159.00円の心理的節目が目前。ただし本邦勢の多くが夏季休暇中で流動性が薄く、21:30の米小売売上高で振り戻される余地は残る。 ／21時台の追記：この観察は正しく、NY時間の小売下振れで159.00円割れまで発展した。詳細は新規テーマ「159.00円のストップロスを巻き込み158.595円まで急落」を参照。</details></div><div class="theme"><div class="theme-meta"><span class="gold">★★★★★</span><span class="pos sell">円高</span></div><div class="theme-h">【既出・状況変化なし】米7月PPIは前月比0.0%・前年比+4.7%で全項目が予想割れ。CPIに続くインフレ鈍化の2本目</div><details><summary>要旨</summary>米7月PPIは前月比0.0%（市場予想+0.2%・前回-0.3%）、前年比+4.7%（予想+4.9%・前回+5.5%）、コアPPI前年比+4.2%（前回+4.7%）と、前年比・前月比とも予想を下回った。ガソリンや化学品の低下が押し下げ要因。前日の米7月CPI（総合前月比が2カ月連続鈍化、コア前年比も2カ月連続鈍化でインフレは5月にピークを打った可能性）と合わせ、FRBの追加利上げ観測を後退させる材料が2本そろった形。15時台以降に追加の分析・修正報道は出ていない。</details></div><div class="theme"><div class="theme-meta"><span class="gold">★★★★</span><span class="pos sell">円高（上値抑制）</span></div><div class="theme-h">160.00円接近時の再介入警戒は不変。当局は160円台を容認しない姿勢</div><details><summary>要旨</summary>7/30〜8/3の日米協調介入の記憶から、160円接近時の再介入リスクが上値を抑える構図は不変。100日線が160.00円に控えるテクニカル要因とも重なる。本日の日銀利上げペース加速報道も、政府が早期利上げを支持する目的が『介入効果の維持』とされている点と整合的で、当局が160円台を容認しない姿勢の傍証がもう一つ増えた形。日経は日米協調介入で日銀9月利上げの『外堀が埋まった』と報じている。</details></div><div class="theme"><div class="theme-meta"><span class="gold">★★★</span><span class="pos buy">円安</span></div><div class="theme-h">内閣改造の思惑と高市政権の財政運営が円の重荷（既出・状況変化なし）</div><details><summary>要旨</summary>利上げ加速の持続性に対する疑念と内閣改造をめぐる政局不透明感が円売り材料として残る。高市政権が財政健全化への責任を後退させた政策運営や対米投資など、円安を促す政策が根本的な要因として指摘されており、日銀の利上げ観測による円買いの効きを削いでいる。IG証券は『日銀利上げ見通しの拡大を高市円安が帳消しにしている』との整理を示しており、本日の円買いが一時的にとどまるか継続するかを分ける最大の要素はこの政策要因。18時台の検索でも新規報道はなく状況変化なし。</details></div></div><details><summary>ニュース総括の全文（更新 2026-08-14T23:20）</summary><p class="note">8/14 21時台（差分更新・23時台に実施）。★本日最大の材料が確定した。21:30発表の米7月小売売上高は前月比-0.6%と、市場予想+0.1%に反して予想外のマイナス。ガソリン高（中東情勢由来）による消費の冷え込みが背景とされ、CPI・PPIに続く3本目の米景気/インフレ減速シグナルとなった。これを受けFRBの早期利上げ観測が一段と後退し、ドル売り・円買いが加速。ドル円は159.00円割れのストップロスを巻き込んで158.89円まで急落し、自前1時間足では12:00UTC（JST21時台）に日中安値158.595円を記録した。JST23時15分時点は158.94円前後（15分足13:45UTC終値158.941円）で、東京早朝の高値159.53円からは約59銭の下落。★前回18時台に立てた「8月で初めて円買い材料の押し戻しが効いていない」という観察は、小売の下振れによってさらに裏づけられた。8月はCPI・日銀早期利上げ報道・PPIと円買い材料が3度出ながらいずれも当日中に押し戻されてきたが、今回は押し戻されないまま159.00円の心理的節目を明確に下抜けた。日銀の9月利上げ・ペース加速観測（本日東京時間の報道）と米側の利上げ観測後退が同じ方向（円高）に重なったのが今回の特徴で、日米金融政策の方向が逆向きに開き始めたという中期テーマが実際の値動きに現れた形。★変化なしの確認事項：(a)レジーム判定は「ドル全面主導」（DXYと+0.60）で朝一から不変、(c)翌日予測は55.5%＝上昇（円安）で6時台から方向反転なし（同一基準日のため forecast_log.csv への二重記録はスキップ＝正常）、(d)events.py の72時間内★5イベントは該当なし（取得成功・空リスト＝ニュースとカレンダーに食い違いなし）。★未取得：23:00発表の米8月ミシガン大消費者態度指数・期待インフレ（速報）は、JST23時15分時点で検索に結果が反映されておらず数値を取得できなかった。次回6時台に遡及確認する。検証的中率52.1%は「常に上昇」55.3%を下回りエッジなしのため、予測は発注には一切使わない。</p></details>
+</section>
 <section class="card span2">
   <h3>運用成績（全4システム合算・実現＋含み）</h3>
   <div class="kpis" style="margin-top:10px">
-    <div class="kpi"><div class="l">モデル資産</div><div class="v">942,532円</div></div>
+    <div class="kpi"><div class="l">モデル資産</div><div class="v">942,532円</div>
+      <div class="l"><small>開始 1,000,000円 → <span class="down">-57,468円（-5.75%）</span></small></div></div>
     <div class="kpi"><div class="l">累計実現損益</div><div class="v"><span class="down">-53,307円</span></div></div>
     <div class="kpi"><div class="l">含み損益（156.986円評価）</div><div class="v"><span class="down">-4,161円</span><small style="font-weight:400">／4建玉・内スワップ -198円</small></div></div>
     <div class="kpi"><div class="l">勝率</div><div class="v">33%</div></div>
@@ -243,15 +283,25 @@ footer { color:var(--sub); font-size:.7rem; margin-top:22px;
 ==============================================
 ▼ デイトレ複合時間軸 最新指示（毎時更新）
 ==============================================
-■ ドル円 デイトレ指示書 2026-09-21 16:04【試験運転】
-  確定バー: 2026-09-21 15:00（2時間足）  終値: 157.056円  ATR(14): 0.396円
+■ ドル円 デイトレ指示書 2026-09-21 17:00【試験運転】
+  確定バー: 2026-09-21 17:00（2時間足）  終値: 157.265円  ATR(14): 0.389円
 ----------------------------------------------
 ▼ デイトレ複合時間軸（2Hドンチャン12/6・ATR×3.0・4Hフィルタ30・確認MACD順行・リスク0.4%）
-【変更】決済逆指値を 155.573 → 155.868円へ変更（トレイリング。利確指値はそのまま）
+【変更】決済逆指値を 155.868 → 156.099円へ変更（トレイリング。利確指値はそのまま）
 
 ◆ 現在の建玉損益（終値評価・概算）
-  値動き +778円　スワップ +0円（0日分・1日+27円）　合計 +778円
+  値動き +1,196円　スワップ +0円（0日分・1日+27円）　合計 +1,196円
   ※スワップ 買+133円／売-165円（1万通貨・1日）　出典: JFX公表 2026-08-12(水)ロールオーバー 買37.2/売-46.2(1Lot=1,000通貨・付与3日分)を1万通貨・1日換算／現在の金利差3.21%（米2年3.96%−日本0.75%）とドル円156.99円で自動補正 ×1.07
+
+◆ ファンダ警戒（発注前に一読・売買判定そのものは従来どおり）
+  警戒度: 高（重要度5の材料 円高5件／円安0件／両方向0件・ニュース更新 2026-08-14T23:20）
+  ※ニュースが906時間更新されていない（ファンダ研究タスクの停止を疑う）
+  ・[円高] 米7月小売売上高が前月比-0.6%と予想外のマイナス（予想+0.1%）。FRB早期利上げ観測が一段と後退しドル売り加速
+  ・[円高] 159.00円のストップロスを巻き込み158.595円まで急落。8月の「押し戻し」パターンが初めて崩れた
+  ⚠ 買玉（デイトレ複合時間軸・デイトレ15分）に逆風となりうる重要度5材料 5件（円高方向）→ 逆指値の設定を再確認
+  レジーム: ドル全面主導（ドル指数と順相関 +0.60）
+  翌日予測: 下落（円高）（上昇確率49%） 想定レンジ 158.92〜159.65円（検証52.1%対『常に上昇』55.3%＝エッジなし・表示のみ）
+  焦点: 最大の観察点は、159.00円を明確に下抜けた今回の円買いが週明けも続くのか、それともストップ一巡後の戻りに飲まれるのか。直近の下値メドは日中安値158.…
 
 ◆ 指標イベント（★5級のみ・90分前から新規停止）
   今後24時間: なし
@@ -268,15 +318,15 @@ footer { color:var(--sub); font-size:.7rem; margin-top:22px;
   対象        : 買ポジション
   数量        : 2,000 通貨
   注文方法    : 逆指値（決済）
-  変更前      : 155.573 円
-  変更後      : 155.868 円   ← この値を入力
+  変更前      : 155.868 円
+  変更後      : 156.099 円   ← この値を入力
   有効期限    : 無期限
   手順        : 注文一覧から対象の決済逆指値を選び、レートのみ変更
   ──── 幅（pips）────
   利確幅      : 約278 pips／+5,570円（建値156.667 → 利確159.452）
-  損切り幅    : 約80 pips／-1,598円（建値156.667 → 逆指値155.868／到達なら -80 pips の損失）
-  現値から    : 157.056円 → 逆指値まで 119 pips／利確まで 240 pips
-  RR          : 3.49（利確幅 ÷ 損切り幅）
+  損切り幅    : 約57 pips／-1,136円（建値156.667 → 逆指値156.099／到達なら -57 pips の損失）
+  現値から    : 157.265円 → 逆指値まで 117 pips／利確まで 219 pips
+  RR          : 4.90（利確幅 ÷ 損切り幅）
 
 ※値はエンジンの確定値。転記後、送信は必ずご本人が行うこと。
 ==============================================
@@ -333,24 +383,13 @@ footer { color:var(--sub); font-size:.7rem; margin-top:22px;
   <h3>直近の記録</h3>
   <div class="tablewrap"><table>
     <tr><th>日付</th><th>系</th><th>アクション</th><th>ストップ</th></tr>
-    <tr><td>09-21 16:04</td><td>デイ</td><td>ストップ変更</td><td>155.868</td></tr><tr><td>09-21 16:04</td><td>15分</td><td>ストップ変更</td><td>156.265</td></tr><tr><td>09-21 10:34</td><td>15分</td><td>ストップ変更</td><td>155.917</td></tr><tr><td>2026-09-21</td><td>長期</td><td>継続</td><td>158.513</td></tr><tr><td>2026-09-21</td><td>短期</td><td>継続</td><td>158.152</td></tr><tr><td>09-21 06:45</td><td>デイ</td><td>ストップ変更</td><td>155.573</td></tr><tr><td>2026-09-19</td><td>長期</td><td>継続</td><td>158.513</td></tr><tr><td>2026-09-19</td><td>短期</td><td>継続</td><td>158.152</td></tr><tr><td>09-19 04:04</td><td>デイ</td><td>新規買(ロング)</td><td>155.275</td></tr><tr><td>09-19 04:04</td><td>15分</td><td>新規買(ロング)</td><td>155.593</td></tr>
+    <tr><td>09-21 17:00</td><td>デイ</td><td>ストップ変更</td><td>156.099</td></tr><tr><td>09-21 16:04</td><td>デイ</td><td>ストップ変更</td><td>155.868</td></tr><tr><td>09-21 16:04</td><td>15分</td><td>ストップ変更</td><td>156.265</td></tr><tr><td>09-21 10:34</td><td>15分</td><td>ストップ変更</td><td>155.917</td></tr><tr><td>2026-09-21</td><td>長期</td><td>継続</td><td>158.513</td></tr><tr><td>2026-09-21</td><td>短期</td><td>継続</td><td>158.152</td></tr><tr><td>09-21 06:45</td><td>デイ</td><td>ストップ変更</td><td>155.573</td></tr><tr><td>2026-09-19</td><td>長期</td><td>継続</td><td>158.513</td></tr><tr><td>2026-09-19</td><td>短期</td><td>継続</td><td>158.152</td></tr><tr><td>09-19 04:04</td><td>デイ</td><td>新規買(ロング)</td><td>155.275</td></tr>
   </table></div>
-</section>
-
-<section class="card span2">
-  <div class="card-head"><h3>ファンダ・予測研究（毎日更新・発注には未使用）</h3>
-    <span class="params">更新 2026-08-16T20:11</span></div>
-  <div class="action flat" style="font-size:1.1rem">ドル全面主導（ドル指数と順相関 +0.60）</div>
-  <div class="chips"><span class="chip">ドル指数 +0.60</span><span class="chip">VIX +0.33</span><span class="chip">S&amp;P500 -0.25</span><span class="chip">米2年金利 +0.23</span><span class="chip">金 -0.22</span></div>
-  <div class="posline" style="margin-top:10px"><span class="pos sell">下落（円高） 確率49%</span><span class="stop">想定レンジ 158.92〜159.65円（基準 2026-08-14 159.285円）</span></div>
-  <p class="note">学習外検証 1606日・的中率 52.1%（常に上昇と答えた場合 55.3%）／ボラ予測 順位相関 +0.14／実運用の前向き採点 4件・的中率 25.0%</p>
-  <p class="note">※方向予測は現時点で「常に上昇」に勝てておらず、
-    発注判断には一切使っていない（研究・記録のみ）。</p>
-  <p class="note">ニュース総括（更新 2026-08-14T23:20）：8/14 21時台（差分更新・23時台に実施）。★本日最大の材料が確定した。21:30発表の米7月小売売上高は前月比-0.6%と、市場予想+0.1%に反して予想外のマイナス。ガソリン高（中東情勢由来）による消費の冷え込みが背景とされ、CPI・PPIに続く3本目の米景気/インフレ減速シグナルとなった。これを受けFRBの早期利上げ観測が一段と後退し、ドル売り・円買いが加速。ドル円は159.00円割れのストップロスを巻き込んで158.89円まで急落し、自前1時間足では12:00UTC（JST21時台）に日中安値158.595円を記録した。JST23時15分時点は158.94円前後（15分足13:45UTC終値158.941円）で、東京早朝の高値159.53円からは約59銭の下落。★前回18時台に立てた「8月で初めて円買い材料の押し戻しが効いていない」という観察は、小売の下振れによってさらに裏づけられた。8月はCPI・日銀早期利上げ報道・PPIと円買い材料が3度出ながらいずれも当日中に押し戻されてきたが、今回は押し戻されないまま159.00円の心理的節目を明確に下抜けた。日銀の9月利上げ・ペース加速観測（本日東京時間の報道）と米側の利上げ観測後退が同じ方向（円高）に重なったのが今回の特徴で、日米金融政策の方向が逆向きに開き始めたという中期テーマが実際の値動きに現れた形。★変化なしの確認事項：(a)レジーム判定は「ドル全面主導」（DXYと+0.60）で朝一から不変、(c)翌日予測は55.5%＝上昇（円安）で6時台から方向反転なし（同一基準日のため forecast_log.csv への二重記録はスキップ＝正常）、(d)events.py の72時間内★5イベントは該当なし（取得成功・空リスト＝ニュースとカレンダーに食い違いなし）。★未取得：23:00発表の米8月ミシガン大消費者態度指数・期待インフレ（速報）は、JST23時15分時点で検索に結果が反映されておらず数値を取得できなかった。次回6時台に遡及確認する。検証的中率52.1%は「常に上昇」55.3%を下回りエッジなしのため、予測は発注には一切使わない。</p><div class="tablewrap"><table><tr><th>含意</th><th>材料</th></tr><tr><td>円高</td><td>【新規・重要度5】米7月小売売上高が前月比-0.6%と予想外のマイナス（予想+0.1%）。FRB早期利上げ観測が一段と後退しドル売り加速</td></tr><tr><td>円高</td><td>【新規・重要度5】159.00円のストップロスを巻き込み158.595円まで急落。8月の「押し戻し」パターンが初めて崩れた</td></tr><tr><td>中立</td><td>【新規・未取得】23:00の米8月ミシガン大（速報）は結果が検索に未反映。次回6時台に遡及確認</td></tr><tr><td>円高</td><td>【既出・状況変化なし】通信社が『日銀は早ければ9月利上げを提案、ペース加速も視野』と報道。東京午後の下落の引き金</td></tr><tr><td>円高</td><td>【既出・発展】欧州時間に159.056円まで下落 → NY時間に159.00円割れへ発展</td></tr></table></div>
 </section>
 <section class="card">
   <h3>研究・進化</h3>
   <p class="note">日次研究: 最終研究 2026-09-18・進化 累計2回・直近 短期スイング 現状維持</p>
+  <p class="note">ファンダ・フィルタ検証（マクロで新規を絞ると成績は上がるか・発注には未使用）: 未実行（次回の日次研究から）</p>
   <p class="note">週次ペア研究: 2026-08-15: ドル円優位継続(長期score2.13、次点フラン/円 1.36)</p>
 </section>
 </div>
