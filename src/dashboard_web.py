@@ -847,17 +847,25 @@ def build():
                 f'<div class="tablewrap"><table>'
                 f'<tr><th>含意</th><th>材料</th></tr>{items}</table></div>'
                 if items else '<p class="note">ニュース未収集</p>')
+            import fundamental_filter
+            stance = fundamental_filter.stance(cfg)
+            b_cls = "sell" if stance["買い倍率"] < 1 else "flat"
+            s_cls = "sell" if stance["売り倍率"] < 1 else "flat"
             fund_html = f"""
 <section class="card span2">
-  <div class="card-head"><h3>ファンダ・予測研究（毎日更新・発注には未使用）</h3>
+  <div class="card-head"><h3>ファンダ・予測研究（運用反映中：新規建ての数量調整）</h3>
     <span class="params">更新 {html.escape(str(fu.get("更新", "")))}</span></div>
   <div class="action flat" style="font-size:1.1rem">\
 {html.escape(str(fu.get("レジーム", "")))}</div>
   <div class="chips">{corr_chips}</div>
+  <div class="posline" style="margin-top:10px">
+    <span class="pos {b_cls}">{html.escape(stance["買い新規"])}</span>
+    <span class="pos {s_cls}">{html.escape(stance["売り新規"])}</span></div>
+  <div class="note">※ファンダは新規建ての数量を減らす方向にだけ働く（★5材料が
+    逆風なら×0.5。新規のブロック・増量・保有玉の決済/逆指値には使わない）。
+    予測モデル: {html.escape(stance["予測"])}。</div>
   <div class="posline" style="margin-top:10px">{fc_html}</div>
   <p class="note">{html.escape(wf_txt)}／{html.escape(fwd_txt)}</p>
-  <p class="note">※方向予測は現時点で「常に上昇」に勝てておらず、
-    発注判断には一切使っていない（研究・記録のみ）。</p>
   {news_html}
 </section>"""
 
