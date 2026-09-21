@@ -11,6 +11,8 @@
   ・シグナル: 執行足ドンチャン+4Hドンチャン中心線フィルタ（config「デイトレ」）
   ・指標イベント: ★5級が「今後N分以内」にあれば新規建てを見送り
     （既存玉の決済・トレイルは通常どおり）。発表通過後は次の確定バーで即判定
+  ・ファンダ反映: 新規建ての数量を fundamental_filter で調整（★5材料や予測が
+    逆風なら×0.5。ブロックも増量もしない。保有玉には不介入）
   ・トレイリング: 通知閾値=ATR×係数（小刻みな変更で通知が鳴り続けるのを防ぐ。
     モデルのストップは通知した値のみ更新し、実口座と常に一致させる）
   ・状態は state_intraday.json（実際に指示した建玉のみが正。試験運転フラグが
@@ -39,6 +41,7 @@ from tech_filters import entry_mask, describe_filter  # noqa: E402
 from events import upcoming_events  # noqa: E402
 import order_card  # noqa: E402
 import swap  # noqa: E402
+import fundamental_filter  # noqa: E402
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CONFIG_PATH = os.path.join(BASE_DIR, "config.json")
@@ -323,6 +326,8 @@ def main():
                 risk_units = equity * float(scfg["リスク率"]) / stop_dist
                 lev_units = equity * float(scfg["レバ上限"]) / close
                 units = int(min(risk_units, lev_units) // lot * lot)
+                fa = fundamental_filter.assess(signal, cfg)
+                units = fundamental_filter.apply_units(units, lot, fa["倍率"])
                 stop_px = close - signal * stop_dist
                 tp_px = close + signal * tp_k * a if tp_k else None
                 lines += [
@@ -337,6 +342,9 @@ def main():
                     f"（資金の{units * stop_dist / equity:.1%}）"
                     + (f"  目標利益: 約{units * tp_k * a:,.0f}円" if tp_px else ""),
                 ]
+                if fa["倍率"] < 1.0:
+                    lines.append(f"  ファンダ調整: 数量×{fa['倍率']:g}"
+                                 f"（{'・'.join(fa['理由'])}）")
                 op = {"種別": "新規建て", "通貨ペア": "USD/JPY",
                       "売買": "買" if signal > 0 else "売",
                       "数量": units, "注文方法": "成行",
@@ -344,6 +352,9 @@ def main():
                       "有効期限": "無期限（OCO）",
                       "手順": "成行で建てた直後に決済OCO"
                               "（逆指値+利確指値）を必ずセット"}
+                if fa["倍率"] < 1.0:
+                    op["ファンダ調整"] = (f"×{fa['倍率']:g}"
+                                    f"（{'・'.join(fa['理由'])}）")
                 if tp_px:
                     op["決済指値(利確)"] = round(tp_px, 3)
                 ops.append(op)
@@ -410,6 +421,8 @@ def main():
                   f"（{swap_now[1]}日分・1日{swap.daily_yen(cur_pos, u_now, sw_cfg):+,.0f}円）"
                   f"　合計 {px_pnl + swap_now[0]:+,.0f}円",
                   f"  ※{swap.note(sw_cfg)}"]
+
+    lines += fundamental_filter.status_lines(cfg)
 
     # 指標イベント欄
     lines.append("")
@@ -500,6 +513,7 @@ def main():
             "試験運転": trial,
             "イベント直前ブロック": bool(gate_new),
             "カレンダー取得失敗": bool(calendar_fail),
+            "ファンダ反映": fundamental_filter.stance(cfg),
             "スワップ円": round(swap_now[0]),
             "スワップ日数": swap_now[1],
             "スワップ推定値": swap.is_estimate(swap.load(cfg)),

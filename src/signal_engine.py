@@ -14,6 +14,10 @@ MATRIX TRADER上で手動(成行+決済逆指値)で行う設計とする。
   該当日はどのシステムも新規建てを見送る(既存玉の決済・トレイルは通常どおり)。
   取得失敗時はフィルタせず「手動確認推奨」を指示書に明記する。
 
+ファンダ反映(config「ファンダ反映」・fundamental_filter.py):
+  新規建ての数量を、★5材料や予測が逆風なら×0.5にする(ブロックも増量もしない。
+  既存玉の決済・逆指値には不介入)。
+
 毎営業日の朝に3段階で実行する(スケジュールタスクが自動実行):
   6時台: --stage 1 【速報①】 参考配信。モデル状態は更新しない
   7時台: --stage 2 【速報②】 参考配信。モデル状態は更新しない
@@ -40,6 +44,7 @@ from strategies import donchian  # noqa: E402
 from events import upcoming_events  # noqa: E402
 import order_card  # noqa: E402
 import swap  # noqa: E402
+import fundamental_filter  # noqa: E402
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CONFIG_PATH = os.path.join(BASE_DIR, "config.json")
@@ -207,6 +212,8 @@ def process_system(name, scfg, df, st, cfg, final, gate_new):
                 risk_units = equity * float(scfg["リスク率"]) / stop_dist
                 lev_units = equity * float(scfg["レバ上限"]) / close
                 units = int(min(risk_units, lev_units) // lot * lot)
+                fa = fundamental_filter.assess(signal, cfg)
+                units = fundamental_filter.apply_units(units, lot, fa["倍率"])
                 stop_px = close - signal * stop_dist
                 lines += [
                     f"【新規】USD/JPY {side}  {units:,}通貨（{units // lot}Lot）",
@@ -216,12 +223,19 @@ def process_system(name, scfg, df, st, cfg, final, gate_new):
                     f"  想定リスク: 約{units * stop_dist:,.0f}円"
                     f"（資金の{units * stop_dist / equity:.1%}）",
                 ]
-                ops.append({"種別": "新規建て", "通貨ペア": "USD/JPY",
-                            "売買": "買" if signal > 0 else "売",
-                            "数量": units, "注文方法": "成行",
-                            "決済逆指値": round(stop_px, 3),
-                            "有効期限": "無期限（逆指値）",
-                            "手順": "成行で建てた直後に決済逆指値を必ずセット"})
+                if fa["倍率"] < 1.0:
+                    lines.append(f"  ファンダ調整: 数量×{fa['倍率']:g}"
+                                 f"（{'・'.join(fa['理由'])}）")
+                op = {"種別": "新規建て", "通貨ペア": "USD/JPY",
+                      "売買": "買" if signal > 0 else "売",
+                      "数量": units, "注文方法": "成行",
+                      "決済逆指値": round(stop_px, 3),
+                      "有効期限": "無期限（逆指値）",
+                      "手順": "成行で建てた直後に決済逆指値を必ずセット"}
+                if fa["倍率"] < 1.0:
+                    op["ファンダ調整"] = (f"×{fa['倍率']:g}"
+                                    f"（{'・'.join(fa['理由'])}）")
+                ops.append(op)
                 action = f"新規{side}"
                 st = {"position": signal, "entry": close,
                       "stop": round(stop_px, 3), "units": units,
@@ -354,6 +368,8 @@ def main():
                      f"（値動き {t_px:+,.0f}円／スワップ {t_sw:+,.0f}円）")
         lines.append(f"  ※{swap.note(sw_cfg)}")
         lines.append("")
+
+    lines += fundamental_filter.status_lines(cfg)[1:] + [""]
 
     # 指標イベント欄
     lines.append("◆ 指標イベント（今後24時間・変動率★5級のみ警戒）")

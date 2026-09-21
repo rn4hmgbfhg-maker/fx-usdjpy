@@ -20,9 +20,12 @@ def ma_cross(df: pd.DataFrame, fast: int = 20, slow: int = 60) -> pd.Series:
     return sig
 
 
-def donchian(df: pd.DataFrame, n: int = 20, exit_n: int = 10) -> pd.Series:
+def donchian(df: pd.DataFrame, n: int = 20, exit_n: int = 10,
+             confirm=None) -> pd.Series:
     """ドンチャンブレイクアウト: n日高値更新でロング、n日安値更新でショート。
-    exit_n日逆側チャネルタッチで手仕舞い。"""
+    exit_n日逆側チャネルタッチで手仕舞い。
+    confirm=(allow_long, allow_short) のbool配列を渡すと、新規建て・ドテンの
+    向きがFalseのバーでは建てずに待機する（保有玉の手仕舞いには関与しない）。"""
     hi = df["High"].rolling(n).max().shift(1)
     lo = df["Low"].rolling(n).min().shift(1)
     exit_hi = df["High"].rolling(exit_n).max().shift(1)
@@ -30,22 +33,29 @@ def donchian(df: pd.DataFrame, n: int = 20, exit_n: int = 10) -> pd.Series:
     sig = np.zeros(len(df))
     pos = 0
     close = df["Close"].values
+    cf_l, cf_s = confirm if confirm is not None else (None, None)
+
+    def allowed(d, i):
+        if confirm is None:
+            return True
+        return bool(cf_l[i]) if d > 0 else bool(cf_s[i])
+
     for i in range(len(df)):
         if np.isnan(hi.iloc[i]) or np.isnan(lo.iloc[i]):
             sig[i] = 0
             continue
         if pos == 0:
-            if close[i] > hi.iloc[i]:
+            if close[i] > hi.iloc[i] and allowed(1, i):
                 pos = 1
-            elif close[i] < lo.iloc[i]:
+            elif close[i] < lo.iloc[i] and allowed(-1, i):
                 pos = -1
         elif pos == 1 and close[i] < exit_lo.iloc[i]:
             pos = 0
-            if close[i] < lo.iloc[i]:
+            if close[i] < lo.iloc[i] and allowed(-1, i):
                 pos = -1
         elif pos == -1 and close[i] > exit_hi.iloc[i]:
             pos = 0
-            if close[i] > hi.iloc[i]:
+            if close[i] > hi.iloc[i] and allowed(1, i):
                 pos = 1
         sig[i] = pos
     return pd.Series(sig.astype(int), index=df.index)

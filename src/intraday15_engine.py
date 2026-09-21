@@ -6,9 +6,9 @@
 
   ・指標イベントゲート: ★5級が近い時間にあれば新規建てを見送り（既存2H系と同じ
     events.py。15分足は反応が速いのでブロック窓は45分に短縮）
-  ・ファンダ参考情報: results/fundamental_latest.json のレジーム・翌日予測・
-    次の焦点を指示書に併記（予測モデルは検証でエッジなしのため発注判定には
-    使わない=表示のみ。ニュース総括の含意も1行添える）
+  ・ファンダ反映: fundamental_filter で新規建ての数量を調整（★5材料や予測が
+    逆風なら×0.5。ブロックも増量もしない。保有玉には不介入）。レジーム・
+    翌日予測・稼働状態を指示書に併記する
   ・テクニカル合議: TradingView型のMA+オシレーター多数決を15分足・1時間足で
     算出して指示書に併記（世界で最も参照されている合議形式。強い逆行時は
     指示書に注意書きを出す。ゲートはしない=バックテスト済みの戦略が正）
@@ -43,6 +43,7 @@ import strategies_15m as s15  # noqa: E402
 from events import upcoming_events  # noqa: E402
 import order_card  # noqa: E402
 import swap  # noqa: E402
+import fundamental_filter  # noqa: E402
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CONFIG_PATH = os.path.join(BASE_DIR, "config.json")
@@ -52,7 +53,6 @@ ORDERS_DIR = os.path.join(BASE_DIR, "results", "orders", "intraday15")
 LATEST_TXT = os.path.join(BASE_DIR, "results", "intraday15_latest.txt")
 LOG_CSV = os.path.join(BASE_DIR, "results", "intraday15_log.csv")
 TRADES_CSV = os.path.join(BASE_DIR, "results", "trades_intraday15.csv")
-FUND_JSON = os.path.join(BASE_DIR, "results", "fundamental_latest.json")
 COST_PER_SIDE = 0.004
 SYSTEM_NAME = "デイトレ15分"
 EVENT_BLOCK_MIN = 45        # ★5イベントのこの分数前から新規建てブロック
@@ -134,28 +134,6 @@ def blocking_events(minutes=EVENT_BLOCK_MIN):
             if (e[0] - datetime.now(e[0].tzinfo)).total_seconds()
             <= minutes * 60]
     return soon, ev
-
-
-def fundamental_lines():
-    """ファンダ研究の要点（表示のみ・発注判定には使わない）。"""
-    f = load_json(FUND_JSON, None)
-    if not f:
-        return []
-    lines = ["", "◆ ファンダメンタルズ（参考・発注判定には未使用）"]
-    if f.get("レジーム"):
-        lines.append(f"  レジーム: {f['レジーム']}")
-    yf = f.get("翌日予測") or {}
-    if yf:
-        prob = yf.get("上昇確率")
-        rng = yf.get("想定レンジ") or ["—", "—"]
-        lines.append(f"  翌日予測: {yf.get('方向', '—')}"
-                     + (f"（上昇確率{prob:.0%}）" if prob is not None else "")
-                     + f" 想定レンジ {rng[0]}〜{rng[1]}円"
-                     "（検証52%＝エッジなし・表示のみ）")
-    news = f.get("ニュース") or {}
-    if news.get("次の焦点"):
-        lines.append(f"  次の焦点: {news['次の焦点'][:80]}")
-    return lines
 
 
 def main():
@@ -343,6 +321,8 @@ def main():
                 risk_units = equity * float(scfg["リスク率"]) / stop_dist
                 lev_units = equity * float(scfg["レバ上限"]) / close
                 units = int(min(risk_units, lev_units) // lot * lot)
+                fa = fundamental_filter.assess(signal, cfg)
+                units = fundamental_filter.apply_units(units, lot, fa["倍率"])
                 stop_px = close - signal * stop_dist
                 tp_px = close + signal * tp_k * a if tp_k else None
                 lines += [
@@ -357,6 +337,9 @@ def main():
                     f"（資金の{units * stop_dist / equity:.1%}）"
                     + (f"  目標利益: 約{units * tp_k * a:,.0f}円" if tp_px else ""),
                 ]
+                if fa["倍率"] < 1.0:
+                    lines.append(f"  ファンダ調整: 数量×{fa['倍率']:g}"
+                                 f"（{'・'.join(fa['理由'])}）")
                 # テクニカル合議が強く逆行している時は注意書き（ゲートはしない）
                 opp = -1 if signal > 0 else 1
                 if (rate1h["スコア"] * opp >= 0.5):
@@ -369,6 +352,9 @@ def main():
                       "有効期限": "無期限（OCO）",
                       "手順": "成行で建てた直後に決済OCO"
                               "（逆指値+利確指値）を必ずセット"}
+                if fa["倍率"] < 1.0:
+                    op["ファンダ調整"] = (f"×{fa['倍率']:g}"
+                                    f"（{'・'.join(fa['理由'])}）")
                 if tp_px:
                     op["決済指値(利確)"] = round(tp_px, 3)
                 ops.append(op)
@@ -427,8 +413,7 @@ def main():
               f" MA{rate15['MA']:+.2f}/OSC{rate15['オシレーター']:+.2f}）"
               f"　1時間足: {rate1h['判定']}（{rate1h['スコア']:+.2f}）"]
 
-    # ファンダ参考情報
-    lines += fundamental_lines()
+    lines += fundamental_filter.status_lines(cfg)
 
     # 保有中の建玉損益
     cur_pos = int(st.get("position", 0) or 0)
@@ -529,6 +514,7 @@ def main():
             "試験運転": trial,
             "イベント直前ブロック": bool(gate_new),
             "カレンダー取得失敗": bool(calendar_fail),
+            "ファンダ反映": fundamental_filter.stance(cfg),
             "テクニカル合議15分": rate15,
             "テクニカル合議1時間": rate1h,
             "戦略": scfg.get("戦略", ""),
