@@ -85,7 +85,8 @@ def build():
         if os.path.exists(R("state.json")) else {}
     if "position" in state:      # 旧形式
         state = {"長期トレンド": state}
-    gd = cfg.get("Driveフォルダ")
+    import local_settings
+    gd = local_settings.get("drive_dir") or cfg.get("Driveフォルダ")
     if not gd or not os.path.isdir(gd):
         print("Driveフォルダが見つからないためダッシュボード出力をスキップ")
         return None

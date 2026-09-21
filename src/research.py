@@ -8,6 +8,8 @@
 採用時は config.json の該当システムを書き換え(翌朝から適用)、
 research_log.csv に記録し、ダッシュボードを再生成する。
 
+末尾で research_fund_filter.py（ファンダ・フィルタ検証・発注には未使用）も実行する。
+
 使い方:  python3 src/research.py            # 全システム探索+判定+必要なら採用
          python3 src/research.py --no-adopt # 探索のみ(採用しない)
 """
@@ -165,6 +167,22 @@ def main():
         except Exception as e:
             print("ダッシュボード更新失敗:", e)
     print(f"\n進化したシステム: {', '.join(adopted) if adopted else 'なし'}")
+
+    # ファンダ・フィルタ検証（マクロで新規エントリーを絞ると成績が上がるか）。
+    # 発注には使わず、結果は research_fund_filter.csv／ボードの研究欄に残す。
+    # 失敗してもテクニカル研究の結果には影響させない。
+    try:
+        import subprocess
+        r = subprocess.run(
+            [sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                          "research_fund_filter.py")],
+            capture_output=True, text=True, timeout=600)
+        print("\n" + "\n".join(ln for ln in r.stdout.splitlines()
+                                 if "Warning" not in ln and "warnings.warn" not in ln))
+        if r.returncode != 0:
+            print("ファンダ・フィルタ検証失敗:", r.stderr.strip()[-200:])
+    except Exception as e:                                       # noqa: BLE001
+        print("ファンダ・フィルタ検証失敗:", e)
 
 
 if __name__ == "__main__":

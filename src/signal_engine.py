@@ -210,18 +210,18 @@ def process_system(name, scfg, df, st, cfg, final, gate_new):
                 stop_px = close - signal * stop_dist
                 lines += [
                     f"【新規】USD/JPY {side}  {units:,}通貨（{units // lot}Lot）",
-                    f"  発注: 成行 → 建玉に決済逆指値 {stop_px:.3f}円 を必ずセット",
+                    f"  発注: IF-DONE（新規=成行／決済=逆指値 {stop_px:.3f}円）を1回の送信で同時発注",
                     f"  ストップ幅: {stop_dist:.3f}円 ≒{stop_dist * 100:.0f}pips"
-                    f"（決済pip差設定に使う場合はこの値）",
+                    f"（参考値。入力は上の逆指値レートで行う）",
                     f"  想定リスク: 約{units * stop_dist:,.0f}円"
                     f"（資金の{units * stop_dist / equity:.1%}）",
                 ]
                 ops.append({"種別": "新規建て", "通貨ペア": "USD/JPY",
                             "売買": "買" if signal > 0 else "売",
-                            "数量": units, "注文方法": "成行",
+                            "数量": units, "注文方法": "IF-DONE（新規=成行／決済=逆指値）",
                             "決済逆指値": round(stop_px, 3),
                             "有効期限": "無期限（逆指値）",
-                            "手順": "成行で建てた直後に決済逆指値を必ずセット"})
+                            "手順": "新規注文→IF-DONEタブ。IF=成行、DONE=逆指値にレート入力→確認画面で照合→送信は1回"})
                 action = f"新規{side}"
                 st = {"position": signal, "entry": close,
                       "stop": round(stop_px, 3), "units": units,
@@ -330,11 +330,42 @@ def main():
                      "（本欄は朝時点の現況）。")
         lines.append("")
 
+    # デイトレ15分の現況（第4システム。判定・発注カードは15分ごとの
+    # intraday15_engine.py が担当。朝の指示書に載せていなかったため
+    # 建玉損益の合計が実際より小さく出ていた（2026-08-20に4系統へ是正）
+    d15cfg = cfg.get("デイトレ15分")
+    d15st, d15close = {}, close
+    if d15cfg and d15cfg.get("有効", True):
+        d15path = os.path.join(BASE_DIR, "state_intraday15.json")
+        if os.path.exists(d15path):
+            _d15raw = load_json(d15path, {})
+            d15st = _d15raw.get("state", {})
+            d15close = float(_d15raw.get("last_close") or close)
+        d15pos = int(d15st.get("position", 0))
+        tag15 = "【試験運転】" if d15cfg.get("試験運転") else ""
+        lines.append(f"▼ デイトレ15分（{d15cfg.get('戦略', '')}"
+                     f"・ATR×{d15cfg['ATRストップ係数']}"
+                     f"・利確ATR×{d15cfg.get('利確ATR係数', 0)}"
+                     f"・15分ごと判定）{tag15}")
+        if d15pos != 0:
+            tp15 = (f"／目標利確 {float(d15st['tp']):.3f}円"
+                    if d15st.get("tp") else "")
+            lines.append(f"【現況】{'買' if d15pos > 0 else '売'} "
+                         f"{int(d15st.get('units', 0)):,}通貨 保有"
+                         f"（建値{float(d15st.get('entry') or 0):.3f}円） "
+                         f"逆指値 {float(d15st.get('stop') or 0):.3f}円{tp15} を維持")
+        else:
+            lines.append("【現況】ノーポジで待機。シグナル発生時に即時通知。")
+        lines.append("  ※発注カード・変更指示は15分ごとの通知が正"
+                     "（本欄は朝時点の現況）。")
+        lines.append("")
+
     # 現在の建玉損益（値動き＋スワップ。2026-08-13ユーザー指示で追加。
-    # 建玉を持ち越すほどスワップの累積が効くため、3系統まとめて可視化する）
+    # 建玉を持ち越すほどスワップの累積が効くため、4系統まとめて可視化する）
     sw_cfg = swap.load(cfg)
     holds = [(n, state.get(n, {}), close) for n in systems]
     holds.append(("デイトレ複合時間軸", dst, dclose))
+    holds.append(("デイトレ15分", d15st, d15close))
     holds = [h for h in holds if int(h[1].get("position", 0) or 0)
              and h[1].get("entry")]
     if holds:
@@ -354,6 +385,17 @@ def main():
                      f"（値動き {t_px:+,.0f}円／スワップ {t_sw:+,.0f}円）")
         lines.append(f"  ※{swap.note(sw_cfg)}")
         lines.append("")
+
+    # ファンダ警戒欄（全指示書共通＝fund_brief 一本。発注判定には不使用）
+    try:
+        import fund_brief                                    # noqa: PLC0415
+        fb = fund_brief.lines(fund_brief.all_positions(
+            {n: int((state.get(n) or {}).get("position", 0) or 0)
+             for n in systems}))
+        if fb:
+            lines += fb[1:] + [""]
+    except Exception:                                        # noqa: BLE001
+        pass
 
     # 指標イベント欄
     lines.append("◆ 指標イベント（今後24時間・変動率★5級のみ警戒）")

@@ -37,6 +37,76 @@ ACT_STYLE = {  # アクション → (表示, クラス)
 }
 
 
+def _load_fund():
+    """ファンダ研究JSONとニュースを読む。戻り値 (fu, news)。無ければ (None, {})。
+
+    ニュースは fundamental_news.json を直接参照する。定量研究→ニュース更新の
+    順で走った回は latest 埋め込み分が1世代古くなるため、更新時刻が新しい方を
+    採用する（レジーム・予測は latest のまま）。
+    """
+    fpath = R("results", "fundamental_latest.json")
+    if not os.path.exists(fpath):
+        return None, {}
+    try:
+        fu = json.load(open(fpath, encoding="utf-8"))
+    except Exception:                                            # noqa: BLE001
+        return None, {}
+    news = (fu or {}).get("ニュース") or {}
+    npath = R("results", "fundamental_news.json")
+    if os.path.exists(npath):
+        try:
+            n_direct = json.load(open(npath, encoding="utf-8"))
+        except Exception:                                        # noqa: BLE001
+            n_direct = None
+        if n_direct and (str(n_direct.get("更新") or "") >
+                         str(news.get("更新") or "")):
+            news = n_direct
+    return fu, news
+
+
+def _fund_balance(news):
+    """ニュース材料を重要度で重み付けし、円安／円高どちらが優勢かを数える。
+
+    2026-09-21 ユーザー指示「ボードに研究中のファンダも取り入れる」で新設。
+    ボード上の材料バランス棒と各建玉カードの追い風／向かい風チップは、必ず
+    この関数1本から出す（出力先ごとに数えると片方だけ直し残る）。
+    発注判定には使わない＝表示専用。
+    """
+    up = down = both = 0
+    for t in (news or {}).get("テーマ") or []:
+        try:
+            w = int(t.get("重要度") or 3)
+        except (TypeError, ValueError):
+            w = 3
+        imp = str(t.get("含意") or "")
+        if "両" in imp:
+            both += w
+        elif "円安" in imp:
+            up += w
+        elif "円高" in imp:
+            down += w
+    total = up + down + both
+    if not total:
+        return None
+    net = (up - down) / total
+    label = ("円安材料が優勢" if net >= 0.2 else
+             "円高材料が優勢" if net <= -0.2 else "材料は拮抗")
+    return {"円安": up, "円高": down, "両方向": both, "net": net, "判定": label}
+
+
+def _fund_chip(pos, bal):
+    """建玉の向きとファンダ材料バランスの相性チップ（参考表示・発注不使用）"""
+    if not pos or not bal:
+        return ""
+    if abs(bal["net"]) < 0.2:
+        txt = "ファンダ 中立（材料拮抗）"
+    elif (pos > 0) == (bal["net"] > 0):
+        txt = "ファンダ 追い風"
+    else:
+        txt = "ファンダ 向かい風"
+    return f'<span class="chip">{txt}<small>・参考</small></span>'
+
+
 def _parse_order_actions(order_text, names):
     """指示書本文から日足システムごとの【見出し】を読み、カード表示へ写す。
 
@@ -57,17 +127,23 @@ def _parse_order_actions(order_text, names):
         block = order_text[m.end():]
         nxt = re.search(r"^(?:▼|◆|-{5,}|={5,})", block, re.M)
         block = block[:nxt.start()] if nxt else block
-        tag = re.search(r"【(確認|決済|見送り|変更|継続|待機|新規)】", block)
-        if not tag:
+        tags = re.findall(r"【(確認|決済|見送り|変更|継続|待機|新規)】", block)
+        if not tags:
             continue
-        if tag.group(1) == "新規":
+        if "新規" in tags:
             side = re.search(r"【新規】.*?(買|売)", block, re.S)
             if not side:
                 continue
-            out[name] = (f"新規 {side.group(1)}",
-                         "buy" if side.group(1) == "買" else "sell")
+            label = f"新規 {side.group(1)}"
+            if "確認" in tags:
+                # 前日ストップ到達の決済確認と新規建てが同じ朝に重なるケース。
+                # 確認タグだけを拾うと「ストップ決済済」のまま古い状態が
+                # 表示され、下の建玉行（新規ポジション）と矛盾して見えるため
+                # 両方を明示する。
+                label = f"ストップ決済→{label}"
+            out[name] = (label, "buy" if side.group(1) == "買" else "sell")
         else:
-            out[name] = label_map[tag.group(1)]
+            out[name] = label_map[tags[0]]
     return out
 
 
@@ -312,6 +388,10 @@ def build():
 
     # システム別サマリ+検証値
     sys_cards, needs_action = [], False
+    # ファンダ研究は先に1回だけ読む（各カードの追い風／向かい風チップと
+    # 下のファンダカードで同じ材料バランスを使うため）
+    fu, fnews = _load_fund()
+    fbal = _fund_balance(fnews)
     # リスクリワード管理（2026-08-14 ユーザー指示）。各カードで求めた値を
     # ここに集めて下段のRRカードで一覧にする。計算は risk.py に一本化。
     rr_rows = []
@@ -330,9 +410,11 @@ def build():
             act, cls = flash_acts[name]
         if cls in ("buy", "sell", "gold"):
             needs_action = True
-        pos_html = (f'<span class="pos buy">買 {int(st.get("units", 0)):,}通貨</span>'
+        _new_today = pos != 0 and st.get("entry_date") == date.today().isoformat()
+        _new_tag = '<span class="chip" style="margin-left:2px">本日新規</span>' if _new_today else ''
+        pos_html = (f'<span class="pos buy">買 {int(st.get("units", 0)):,}通貨</span>{_new_tag}'
                     if pos > 0 else
-                    f'<span class="pos sell">売 {int(st.get("units", 0)):,}通貨</span>'
+                    f'<span class="pos sell">売 {int(st.get("units", 0)):,}通貨</span>{_new_tag}'
                     if pos < 0 else '<span class="pos flat">ポジションなし</span>')
         stop_html = (f'ストップ <b>{float(st["stop"]):.3f}</b>円'
                      if st.get("stop") else "ストップ設定なし")
@@ -432,6 +514,7 @@ def build():
     <span class="chip">勝率 {m['勝率']:.0%}</span>
     <span class="chip">最大DD {m['最大ドローダウン']:.1%}</span>
     <span class="chip">総リターン {m['総リターン']:+.1%}</span>
+    {_fund_chip(pos, fbal)}
   </div>
 </article>""")
 
@@ -506,7 +589,7 @@ def build():
   <div class="posline">{dpos_html}<span class="stop">{dstop_html}</span>
     <span class="stop">最終判定 {upd}</span>{_bar_html(dstatus)}</div>
   {_stale_note(dstatus, "2時間足")}
-  <div class="chips">{chips}</div>
+  <div class="chips">{chips}{_fund_chip(dpos, fbal)}</div>
 </article>""")
 
     # デイトレ15分カード（第4システム・15分ごとエンジンが状態を更新）
@@ -585,7 +668,7 @@ def build():
   <div class="posline">{pos15_html}<span class="stop">{stop15_html}</span>
     <span class="stop">最終判定 {upd15}</span>{_bar_html(d15status)}</div>
   {_stale_note(d15status, "1時間足")}
-  <div class="chips">{chips15}</div>
+  <div class="chips">{chips15}{_fund_chip(p15, fbal)}</div>
 </article>""")
 
     # リスクリワード管理カード（2026-08-14 ユーザー指示で新設）
@@ -641,7 +724,8 @@ def build():
       <div class="v">{pr["合計リスク率"]:.2%}</div></div>
     <div class="kpi"><div class="l">現在の含み損益<br><small>各系の最終確定バー評価</small></div>
       <div class="v {"up" if pr["合計含み損益円"] >= 0 else "down"}">
-        {pr["合計含み損益円"]:+,.0f}円</div></div>
+        {pr["合計含み損益円"]:+,.0f}円</div>
+      <div class="l"><small>@@UNREAL_UNIFIED@@</small></div></div>
     <div class="kpi"><div class="l">ネット建玉</div>
       <div class="v">{"買" if pr["ネット建玉"] > 0 else "売" if pr["ネット建玉"] < 0 else "±"}
         {abs(pr["ネット建玉"]):,.0f}</div></div>
@@ -719,6 +803,14 @@ def build():
                        f'・内スワップ {unreal_swap:+,.0f}円</small>')
     else:
         unreal_html = '<span class="v">ポジションなし</span>'
+    # 2026-08-19: 同じ画面にRRカード（各系の最終確定バー評価）と運用成績
+    # （全建玉を日足終値で統一評価）の2つの含み損益が並び、基準の違いで数百円
+    # ずれるため「どちらかが誤り」に見えていた。RRカード側に統一評価額を併記して
+    # 別基準の同一計算であることを示す。値は unreal を再利用し二重計算しない。
+    rr_card = rr_card.replace(
+        "@@UNREAL_UNIFIED@@",
+        (f"日足終値{mark:,.3f}円で統一評価すると {unreal:+,.0f}円"
+         f"（下の運用成績と一致）") if open_pos else "")
     # 2026-08-13: KPIの含み損益は全建玉を日足終値で統一評価するのに対し、
     # 指示書本文のデイトレ欄は2時間足終値で評価するため数十円ずれる。
     # 同一画面に違う合計が並んで「どちらかが誤り」に見えるため評価基準を明記する。
@@ -742,6 +834,15 @@ def build():
     # 「資産」と「損益」の対象範囲が食い違っていた。
     equity_now = float(cfg["口座資金_円"]) + realized_all + unreal
     equity_txt = f"{equity_now:,.0f}円"
+    # 2026-08-20 表示研究: モデル資産の「開始資金からいくら増減したか」が
+    # 資産推移グラフの注記まで読まないと分からなかった。KPIの直下に
+    # 増減額と率を出す（開始資金は cfg 一箇所から取り、二重計算しない）。
+    _eq_base = float(cfg["口座資金_円"])
+    _eq_diff = equity_now - _eq_base
+    _eq_cls = "up" if _eq_diff >= 0 else "down"
+    equity_sub = (f'<div class="l"><small>開始 {_eq_base:,.0f}円 → '
+                  f'<span class="{_eq_cls}">{_eq_diff:+,.0f}円'
+                  f'（{_eq_diff / _eq_base:+.2%}）</span></small></div>')
 
     # 資産カーブ(実運用5日未満は検証合成カーブ)
     if len(eq_daily) >= 5:
@@ -780,6 +881,17 @@ def build():
         adopted = len(research[research["判定"] == "採用"])
         res_msg = (f"最終研究 {r['日付']}・進化 累計{adopted}回・直近 "
                    f"{r.get('システム', '')} {r['判定']}")
+    # ファンダ・フィルタ検証（research_fund_filter.py・2026-09-21 ユーザー指示）
+    ff_msg = "未実行（次回の日次研究から）"
+    ff_path = R("results", "fund_filter_latest.json")
+    if os.path.exists(ff_path):
+        try:
+            ff = json.load(open(ff_path, encoding="utf-8"))
+            ff_msg = "（" + str(ff.get("更新", ""))[:10] + "）" + " ／ ".join(
+                f"{k}: {v.get('判定', '')}"
+                for k, v in (ff.get("システム") or {}).items())
+        except Exception:                                        # noqa: BLE001
+            pass
     pair_msg = "初回の土曜9時に実行されます"
     if len(pair_log):
         p = pair_log.iloc[-1]
@@ -787,73 +899,121 @@ def build():
 
     # ファンダ・予測研究（research_fundamental.py が書き出すJSON）
     fund_html = ""
-    fpath = R("results", "fundamental_latest.json")
-    if os.path.exists(fpath):
+    fund_stale_days = None  # 2026-09-09: 停止警告を上部バナーにも出すため保持
+    if fu:      # 冒頭の _load_fund() で読込済み（fu=定量研究／fnews=ニュース）
+        corr_chips = "".join(
+            f'<span class="chip">{html.escape(str(c["指標"]))} '
+            f'{c.get("相関60日", 0):+.2f}</span>'
+            for c in (fu.get("相関") or [])[:5])
+        fc = fu.get("翌日予測") or {}
+        fc_html = "（予測なし）"
+        if fc:
+            lo, hi = fc.get("想定レンジ", [0, 0])
+            cls = "buy" if fc.get("上昇確率", 0.5) >= 0.5 else "sell"
+            fc_html = (
+                f'<span class="pos {cls}">{html.escape(fc.get("方向", ""))}'
+                f' 確率{fc.get("上昇確率", 0)*100:.0f}%</span>'
+                f'<span class="stop">想定レンジ {lo:.2f}〜{hi:.2f}円'
+                f'（基準 {html.escape(str(fc.get("基準日", "")))} '
+                f'{fc.get("基準終値", 0):.3f}円）</span>')
+        wf = fu.get("予測モデル") or {}
+        fwd = fu.get("前向き成績") or {}
+        wf_txt = (f"学習外検証 {wf.get('検証日数', 0)}日・的中率 "
+                  f"{wf.get('的中率', 0):.1%}（常に上昇と答えた場合 "
+                  f"{wf.get('上昇日比率', 0):.1%}）"
+                  if wf else "検証データ不足")
+        vol = fu.get("ボラ予測") or {}
+        if vol:
+            wf_txt += (f"／ボラ予測 順位相関 {vol.get('順位相関', 0):+.2f}")
+        fwd_txt = (f"実運用の前向き採点 {fwd['件数']}件・的中率 "
+                   f"{fwd['的中率']:.1%}" if fwd.get("件数") else
+                   "実運用の前向き採点はまだ蓄積中")
+        if fwd.get("高信頼件数"):
+            fwd_txt += (f"（高信頼 {fwd['高信頼件数']}件・"
+                        f"{fwd.get('高信頼的中率', 0):.1%}）")
+        # ── ニュース研究の取り込み（2026-09-21 ユーザー指示で拡充）──
+        # 従来は総括＋見出し5件だけで、研究が毎回書いている「保有ポジションへの
+        # 含意」「次の焦点」「重要度」がボードに出ていなかった。読込と材料
+        # バランスは冒頭の _load_fund()/_fund_balance() の結果をそのまま使う。
+        news = fnews
+        bal_html = ""
+        if fbal:
+            seg = "".join(
+                f'<span style="flex:{max(v, 0.001)};background:var({c})"></span>'
+                for v, c in ((fbal["円高"], "--sell"), (fbal["両方向"], "--line"),
+                             (fbal["円安"], "--buy")))
+            bal_html = (
+                f'<div class="fbar-head"><b>{html.escape(fbal["判定"])}</b>'
+                f'<span class="stop">材料の重み（重要度の合計）　'
+                f'円高 {fbal["円高"]}／両方向 {fbal["両方向"]}／円安 {fbal["円安"]}'
+                f'</span></div><div class="fbar">{seg}</div>'
+                '<div class="fbar-legend"><span>← 円高（ドル安）</span>'
+                '<span>円安（ドル高）→</span></div>')
+        impl = str(news.get("保有ポジションへの含意") or "").strip()
+        impl_html = (f'<div class="fbox"><div class="l">保有ポジションへの含意</div>'
+                     f'{html.escape(impl)}</div>' if impl else "")
+        focus = [str(x) for x in (news.get("次の焦点") or []) if str(x).strip()]
+        focus_html = ""
+        if focus:
+            lis = "".join(f"<li>{html.escape(x)}</li>" for x in focus[:6])
+            more = "".join(f"<li>{html.escape(x)}</li>" for x in focus[6:])
+            focus_html = (f'<h4 class="fh">次の焦点</h4><ul class="focus">{lis}</ul>'
+                          + (f'<details><summary>残り{len(focus) - 6}件</summary>'
+                             f'<ul class="focus">{more}</ul></details>'
+                             if more else ""))
+
+        def _theme_row(t):
+            try:
+                w = int(t.get("重要度") or 0)
+            except (TypeError, ValueError):
+                w = 0
+            stars = "★" * w if w else "—"
+            imp = str(t.get("含意", ""))
+            cls = ("buy" if "円安" in imp and "両" not in imp else
+                   "sell" if "円高" in imp and "両" not in imp else "flat")
+            # スマホで表だと見出しが横に切れるため、縦並びのブロックにする
+            return (f'<div class="theme"><div class="theme-meta">'
+                    f'<span class="gold">{stars}</span>'
+                    f'<span class="pos {cls}">{html.escape(imp)}</span></div>'
+                    f'<div class="theme-h">{html.escape(str(t.get("見出し", "")))}</div>'
+                    f'<details><summary>要旨</summary>'
+                    f'{html.escape(str(t.get("要旨", "")))}</details></div>')
+
+        themes = news.get("テーマ") or []
+        items = "".join(_theme_row(t) for t in themes[:8])
+        news_upd = str(news.get("更新") or "")
+        summary = str(news.get("総括") or "")
+        news_html = (
+            f'{impl_html}{focus_html}'
+            f'<h4 class="fh">材料一覧（新しい順・上位8件／全{len(themes)}件）</h4>'
+            f'<div class="themes">{items}</div>'
+            f'<details><summary>ニュース総括の全文'
+            f'{"（更新 " + html.escape(news_upd) + "）" if news_upd else ""}'
+            f'</summary><p class="note">{html.escape(summary)}</p></details>'
+            if items else '<p class="note">ニュース未収集</p>')
+        stale_html = ""
+        fu_upd = str(fu.get("更新") or "")
         try:
-            fu = json.load(open(fpath, encoding="utf-8"))
-        except Exception:                                        # noqa: BLE001
-            fu = None
-        if fu:
-            corr_chips = "".join(
-                f'<span class="chip">{html.escape(str(c["指標"]))} '
-                f'{c.get("相関60日", 0):+.2f}</span>'
-                for c in (fu.get("相関") or [])[:5])
-            fc = fu.get("翌日予測") or {}
-            fc_html = "（予測なし）"
-            if fc:
-                lo, hi = fc.get("想定レンジ", [0, 0])
-                cls = "buy" if fc.get("上昇確率", 0.5) >= 0.5 else "sell"
-                fc_html = (
-                    f'<span class="pos {cls}">{html.escape(fc.get("方向", ""))}'
-                    f' 確率{fc.get("上昇確率", 0)*100:.0f}%</span>'
-                    f'<span class="stop">想定レンジ {lo:.2f}〜{hi:.2f}円'
-                    f'（基準 {html.escape(str(fc.get("基準日", "")))} '
-                    f'{fc.get("基準終値", 0):.3f}円）</span>')
-            wf = fu.get("予測モデル") or {}
-            fwd = fu.get("前向き成績") or {}
-            wf_txt = (f"学習外検証 {wf.get('検証日数', 0)}日・的中率 "
-                      f"{wf.get('的中率', 0):.1%}（常に上昇と答えた場合 "
-                      f"{wf.get('上昇日比率', 0):.1%}）"
-                      if wf else "検証データ不足")
-            vol = fu.get("ボラ予測") or {}
-            if vol:
-                wf_txt += (f"／ボラ予測 順位相関 {vol.get('順位相関', 0):+.2f}")
-            fwd_txt = (f"実運用の前向き採点 {fwd['件数']}件・的中率 "
-                       f"{fwd['的中率']:.1%}" if fwd.get("件数") else
-                       "実運用の前向き採点はまだ蓄積中")
-            # ニュースは fundamental_news.json を直接参照する。定量研究→
-            # ニュース更新の順で走った回は latest 埋め込み分が1世代古くなる
-            # ため、更新時刻が新しい方を採用（レジーム・予測は latest のまま）
-            news = fu.get("ニュース") or {}
-            npath = R("results", "fundamental_news.json")
-            if os.path.exists(npath):
-                try:
-                    n_direct = json.load(open(npath, encoding="utf-8"))
-                except Exception:                                    # noqa: BLE001
-                    n_direct = None
-                if n_direct and (str(n_direct.get("更新") or "") >
-                                 str(news.get("更新") or "")):
-                    news = n_direct
-            items = "".join(
-                f'<tr><td>{html.escape(str(t.get("含意", "")))}</td>'
-                f'<td>{html.escape(str(t.get("見出し", "")))}</td></tr>'
-                for t in (news.get("テーマ") or [])[:5])
-            news_upd = str(news.get("更新") or "")
-            news_head = (f'<p class="note">ニュース総括（更新 '
-                         f'{html.escape(news_upd)}）：' if news_upd
-                         else '<p class="note">')
-            news_html = (
-                f'{news_head}{html.escape(str(news.get("総括") or ""))}</p>'
-                f'<div class="tablewrap"><table>'
-                f'<tr><th>含意</th><th>材料</th></tr>{items}</table></div>'
-                if items else '<p class="note">ニュース未収集</p>')
-            fund_html = f"""
+            age_h = (datetime.now() - datetime.fromisoformat(fu_upd)) \
+                .total_seconds() / 3600
+            if age_h > 20:
+                fund_stale_days = age_h / 24
+                stale_html = (
+                    '<div class="banner act">⚠ ファンダ研究が'
+                    f'{fund_stale_days:.1f}日更新されていません'
+                    '（3時間おき更新の想定・専任タスクの停止を確認してください）</div>')
+        except (ValueError, TypeError):
+            pass
+        fund_html = f"""
 <section class="card span2">
-  <div class="card-head"><h3>ファンダ・予測研究（毎日更新・発注には未使用）</h3>
-    <span class="params">更新 {html.escape(str(fu.get("更新", "")))}</span></div>
+  {stale_html}
+  <div class="card-head"><h3>ファンダメンタルズ研究（3時間おき更新・発注判定には未使用）</h3>
+    <span class="params">定量 {html.escape(str(fu.get("更新", "")))[:16].replace("T", " ")}\
+{"／ニュース " + html.escape(news_upd)[:16].replace("T", " ") if news_upd else ""}</span></div>
   <div class="action flat" style="font-size:1.1rem">\
 {html.escape(str(fu.get("レジーム", "")))}</div>
   <div class="chips">{corr_chips}</div>
+  {bal_html}
   <div class="posline" style="margin-top:10px">{fc_html}</div>
   <p class="note">{html.escape(wf_txt)}／{html.escape(fwd_txt)}</p>
   <p class="note">※方向予測は現時点で「常に上昇」に勝てておらず、
@@ -923,6 +1083,12 @@ def build():
                   '（下の指示書どおりに）</div>')
     else:
         banner = '<div class="banner ok">本日の発注作業はありません</div>'
+    # 2026-09-09: ファンダ研究の停止警告が下部セクションに埋もれて気づきにくい
+    # ため、上部バナー直後にも短い注意を出す（詳細は下のファンダ・予測研究欄）
+    if fund_stale_days is not None:
+        banner += (
+            f'<div class="banner act">⚠ ファンダ研究停止 '
+            f'{fund_stale_days:.0f}日（詳細は下部）</div>')
 
     # 生成元（Mac／GitHub Actions）。ボードがどちらの系で作られたかを一目で判別する
     # （Mac沈黙時はクラウド補完routineがActions生成のHTMLを同一URLへ公開する設計）
@@ -967,6 +1133,9 @@ header.top .meta {{ color:var(--sub); font-size:.78rem; width:100%; }}
 .banner.act {{ background:var(--gold); }}
 .banner.ok {{ background:var(--navy); }}
 .grid {{ display:grid; gap:12px; grid-template-columns:1fr; }}
+/* 2026-09-21: 指示書preの長い1行がカードを押し広げ、スマホでページ全体が
+   横スクロールになっていた（幅7,000px超）。グリッド子要素の最小幅を0にする */
+.grid > * {{ min-width:0; }}
 @media (min-width:700px) {{ .grid {{ grid-template-columns:1fr 1fr; }}
   .grid .span2 {{ grid-column:1/-1; }} }}
 .card {{ background:var(--panel); border:1px solid var(--line);
@@ -1007,6 +1176,25 @@ th, td {{ text-align:left; padding:6px 10px;
   border-bottom:1px solid var(--line); }}
 th {{ color:var(--sub); font-weight:600; font-size:.72rem; }}
 .note {{ color:var(--sub); font-size:.75rem; margin-top:6px; }}
+.fbar-head {{ display:flex; gap:10px; align-items:baseline; flex-wrap:wrap;
+  margin-top:12px; font-size:.9rem; }}
+.fbar {{ display:flex; height:10px; border-radius:999px; overflow:hidden;
+  margin-top:6px; gap:2px; }}
+.fbar-legend {{ display:flex; justify-content:space-between;
+  color:var(--sub); font-size:.7rem; margin-top:3px; }}
+.fbox {{ margin-top:12px; padding:10px 12px; border-left:3px solid var(--gold);
+  background:var(--chipbg); border-radius:0 10px 10px 0; font-size:.82rem; }}
+.fbox .l {{ color:var(--sub); font-size:.72rem; font-weight:700;
+  margin-bottom:2px; }}
+h4.fh {{ margin:14px 0 4px; font-size:.82rem; color:var(--sub); }}
+ul.focus {{ margin:0; padding-left:1.2em; font-size:.8rem; }}
+ul.focus li {{ margin:3px 0; }}
+.theme {{ padding:8px 0; border-bottom:1px solid var(--line); }}
+.theme-meta {{ display:flex; gap:10px; align-items:baseline; font-size:.75rem; }}
+.theme-meta .gold {{ color:var(--gold); letter-spacing:.05em; }}
+.theme-h {{ font-size:.82rem; font-weight:600; margin-top:2px; }}
+details {{ margin-top:6px; font-size:.78rem; color:var(--sub); }}
+details summary {{ cursor:pointer; }}
 footer {{ color:var(--sub); font-size:.7rem; margin-top:22px;
   line-height:1.6; }}
 </style>
@@ -1022,10 +1210,12 @@ footer {{ color:var(--sub); font-size:.7rem; margin-top:22px;
 <div class="grid">
 {''.join(sys_cards)}
 {rr_card}
+{fund_html}
 <section class="card span2">
   <h3>運用成績（全4システム合算・実現＋含み）</h3>
   <div class="kpis" style="margin-top:10px">
-    <div class="kpi"><div class="l">モデル資産</div><div class="v">{equity_txt}</div></div>
+    <div class="kpi"><div class="l">モデル資産</div><div class="v">{equity_txt}</div>
+      {equity_sub}</div>
     <div class="kpi"><div class="l">累計実現損益</div><div class="v">{cum_html}</div></div>
     <div class="kpi"><div class="l">含み損益（{mark:.3f}円評価）</div><div class="v">{unreal_html}</div></div>
     <div class="kpi"><div class="l">勝率</div><div class="v">{wr}</div></div>
@@ -1065,10 +1255,10 @@ footer {{ color:var(--sub); font-size:.7rem; margin-top:22px;
     {rows_html}
   </table></div>
 </section>
-{fund_html}
 <section class="card">
   <h3>研究・進化</h3>
   <p class="note">日次研究: {html.escape(res_msg)}</p>
+  <p class="note">ファンダ・フィルタ検証（マクロで新規を絞ると成績は上がるか・発注には未使用）: {html.escape(ff_msg)}</p>
   <p class="note">週次ペア研究: {html.escape(pair_msg)}</p>
 </section>
 </div>

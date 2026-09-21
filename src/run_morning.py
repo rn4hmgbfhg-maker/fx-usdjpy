@@ -92,6 +92,15 @@ def run_stage(stage, backfill=False):
                 _mark_backfill(stage)
             if attempt:
                 note = (note + f" リトライ{attempt}回で成功").strip()
+            # 指示書自体は生成できても内部の副次処理(Drive/ダッシュボード等)が
+            # 失敗していることがある。成功扱いのまま出力を握りつぶすと気づけない
+            # (2026-08-28〜09-03、xlsxダッシュボード更新失敗が無言で放置された)。
+            sub_fail = [ln for ln in out.splitlines() if "失敗" in ln]
+            if sub_fail:
+                print(f"[{LABEL[stage]}] 成功（ただし内部処理に失敗あり）")
+                for ln in sub_fail:
+                    print(f"  ⚠ {ln}")
+                note = (note + " " + " / ".join(sub_fail)).strip()[:200]
             append_run_log([datetime.now().isoformat(timespec="seconds"),
                             date.today().isoformat(), LABEL[stage], "成功",
                             f"{time.time()-started:.0f}", note])

@@ -46,8 +46,16 @@ GRIDS = {
     1: {"entry": [24, 36, 48, 72], "exit": [6, 8, 12, 24]},
     2: {"entry": [12, 18, 24, 36], "exit": [4, 6, 8, 12]},
     4: {"entry": [12, 18, 24, 30], "exit": [4, 6, 8, 10]},
+    8: {"entry": [6, 9, 12, 15], "exit": [2, 3, 4, 5]},
 }
 ATRS = [1.5, 2.0, 2.5, 3.0]
+
+
+def filter_tf_of(tf):
+    """環境認識フィルタに使う時間足を返す。exec<=4Hは従来どおり4H固定
+    （4Hが常に上位足として機能）。exec=8Hは8H自身を参照（4Hexecの
+    自己参照フィルタと同じ扱いを1オクターブ上に延長したもの）。"""
+    return 4 if tf <= 4 else tf
 
 
 def trading_days(df):
@@ -90,7 +98,7 @@ def evaluate(dfs, tf, n_e, n_x, atr_k, use_filter, tp_k=0.0,
 
 def build_dfs(df1h, tf):
     dfe = resample(df1h, tf)
-    df4 = resample(df1h, 4)
+    df4 = resample(df1h, filter_tf_of(tf))
     half = len(dfe) // 2
     split_date = dfe["Date"].iloc[half]
     d4 = pd.to_datetime(df4["Date"])

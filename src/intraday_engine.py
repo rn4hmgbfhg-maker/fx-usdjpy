@@ -327,9 +327,9 @@ def main():
                 tp_px = close + signal * tp_k * a if tp_k else None
                 lines += [
                     f"【新規】USD/JPY {side}  {units:,}通貨（{units // lot}Lot）",
-                    f"  発注: 成行 → 建玉に決済OCO（逆指値 {stop_px:.3f}円"
+                    f"  発注: IF-OCO／IF-DONEで1回送信（新規=成行・逆指値 {stop_px:.3f}円"
                     + (f" ／ 目標利確指値 {tp_px:.3f}円" if tp_px else "")
-                    + "）を必ずセット",
+                    + "）を同時発注",
                     f"  ストップ幅: {stop_dist:.3f}円 ≒{stop_dist * 100:.0f}pips"
                     + (f"  利確幅: {tp_k * a:.3f}円 ≒{tp_k * a * 100:.0f}pips"
                        if tp_px else ""),
@@ -339,13 +339,16 @@ def main():
                 ]
                 op = {"種別": "新規建て", "通貨ペア": "USD/JPY",
                       "売買": "買" if signal > 0 else "売",
-                      "数量": units, "注文方法": "成行",
+                      "数量": units, "注文方法": "IF-DONE（新規=成行／決済=逆指値）",
                       "決済逆指値": round(stop_px, 3),
                       "有効期限": "無期限（OCO）",
-                      "手順": "成行で建てた直後に決済OCO"
-                              "（逆指値+利確指値）を必ずセット"}
+                      "手順": "新規注文→IF-DONEタブ。IF=成行、DONE=逆指値にレート入力"
+                              "→確認画面で照合→送信は1回"}
                 if tp_px:
                     op["決済指値(利確)"] = round(tp_px, 3)
+                    op["注文方法"] = "IF-OCO（新規=成行／OCO1利確=指値／OCO2損切=逆指値）"
+                    op["手順"] = ("新規注文→IF-OCOタブ。IF=成行、OCO1(利確)=指値、"
+                                "OCO2(損切)=逆指値にレート入力→確認画面で照合→送信は1回")
                 ops.append(op)
                 action = f"新規{side}"
                 st = {"position": signal, "entry": close,
@@ -410,6 +413,14 @@ def main():
                   f"（{swap_now[1]}日分・1日{swap.daily_yen(cur_pos, u_now, sw_cfg):+,.0f}円）"
                   f"　合計 {px_pnl + swap_now[0]:+,.0f}円",
                   f"  ※{swap.note(sw_cfg)}"]
+
+    # ファンダ警戒欄（全指示書共通＝fund_brief 一本。発注判定には不使用）
+    try:
+        import fund_brief                                    # noqa: PLC0415
+        lines += fund_brief.lines(fund_brief.all_positions(
+            {SYSTEM_NAME: int(st.get("position", 0) or 0)}))
+    except Exception:                                        # noqa: BLE001
+        pass
 
     # 指標イベント欄
     lines.append("")
