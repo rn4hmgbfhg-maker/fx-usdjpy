@@ -54,6 +54,16 @@ ENV_CRED = {"fx-gmail-app-password": ("FX_GMAIL_ACCOUNT", "FX_GMAIL_APP_PASSWORD
                                        "FX_ICLOUD_APP_PASSWORD")}
 
 
+
+def _mask(addr):
+    """公開リポジトリへ残るログ用にアドレスを伏せる（例: ya***@gmail.com）。"""
+    a = str(addr or "")
+    if "@" not in a:
+        return "***"
+    u, d = a.split("@", 1)
+    return (u[:2] + "***@" + d) if u else "***@" + d
+
+
 def keychain_entry(service):
     """(アカウント, パスワード) を取得する。未登録なら (None, None)。
 
@@ -167,7 +177,7 @@ def _send_smtp(kind, subject, text):
                 s.send_message(msg)
     except (smtplib.SMTPException, OSError, ssl.SSLError) as e:
         return False, f"{kind}: {type(e).__name__}: {e}"
-    return True, f"{kind} SMTP（差出人 {sender}）"
+    return True, f"{kind} SMTP（差出人 {_mask(sender)}）"
 
 
 def _html_body(text):
@@ -237,7 +247,7 @@ def verify(kind):
         return False, f"{kind}: 認証拒否（パスワードが違う／アプリパスワードでない）"
     except (smtplib.SMTPException, OSError, ssl.SSLError) as e:
         return False, f"{kind}: {type(e).__name__}: {e}"
-    return True, f"{kind}: 認証成功（差出人 {sender}）"
+    return True, f"{kind}: 認証成功（差出人 {_mask(sender)}）"
 
 
 def send_signal(subject, text):

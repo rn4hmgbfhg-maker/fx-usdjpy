@@ -6,7 +6,7 @@
       "アクション": "新規売(ショート)",
       "要旨": "デイトレ: 新規売(ショート) 2,000通貨・逆指値156.149円（損切り142pips／利確284pips）",
       "指示書": "/home/runner/work/fx-usdjpy/fx-usdjpy/results/orders/intraday/2026-09-07_2117_デイトレ指示.txt",
-      "メール": "gmail SMTP（差出人 yasu7625@gmail.com）"
+      "メール": "gmail SMTP（差出人 ya***@gmail.com）"
     },
     {
       "id": "20260908024609",
@@ -14,7 +14,7 @@
       "アクション": "ストップ変更",
       "要旨": "デイトレ: ストップ変更 → 155.816円（損切り109pips・現値から143pips／利確284pips）",
       "指示書": "/home/runner/work/fx-usdjpy/fx-usdjpy/results/orders/intraday/2026-09-08_0246_デイトレ指示.txt",
-      "メール": "gmail SMTP（差出人 yasu7625@gmail.com）"
+      "メール": "gmail SMTP（差出人 ya***@gmail.com）"
     },
     {
       "id": "20260908080151",
@@ -22,7 +22,7 @@
       "アクション": "ストップ変更",
       "要旨": "デイトレ: ストップ変更 → 155.556円（損切り83pips・現値から120pips／利確284pips）",
       "指示書": "/home/runner/work/fx-usdjpy/fx-usdjpy/results/orders/intraday/2026-09-08_0801_デイトレ指示.txt",
-      "メール": "gmail SMTP（差出人 yasu7625@gmail.com）"
+      "メール": "gmail SMTP（差出人 ya***@gmail.com）"
     },
     {
       "id": "20260908100654",
@@ -30,7 +30,7 @@
       "アクション": "ストップ変更",
       "要旨": "デイトレ: ストップ変更 → 155.058円（損切り33pips・現値から124pips／利確284pips）",
       "指示書": "/home/runner/work/fx-usdjpy/fx-usdjpy/results/orders/intraday/2026-09-08_1006_デイトレ指示.txt",
-      "メール": "gmail SMTP（差出人 yasu7625@gmail.com）"
+      "メール": "gmail SMTP（差出人 ya***@gmail.com）"
     },
     {
       "id": "20260908150045",
@@ -38,7 +38,7 @@
       "アクション": "ストップ変更",
       "要旨": "デイトレ: ストップ変更 → 154.588円（損切り14pips・現値から127pips／利確284pips）",
       "指示書": "/home/runner/work/fx-usdjpy/fx-usdjpy/results/orders/intraday/2026-09-08_1500_デイトレ指示.txt",
-      "メール": "gmail SMTP（差出人 yasu7625@gmail.com）"
+      "メール": "gmail SMTP（差出人 ya***@gmail.com）"
     },
     {
       "id": "20260910223924",
@@ -46,7 +46,7 @@
       "アクション": "決済",
       "要旨": "デイトレ: 決済",
       "指示書": "/home/runner/work/fx-usdjpy/fx-usdjpy/results/orders/intraday/2026-09-10_2239_デイトレ指示.txt",
-      "メール": "gmail SMTP（差出人 yasu7625@gmail.com）"
+      "メール": "gmail SMTP（差出人 ya***@gmail.com）"
     },
     {
       "id": "20260912020752",
@@ -54,7 +54,7 @@
       "アクション": "新規売(ショート)",
       "要旨": "デイトレ: 新規売(ショート) 3,000通貨・逆指値154.957円（損切り125pips／利確250pips）",
       "指示書": "/home/runner/work/fx-usdjpy/fx-usdjpy/results/orders/intraday/2026-09-12_0207_デイトレ指示.txt",
-      "メール": "gmail SMTP（差出人 yasu7625@gmail.com）"
+      "メール": "gmail SMTP（差出人 ya***@gmail.com）"
     },
     {
       "id": "20260912065946",
@@ -62,7 +62,7 @@
       "アクション": "ストップ変更",
       "要旨": "デイトレ: ストップ変更 → 154.670円（損切り97pips・現値から112pips／利確250pips）",
       "指示書": "/home/runner/work/fx-usdjpy/fx-usdjpy/results/orders/intraday/2026-09-12_0659_デイトレ指示.txt",
-      "メール": "gmail SMTP（差出人 yasu7625@gmail.com）"
+      "メール": "gmail SMTP（差出人 ya***@gmail.com）"
     },
     {
       "id": "20260914160944",
@@ -70,7 +70,7 @@
       "アクション": "決済",
       "要旨": "デイトレ: 決済",
       "指示書": "/home/runner/work/fx-usdjpy/fx-usdjpy/results/orders/intraday/2026-09-14_1609_デイトレ指示.txt",
-      "メール": "gmail SMTP（差出人 yasu7625@gmail.com）"
+      "メール": "gmail SMTP（差出人 ya***@gmail.com）"
     },
     {
       "id": "20260914230919",
@@ -78,7 +78,7 @@
       "アクション": "新規買(ロング)",
       "要旨": "デイトレ: 新規買(ロング) 3,000通貨・逆指値153.806円（損切り111pips／利確222pips）",
       "指示書": "/home/runner/work/fx-usdjpy/fx-usdjpy/results/orders/intraday/2026-09-14_2309_デイトレ指示.txt",
-      "メール": "gmail SMTP（差出人 yasu7625@gmail.com）"
+      "メール": "gmail SMTP（差出人 ya***@gmail.com）"
     },
     {
       "id": "20260916041530",
@@ -86,7 +86,7 @@
       "アクション": "ストップ変更",
       "要旨": "デイトレ: ストップ変更 → 154.199円（損切り72pips・現値から97pips／利確222pips）",
       "指示書": "/home/runner/work/fx-usdjpy/fx-usdjpy/results/orders/intraday/2026-09-16_0415_デイトレ指示.txt",
-      "メール": "gmail SMTP（差出人 yasu7625@gmail.com）"
+      "メール": "gmail SMTP（差出人 ya***@gmail.com）"
     },
     {
       "id": "20260916092756",
@@ -94,7 +94,7 @@
       "アクション": "ストップ変更",
       "要旨": "デイトレ: ストップ変更 → 154.365円（損切り55pips・現値から92pips／利確222pips）",
       "指示書": "/home/runner/work/fx-usdjpy/fx-usdjpy/results/orders/intraday/2026-09-16_0927_デイトレ指示.txt",
-      "メール": "gmail SMTP（差出人 yasu7625@gmail.com）"
+      "メール": "gmail SMTP（差出人 ya***@gmail.com）"
     },
     {
       "id": "20260916185957",
@@ -102,7 +102,7 @@
       "アクション": "決済",
       "要旨": "デイトレ: 決済",
       "指示書": "/home/runner/work/fx-usdjpy/fx-usdjpy/results/orders/intraday/2026-09-16_1859_デイトレ指示.txt",
-      "メール": "gmail SMTP（差出人 yasu7625@gmail.com）"
+      "メール": "gmail SMTP（差出人 ya***@gmail.com）"
     },
     {
       "id": "20260917063717",
@@ -110,7 +110,7 @@
       "アクション": "新規買(ロング)",
       "要旨": "デイトレ: 新規買(ロング) 3,000通貨・逆指値155.034円（損切り113pips／利確226pips）",
       "指示書": "/home/runner/work/fx-usdjpy/fx-usdjpy/results/orders/intraday/2026-09-17_0637_デイトレ指示.txt",
-      "メール": "gmail SMTP（差出人 yasu7625@gmail.com）"
+      "メール": "gmail SMTP（差出人 ya***@gmail.com）"
     },
     {
       "id": "20260918103446",
@@ -118,7 +118,7 @@
       "アクション": "ストップ変更",
       "要旨": "デイトレ: ストップ変更 → 155.230円（損切り93pips・現値から92pips／利確226pips）",
       "指示書": "/home/runner/work/fx-usdjpy/fx-usdjpy/results/orders/intraday/2026-09-18_1034_デイトレ指示.txt",
-      "メール": "gmail SMTP（差出人 yasu7625@gmail.com）"
+      "メール": "gmail SMTP（差出人 ya***@gmail.com）"
     },
     {
       "id": "20260918153605",
@@ -126,7 +126,7 @@
       "アクション": "ストップ変更",
       "要旨": "デイトレ: ストップ変更 → 156.050円（損切り11pips・現値から114pips／利確226pips）",
       "指示書": "/home/runner/work/fx-usdjpy/fx-usdjpy/results/orders/intraday/2026-09-18_1536_デイトレ指示.txt",
-      "メール": "gmail SMTP（差出人 yasu7625@gmail.com）"
+      "メール": "gmail SMTP（差出人 ya***@gmail.com）"
     },
     {
       "id": "20260918205256",
@@ -134,7 +134,7 @@
       "アクション": "ストップ変更",
       "要旨": "デイトレ: ストップ変更 → 156.634円（損切り47pips・現値から131pips／利確226pips）",
       "指示書": "/home/runner/work/fx-usdjpy/fx-usdjpy/results/orders/intraday/2026-09-18_2052_デイトレ指示.txt",
-      "メール": "gmail SMTP（差出人 yasu7625@gmail.com）"
+      "メール": "gmail SMTP（差出人 ya***@gmail.com）"
     },
     {
       "id": "20260919040423",
@@ -142,7 +142,7 @@
       "アクション": "新規買(ロング)",
       "要旨": "デイトレ: 新規買(ロング)",
       "指示書": "/home/runner/work/fx-usdjpy/fx-usdjpy/results/orders/intraday/2026-09-19_0404_デイトレ指示.txt",
-      "メール": "gmail SMTP（差出人 yasu7625@gmail.com）"
+      "メール": "gmail SMTP（差出人 ya***@gmail.com）"
     },
     {
       "id": "20260921064538",
@@ -150,7 +150,7 @@
       "アクション": "ストップ変更",
       "要旨": "デイトレ: ストップ変更 → 155.573円（損切り109pips・現値から128pips／利確278pips）",
       "指示書": "/home/runner/work/fx-usdjpy/fx-usdjpy/results/orders/intraday/2026-09-21_0645_デイトレ指示.txt",
-      "メール": "gmail SMTP（差出人 yasu7625@gmail.com）"
+      "メール": "gmail SMTP（差出人 ya***@gmail.com）"
     },
     {
       "id": "20260921160419",
@@ -158,7 +158,7 @@
       "アクション": "ストップ変更",
       "要旨": "デイトレ: ストップ変更 → 155.868円（損切り80pips・現値から119pips／利確278pips）",
       "指示書": "/home/runner/work/fx-usdjpy/fx-usdjpy/results/orders/intraday/2026-09-21_1604_デイトレ指示.txt",
-      "メール": "gmail SMTP（差出人 yasu7625@gmail.com）"
+      "メール": "gmail SMTP（差出人 ya***@gmail.com）"
     }
   ],
   "更新": "2026-09-21T16:04",

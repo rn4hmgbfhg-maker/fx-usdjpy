@@ -12,7 +12,7 @@ manifest:
   name: fx-usdjpy-cowork
   version: 1.0.0
   作成: 2026-08-18
-  所有者: 落合康友 (yasu7625@gmail.com)
+  所有者: 落合康友 (ya***@gmail.com)
   目的: >-
     Macのlaunchdに依存していたFXドル円半自動売買スキームを、Coworkから
     操作・監視できる形に移行する。判定はGitHub Actionsが行い、Coworkは
