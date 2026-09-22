@@ -54,6 +54,14 @@ jobs:
           fi
         continue-on-error: true
 
+      # 2026-09-22: エンジンは自分で即時メールを送るので、送信に成功した項目はここで既読化する。
+      # 送信に失敗した項目だけ「未通知」に残し、Mac側の毎時タスクの取りこぼし防止プッシュへ回す。
+      - name: メール送信済みの通知キューを既読化
+        run: |
+          python3 src/intraday15_engine.py --ack-mailed
+          python3 src/intraday_engine.py --ack-mailed
+        continue-on-error: true
+
       - name: 状態と結果をコミット
         run: |
           git config user.name  "fx-actions"
@@ -63,5 +71,15 @@ jobs:
             echo "変更なし"
           else
             git commit -m "signals $(TZ=Asia/Tokyo date +'%F %H:%M JST')"
-            git push
+            # 2026-09-22: Mac側の push（研究成果・パラメータ）や同時起動の別ランと衝突すると
+            # "fetch first" で push が落ちるため、先に取り込んでから押す（3回まで再試行）。
+            # 衝突時は本ランの計算結果（-X theirs＝再適用側）を優先する。
+            for i in 1 2 3; do
+              if git pull --rebase -X theirs -q origin main && git push; then
+                break
+              fi
+              git rebase --abort 2>/dev/null || true
+              echo "push 再試行 $i"
+              sleep 5
+            done
           fi
