@@ -27,9 +27,12 @@ def sh(*a, timeout=60):
 
 def dirty_tracked():
     """変更のある追跡済みファイル（未追跡 ?? は含めない）"""
-    _, out, _ = sh("git", "status", "--porcelain", "--untracked-files=no")
+    # sh() は stdout 全体を strip するため先頭行の状態欄（" M"）が欠けてパスが1文字ずれる。
+    # ここだけ生の出力を使う。
+    r = subprocess.run(["git", "status", "--porcelain", "--untracked-files=no"],
+                       capture_output=True, text=True, timeout=60)
     paths = []
-    for line in out.splitlines():
+    for line in r.stdout.splitlines():
         if len(line) < 4:
             continue
         paths.append(line[3:].strip().strip('"'))
