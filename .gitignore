@@ -11,6 +11,9 @@ results/cache/
 *.tmp
 .fx_ff_cache/
 
+# Mac鏡の退避物（mirror_util が Actions管理ファイルのローカル変更を逃がす先）
+backup/
+
 # 個人情報（メール宛先・Driveパス）— リポジトリには入れない
 local_settings.json
 

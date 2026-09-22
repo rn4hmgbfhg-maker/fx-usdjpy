@@ -48,10 +48,18 @@ def trigger():
 
 
 def mirror():
+    # 2026-09-22: Mac側タスクがActions管理ファイルを書き換えると pull が詰まるため、
+    # 先に退避して戻す（ファンダ成果物は mirror_util.FUND_PATHS で保護）
+    sys.path.insert(0, os.path.join(BASE, "scripts"))
+    try:
+        from mirror_util import discard_actions_owned
+        discard_actions_owned(log)
+    except Exception as e:  # noqa: BLE001
+        log(f"作業ツリー整理失敗: {e}")
     _, before, _ = sh("git", "rev-parse", "HEAD")
     rc, _, err = sh("git", "pull", "--ff-only", "-q", "origin", "main", timeout=120)
     if rc:
-        log(f"pull失敗(ローカル変更の有無を確認): {err[:160]}")
+        log(f"pull失敗(ローカルに未pushコミットがあれば scripts/fx_fund_push.py で整える): {err[:160]}")
     _, after, _ = sh("git", "rev-parse", "HEAD")
     if before != after:
         log(f"mirror {before[:7]} -> {after[:7]}")
