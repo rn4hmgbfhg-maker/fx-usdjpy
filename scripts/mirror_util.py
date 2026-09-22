@@ -17,6 +17,15 @@ FUND_PATHS = [
     "results/fund_filter_latest.json",
     "data/macro_daily.csv",
 ]
+# Macの日次研究（research.py / research_intraday.py / research_15m.py）が「進化」で書く
+# 戦略パラメータと研究ログ。Actions は config.json をコミットしないので Mac が唯一の書き手。
+RESEARCH_PATHS = [
+    "config.json",
+    "results/research_log.csv",
+    "results/research_intraday_log.csv",
+    "results/research_15m_log.csv",
+]
+MAC_PATHS = FUND_PATHS + RESEARCH_PATHS
 BACKUP_ROOT = "backup/mirror_discard"
 
 
@@ -41,7 +50,7 @@ def dirty_tracked():
 
 def discard_actions_owned(log=print):
     """Actionsが書き手のファイルのローカル変更を退避してHEADへ戻す。戻したパス一覧を返す。"""
-    targets = [p for p in dirty_tracked() if p not in FUND_PATHS]
+    targets = [p for p in dirty_tracked() if p not in MAC_PATHS]
     if not targets:
         return []
     stamp = f"{datetime.now():%Y-%m-%d_%H%M%S}"
