@@ -48,9 +48,19 @@ def dirty_tracked():
     return paths
 
 
+def actions_owned(p):
+    """signals.yml が `git add -A` する範囲（state*.json・results/・data/）だけを対象にする。
+    src/・scripts/・docs/・.github/ など人が編集するファイルは絶対に戻さない
+    （2026-09-22: 未コミットの signals.yml 編集を巻き戻した事故の再発防止）。"""
+    if p in MAC_PATHS:
+        return False
+    return (p in ("state.json", "state_intraday.json", "state_intraday15.json")
+            or p.startswith("results/") or p.startswith("data/"))
+
+
 def discard_actions_owned(log=print):
     """Actionsが書き手のファイルのローカル変更を退避してHEADへ戻す。戻したパス一覧を返す。"""
-    targets = [p for p in dirty_tracked() if p not in MAC_PATHS]
+    targets = [p for p in dirty_tracked() if actions_owned(p)]
     if not targets:
         return []
     stamp = f"{datetime.now():%Y-%m-%d_%H%M%S}"
