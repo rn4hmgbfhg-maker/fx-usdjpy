@@ -333,6 +333,19 @@ def build():
                     continue
                 exp += 1
                 got += os.path.exists(os.path.join(odir, f"{d}_指示_{tg}.txt"))
+        # 2026-09-22: 上の自前計算は「指示書ファイルのある直近10日」を数えるため、
+        # 土曜の部分生成（例: 9/12は速報①のみ）が分母に入り、ラッパ(run_morning)が
+        # 30/30=100%と出す日でもボードだけ 28/30 ⚠欠落あり と表示されていた。
+        # 完成率の定義は run_morning.completion_rate（平日のみ・当日は到達済み段階
+        # まで）に一本化する。取得失敗時のみ上の自前計算にフォールバック。
+        try:
+            from run_morning import completion_rate as _completion_rate
+            _rows, _got, _exp = _completion_rate(10)
+            if _exp:
+                got, exp = _got, _exp
+                days = [r[0] for r in _rows]
+        except Exception:
+            pass
         # 2026-08-14: 警告印を完成率の直後にまとめて出していたため、
         # 完成率 29/29（100%）でも遅延だけで「⚠要点検」が付き、
         # 欠落があるように読めた。遅延と欠落は別々の位置に出す。
