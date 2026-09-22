@@ -176,6 +176,8 @@ def main():
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--status", action="store_true")
     ap.add_argument("--ack-all", action="store_true")
+    ap.add_argument("--ack-mailed", action="store_true",
+                    help="メール送信に成功した項目だけ既読化（GitHub Actionsが毎ラン呼ぶ）")
     ap.add_argument("--force-notify", action="store_true",
                     help="変化がなくても現況指示書を出す")
     args = ap.parse_args()
@@ -189,6 +191,15 @@ def main():
         st["未通知"] = []
         save_json(STATUS_PATH, st)
         print("未通知キューを既読化しました")
+        return
+    if args.ack_mailed:
+        # 「メール送信」キーが無い旧項目は送信済み扱い（既に配信済みの過去分）
+        st = load_json(STATUS_PATH, {})
+        before = st.get("未通知", [])
+        keep = [e for e in before if e.get("メール送信") is False]
+        st["未通知"] = keep
+        save_json(STATUS_PATH, st)
+        print(f"メール送信済み{len(before) - len(keep)}件を既読化（未送信{len(keep)}件は保持）")
         return
 
     cfg = load_json(CONFIG_PATH, None)
@@ -475,7 +486,8 @@ def main():
             q = status.get("未通知", [])
             q.append({"id": f"{now:%Y%m%d%H%M%S}", "時刻": f"{now:%H:%M}",
                       "アクション": action, "要旨": summary,
-                      "指示書": fpath, "メール": mail_msg})
+                      "指示書": fpath, "メール": mail_msg,
+                      "メール送信": bool(mail_ok)})
             status["未通知"] = q[-20:]
             append_csv(LOG_CSV,
                        ["日時", "確定バー", "終値", "シグナル", "アクション",
