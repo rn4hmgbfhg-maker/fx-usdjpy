@@ -78,8 +78,12 @@ def assess(positions=None):
     level = "高" if fresh else "中" if themes else "低"
 
     # 保有玉と逆向きの重要度5材料（買い玉×円高材料／売り玉×円安材料）
+    # positions 未指定時は state から自前で読む（既定値 None で警告が
+    # 黙って消えるのを防ぐ。2026-09-23 修正）
+    if positions is None:
+        positions = all_positions()
     against = []
-    for name, pos in (positions or {}).items():
+    for name, pos in positions.items():
         if not pos:
             continue
         key = "円高" if pos > 0 else "円安"
