@@ -965,7 +965,15 @@ def build():
         impl = str(news.get("保有ポジションへの含意") or "").strip()
         impl_html = (f'<div class="fbox"><div class="l">保有ポジションへの含意</div>'
                      f'{html.escape(impl)}</div>' if impl else "")
-        focus = [str(x) for x in (news.get("次の焦点") or []) if str(x).strip()]
+        _focus_raw = news.get("次の焦点") or []
+        if isinstance(_focus_raw, str):
+            # fundamental_news.json は「①...②...③...」を1本の文字列で持つ形式
+            # （fundamental_latest.json はリスト形式）。文字列のまま for に
+            # かけると1文字ずつ<li>化されてしまう既知バグ（2026-09-24発見）
+            # ＝丸数字の直前で分割してリスト化する。
+            _focus_raw = [s.strip() for s in
+                          re.split(r"(?=[①②③④⑤⑥⑦⑧⑨⑩])", _focus_raw) if s.strip()]
+        focus = [str(x) for x in _focus_raw if str(x).strip()]
         focus_html = ""
         if focus:
             lis = "".join(f"<li>{html.escape(x)}</li>" for x in focus[:6])
