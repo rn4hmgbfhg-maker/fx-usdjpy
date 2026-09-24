@@ -1266,7 +1266,7 @@ footer {{ color:var(--sub); font-size:.7rem; margin-top:22px;
   {curve_note}
 </section>
 <section class="card span2">
-  <h3>本日の注文指示書（最終確定・指標イベント欄含む）</h3>
+  <h3>本日の注文指示書（{"速報・参考" if is_flash else "最終確定"}・指標イベント欄含む）</h3>
   <pre class="order">{html.escape(order_text)}</pre>
 </section>
 <section class="card">
