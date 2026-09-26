@@ -24,7 +24,7 @@ import os
 import smtplib
 import ssl
 import subprocess
-from datetime import date
+from datetime import date, datetime
 from email.message import EmailMessage
 from email.utils import formatdate
 
@@ -126,7 +126,18 @@ def instruction_text(d):
 
 
 def marker_path(d):
+    # 2026-09-27: GitHub一本化後、旧 .sent は .gitignore 対象のため Actions の次ランに
+    # 引き継がれず、8時台の実行ごとに最終確定メールが再送されていた（1日3〜4通）。
+    # 個人情報を含まない .done（送信時刻のみ）をコミット対象にして重複を止める。
+    return os.path.join(ORDERS_DIR, f"{d.isoformat()}_mail_確定.done")
+
+
+def _legacy_marker_path(d):
     return os.path.join(ORDERS_DIR, f"{d.isoformat()}_mail_確定.sent")
+
+
+def already_sent(d):
+    return os.path.exists(marker_path(d)) or os.path.exists(_legacy_marker_path(d))
 
 
 def compose(d):
@@ -275,7 +286,7 @@ def send(d=None, dry_run=False, force=False, transport=None):
     subject, text = made
     if dry_run:
         return True, f"[dry-run] 件名: {subject}\n\n{text}"
-    if os.path.exists(marker_path(d)) and not force:
+    if already_sent(d) and not force:
         return True, "本日分は既に送信済み（スキップ）"
 
     tried = []
@@ -285,7 +296,8 @@ def send(d=None, dry_run=False, force=False, transport=None):
         if ok:
             try:
                 with open(marker_path(d), "w", encoding="utf-8") as f:
-                    f.write(f"{subject}\n経路: {detail}\n")
+                    # 公開リポジトリに載るため宛先・経路は書かない（送信時刻のみ）
+                    f.write(f"sent {datetime.now().isoformat(timespec='seconds')}\n")
             except OSError:
                 pass
             return True, f"メール送信済み［{detail}］: {subject}"

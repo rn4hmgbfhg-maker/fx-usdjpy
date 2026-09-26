@@ -28,7 +28,11 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-
+        with:
+          # 2026-09-27: 既定では「起動要求時点」のコミットを取るため、Mac起動分と
+          # cron分が続けて並ぶと後発ランが先発の送信済みマーカーを見られず再送していた。
+          # ジョブ開始時点の最新 main を取る。
+          ref: main
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
