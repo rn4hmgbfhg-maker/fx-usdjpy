@@ -23,6 +23,7 @@ from strategies import (donchian, donchian_exit_levels,  # noqa: E402
                         donchian_exit_proximity)
 import perf  # noqa: E402
 import swap  # noqa: E402
+import events  # noqa: E402
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 R = lambda *p: os.path.join(BASE_DIR, *p)  # noqa: E731
@@ -1110,6 +1111,23 @@ def build():
         banner += (
             f'<div class="banner act">⚠ ファンダ研究停止 '
             f'{fund_stale_days:.0f}日（詳細は下部）</div>')
+    # 2026-10-02: 本日の★5級指標イベントは下部の指示書<pre>に埋もれていて
+    # 一目で気づけなかった（NFP等・新規建て自動見送りの根拠）。上部バナーにも
+    # 直近1件を出す（取得失敗時は何も出さない＝フェイルオープンを維持）。
+    try:
+        ev = events.upcoming_events(24)
+    except Exception:
+        ev = None
+    if ev:
+        # 日本語名が付く(=知名度の高い)イベントを優先して見せる。同時刻に
+        # 複数ある場合は件数も添えて「他にもある」ことが分かるようにする。
+        jst, _cur, title, jp = sorted(ev, key=lambda e: e[3] == "")[0]
+        label = jp or title
+        extra = f"ほか{len(ev) - 1}件" if len(ev) > 1 else ""
+        banner += (
+            f'<div class="banner act">⚠ 今後24時間に★5級指標 '
+            f'{jst:%m/%d %H:%M} {html.escape(label)}{extra}'
+            f'（新規建ては全系見送り）</div>')
 
     # 生成元（Mac／GitHub Actions）。ボードがどちらの系で作られたかを一目で判別する
     # （Mac沈黙時はクラウド補完routineがActions生成のHTMLを同一URLへ公開する設計）
