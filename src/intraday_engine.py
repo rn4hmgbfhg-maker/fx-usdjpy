@@ -171,6 +171,15 @@ def blocking_events(minutes=EVENT_BLOCK_MIN):
     return soon, ev
 
 
+def _fund_decide(system, side):
+    """ファンダ本運用（fund_live）の新規建て判定。失敗時は従来どおり（2026-10-04）。"""
+    try:
+        import fund_live                                     # noqa: PLC0415
+        return fund_live.decide(system, side)
+    except Exception:                                        # noqa: BLE001
+        return {"許可": True, "倍率": 1.0, "理由": "", "適用中": []}
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--dry-run", action="store_true")
@@ -322,6 +331,7 @@ def main():
                 append_trade(st, close, last_bar, "signal")
             st = dict(FLAT)
         if signal != 0:
+            fdec = _fund_decide("デイトレ複合時間軸", signal)
             if gate_new:
                 nxt = soon[0]
                 lines.append(f"【見送り】新規{'買' if signal > 0 else '売'}シグナル"
@@ -329,11 +339,16 @@ def main():
                              f"（{nxt[3] or nxt[2]}）通過待ちのため建てない"
                              f"（通過後の確定バーで再判定＝最速反応）")
                 action = action if action == "決済" else "イベント見送り"
+            elif not fdec["許可"]:
+                lines.append(f"【見送り】新規{'買' if signal > 0 else '売'}シグナル"
+                             f"ありだが、ファンダ本運用ルールにより建てない"
+                             f"（{fdec['理由']}）")
+                action = action if action == "決済" else "ファンダ見送り"
             else:
                 side = "買(ロング)" if signal > 0 else "売(ショート)"
                 risk_units = equity * float(scfg["リスク率"]) / stop_dist
                 lev_units = equity * float(scfg["レバ上限"]) / close
-                units = int(min(risk_units, lev_units) // lot * lot)
+                units = int(min(risk_units * fdec["倍率"], lev_units) // lot * lot)
                 stop_px = close - signal * stop_dist
                 tp_px = close + signal * tp_k * a if tp_k else None
                 lines += [
@@ -348,6 +363,8 @@ def main():
                     f"（資金の{units * stop_dist / equity:.1%}）"
                     + (f"  目標利益: 約{units * tp_k * a:,.0f}円" if tp_px else ""),
                 ]
+                if fdec["倍率"] != 1.0:
+                    lines.append(f"  ファンダ本運用: 数量×{fdec['倍率']}（{fdec['理由']}）")
                 op = {"種別": "新規建て", "通貨ペア": "USD/JPY",
                       "売買": "買" if signal > 0 else "売",
                       "数量": units, "注文方法": "IF-DONE（新規=成行／決済=逆指値）",
@@ -425,7 +442,7 @@ def main():
                   f"　合計 {px_pnl + swap_now[0]:+,.0f}円",
                   f"  ※{swap.note(sw_cfg)}"]
 
-    # ファンダ警戒欄（全指示書共通＝fund_brief 一本。発注判定には不使用）
+    # ファンダ警戒欄（全指示書共通＝fund_brief 一本。本運用ルールの適用は _fund_decide）
     try:
         import fund_brief                                    # noqa: PLC0415
         lines += fund_brief.lines(fund_brief.all_positions(

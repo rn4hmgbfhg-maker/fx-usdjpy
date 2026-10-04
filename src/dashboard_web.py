@@ -34,6 +34,7 @@ ACT_STYLE = {  # アクション → (表示, クラス)
     "ストップ変更": ("ストップ切上げ", "gold"), "決済": ("全決済", "gold"),
     "継続": ("保有継続", "flat"), "待機": ("待機", "flat"),
     "イベント見送り": ("イベント見送り", "flat"),
+    "ファンダ見送り": ("ファンダ見送り", "flat"),
     "ストップ決済確認": ("ストップ決済済", "gold"),
 }
 
@@ -143,6 +144,8 @@ def _parse_order_actions(order_text, names):
                 # 両方を明示する。
                 label = f"ストップ決済→{label}"
             out[name] = (label, "buy" if side.group(1) == "買" else "sell")
+        elif tags[0] == "見送り" and "ファンダ本運用ルール" in block:
+            out[name] = ("ファンダ見送り", "flat")
         else:
             out[name] = label_map[tags[0]]
     return out
@@ -1026,10 +1029,16 @@ def build():
                     '（3時間おき更新の想定・専任タスクの停止を確認してください）</div>')
         except (ValueError, TypeError):
             pass
+        try:
+            import fund_live                                 # noqa: PLC0415
+            live_html = "<br>".join(html.escape(x.strip())
+                                    for x in fund_live.status_lines())
+        except Exception as e:                               # noqa: BLE001
+            live_html = html.escape(f"状況の取得に失敗（{type(e).__name__}）")
         fund_html = f"""
 <section class="card span2">
   {stale_html}
-  <div class="card-head"><h3>ファンダメンタルズ研究（3時間おき更新・発注判定には未使用）</h3>
+  <div class="card-head"><h3>ファンダメンタルズ研究（3時間おき更新・本運用は自動昇格方式）</h3>
     <span class="params">定量 {html.escape(str(fu.get("更新", "")))[:16].replace("T", " ")}\
 {"／ニュース " + html.escape(news_upd)[:16].replace("T", " ") if news_upd else ""}</span></div>
   <div class="action flat" style="font-size:1.1rem">\
@@ -1038,8 +1047,10 @@ def build():
   {bal_html}
   <div class="posline" style="margin-top:10px">{fc_html}</div>
   <p class="note">{html.escape(wf_txt)}／{html.escape(fwd_txt)}</p>
-  <p class="note">※方向予測は現時点で「常に上昇」に勝てておらず、
-    発注判断には一切使っていない（研究・記録のみ）。</p>
+  <div class="fbox"><div class="l">ファンダ本運用（売買判定への自動組込み）</div>{live_html}</div>
+  <p class="note">※検証ゲートを3営業日連続で通過したルールだけを自動で新規建ての判定
+    （見送り・数量）に使い、3営業日連続で不通過なら自動で外す。方向予測は的中率が
+    「常に上昇」を上回ることも条件。発注は従来どおり本人が手動で行う。</p>
   {news_html}
 </section>"""
 

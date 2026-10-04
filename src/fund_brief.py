@@ -116,7 +116,7 @@ def _lines(positions, max_focus):
     fund = _load(FUND_JSON) or {}
     if not a["更新"] and not fund:
         return []
-    out = ["", "◆ ファンダ警戒（発注前に一読・売買判定そのものは従来どおり）"]
+    out = ["", "◆ ファンダ警戒（発注前に一読・本運用中のルールは新規建てに自動適用）"]
     n = {k: len(v) for k, v in a["含意別"].items()}
     out.append(f"  警戒度: {a['警戒度']}（重要度5の材料 円高{n.get('円高', 0)}件"
                f"／円安{n.get('円安', 0)}件／両方向{n.get('両方向リスク', 0)}件"
@@ -151,13 +151,13 @@ def _lines(positions, max_focus):
         focus = [focus]
     for f in focus[:max_focus]:
         out.append(f"  焦点: {_short(f, 78)}")
-    ov = _load(OVERLAY_JSON)
-    if ov:
-        c = ov.get("採用候補") or []
-        out.append(f"  発注判定への組込み検証（{str(ov.get('更新', ''))[:10]}）: "
-                   + ("採用候補なし＝売買ルールは変更せず、本欄の注意喚起のみ"
-                      if not c else
-                      f"採用候補{len(c)}件あり（要承認・未適用）"))
+    # ファンダ本運用（2026-10-04〜 自動昇格方式。適用状況は fund_live 一本）
+    try:
+        import fund_live                                 # noqa: PLC0415
+        out += fund_live.status_lines()
+    except Exception as e:                              # noqa: BLE001
+        out.append(f"  ファンダ本運用: 状況の取得に失敗（{type(e).__name__}）"
+                   "＝売買判定は従来どおり")
     return out
 
 

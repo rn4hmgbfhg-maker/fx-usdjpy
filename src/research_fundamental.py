@@ -510,11 +510,18 @@ def main():
         rng_pct = predict_range(rng_model, x) if rng_model else \
             float(px.pct_change().abs().iloc[-20:].mean())
         band = base_close * rng_pct
+        # ボラ相対＝log(予測変動率)−直近250日の log(実変動率) 平均
+        # （research_fund_overlay の B 系ルールと同じ尺度。>+0.15=荒れ予測、
+        # <−0.15=凪予測。fund_live が本運用の数量調整に使う。2026-10-04）
+        r_hist = ret_next.abs().reindex(feat.dropna().index).dropna()
+        vol_rel = float(np.log(max(rng_pct, 1e-6))
+                        - np.log(np.clip(r_hist.iloc[-250:], 1e-6, None)).mean())
         forecast = {
             "基準日": str(base_date), "基準終値": round(base_close, 3),
             "上昇確率": round(p_up, 3),
             "方向": "上昇（円安）" if p_up >= 0.5 else "下落（円高）",
             "想定変動幅_円": round(band, 3),
+            "ボラ相対": round(vol_rel, 3),
             "想定レンジ": [round(base_close - band, 2),
                            round(base_close + band, 2)],
         }

@@ -14,8 +14,10 @@ research_fundamental.py が毎日出している3つの定量成果
   ・総リターンが現行以上
   ・最大DDの悪化が1ポイント以内
   ・取引数の減少が40%以内（絞りすぎて偶然良く見えるだけ、を避ける）
-全て満たした重ね方だけを「採用候補」とする。config や エンジンは書き換えない
-（本スクリプトは検証と報告のみ）。
+全て満たした重ね方だけを「採用候補」とする。config は書き換えない。
+2026-10-04〜（落合さん承認で自動化）: 結果を fund_live.update() へ渡し、
+3営業日連続でゲート通過したルールを自動で本運用へ昇格（連続3日の不通過で降格）。
+エンジンは fund_live.decide() で本運用中のルールだけを新規建てに適用する。
 
 先読み防止:
   予測の基準日D（NYクローズD＝JST D+1 朝6時に確定）は、日足CSVでは
@@ -323,6 +325,15 @@ def main():
     for _, r in adopt.iterrows():
         print(f"  ・{r['システム']}: {r['重ね方']}")
 
+    # 本運用への自動昇格・降格（fund_live 一本）
+    import fund_live                                     # noqa: PLC0415
+    records = json.loads(out.to_json(orient="records", force_ascii=False))
+    changes = fund_live.update(records)
+    print("\nファンダ本運用（自動昇格・降格）:")
+    for ch in changes:
+        print(f"  ★{ch['変化']}: {ch['システム']} {ch['ルール']}（{ch['理由']}）")
+    print("\n".join(fund_live.status_lines()))
+
     stamp = datetime.now().isoformat(timespec="minutes")
     with open(OUT_JSON, "w", encoding="utf-8") as f:
         json.dump({"更新": stamp,
@@ -330,6 +341,7 @@ def main():
                    "ゲート": {"PF前後とも": GATE_PF, "DD悪化許容": GATE_DD,
                               "取引数下限比": GATE_TRADES},
                    "採用候補": adopt[["システム", "重ね方"]].to_dict("records"),
+                   "本運用の変化": changes,
                    "結果": json.loads(out.to_json(orient="records",
                                                   force_ascii=False))},
                   f, ensure_ascii=False, indent=1)
