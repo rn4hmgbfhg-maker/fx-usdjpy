@@ -404,7 +404,7 @@ def build():
     flash_acts = _parse_order_actions(order_text, list(systems))
 
     # システム別サマリ+検証値
-    sys_cards, needs_action = [], False
+    sys_cards, needs_action, action_count = [], False, 0
     # ファンダ研究は先に1回だけ読む（各カードの追い風／向かい風チップと
     # 下のファンダカードで同じ材料バランスを使うため）
     fu, fnews = _load_fund()
@@ -426,7 +426,7 @@ def build():
         if name in flash_acts:      # 指示書本文が最優先（表示の食い違いを防ぐ）
             act, cls = flash_acts[name]
         if cls in ("buy", "sell", "gold"):
-            needs_action = True
+            needs_action, action_count = True, action_count + 1
         _new_today = pos != 0 and st.get("entry_date") == date.today().isoformat()
         _new_tag = '<span class="chip" style="margin-left:2px">本日新規</span>' if _new_today else ''
         pos_html = (f'<span class="pos buy">買 {int(st.get("units", 0)):,}通貨</span>{_new_tag}'
@@ -495,7 +495,7 @@ def build():
                        f'{n_x}日の逆側チャネルが決済ラインになる）</span>')
         if name in pending:   # 速報段階の暫定反映: 指示書本文と表示を一致させる
             act, cls = "ストップ到達→決済確認", "gold"
-            needs_action = True
+            needs_action, action_count = True, action_count + 1
             stop_html = (f'ストップ <b>{float(st["stop"]):.3f}</b>円 到達 '
                          f'（決済見込み {pending[name]:+,.0f}円・8時最終確定で正式計上）')
         bt = Backtester(px, initial_capital=float(cfg["口座資金_円"]),
@@ -549,7 +549,7 @@ def build():
         dact_raw = str(dstatus.get("アクション", "運用開始前"))
         dact, dcls = ACT_STYLE.get(dact_raw, (dact_raw, "flat"))
         if dstatus.get("未通知"):
-            needs_action = True
+            needs_action, action_count = True, action_count + 1
         dpos_html = (f'<span class="pos buy">買 {int(dst.get("units", 0)):,}通貨</span>'
                      if dpos > 0 else
                      f'<span class="pos sell">売 {int(dst.get("units", 0)):,}通貨</span>'
@@ -623,7 +623,7 @@ def build():
         act15_raw = str(d15status.get("アクション", "運用開始前"))
         act15, cls15 = ACT_STYLE.get(act15_raw, (act15_raw, "flat"))
         if d15status.get("未通知"):
-            needs_action = True
+            needs_action, action_count = True, action_count + 1
         pos15_html = (f'<span class="pos buy">買 {int(d15st.get("units", 0)):,}通貨</span>'
                       if p15 > 0 else
                       f'<span class="pos sell">売 {int(d15st.get("units", 0)):,}通貨</span>'
@@ -1112,8 +1112,8 @@ def build():
         banner = ('<div class="banner ok">速報配信中——正式な発注判断は'
                   '8時すぎの【最終確定】で</div>')
     elif needs_action:
-        banner = ('<div class="banner act">本日は発注作業があります'
-                  '（下の指示書どおりに）</div>')
+        banner = (f'<div class="banner act">本日は発注作業があります'
+                  f'（{action_count}件・下の指示書どおりに）</div>')
     else:
         banner = '<div class="banner ok">本日の発注作業はありません</div>'
     # 2026-09-09: ファンダ研究の停止警告が下部セクションに埋もれて気づきにくい
