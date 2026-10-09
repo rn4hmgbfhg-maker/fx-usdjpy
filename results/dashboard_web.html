@@ -105,18 +105,18 @@ footer { color:var(--sub); font-size:.7rem; margin-top:22px;
 <header class="top">
   <h1>FXドル円 運用ボード</h1>
   <span class="rate">158.246<small>円</small></span>
-  <span class="meta">更新 2026-10-10 07:04（朝6・7・8時台の3回＋デイトレ毎時判定）
+  <span class="meta">更新 2026-10-10 08:04（朝6・7・8時台の3回＋デイトレ毎時判定）
    ｜ 生成元: クラウド(GitHub Actions)
-   ｜ 運用先: MATRIX TRADER（発注は手動）<br>本日の配信 速報① 06:04 ／ 速報② 07:04 ／ 最終確定 未　｜ 完成率(直近10営業日) 30/30</span>
+   ｜ 運用先: MATRIX TRADER（発注は手動）<br>本日の配信 速報① 06:04 ／ 速報② 07:04 ／ 最終確定 08:04　｜ 完成率(直近10営業日) 30/30</span>
 </header>
-<div class="banner ok">速報配信中——正式な発注判断は8時すぎの【最終確定】で</div>
+<div class="banner act">本日は発注作業があります（2件・下の指示書どおりに）</div>
 <div class="grid">
 
 <article class="card">
   <div class="card-head"><h2>長期トレンド</h2>
     <span class="params">ドンチャン25/10・ATR×3.5</span></div>
   <div class="action gold">ストップ切上げ</div>
-  <div class="posline"><span class="pos sell">売 2,000通貨</span><span class="stop">ストップ <b>161.218</b>円　損切り幅 <b>247</b> pips　<span class="stop">現値から 逆指値まで 297 pips</span>　スワップ <b>-408</b>円（12日分）</span></div>
+  <div class="posline"><span class="pos sell">売 2,000通貨</span><span class="stop">ストップ <b>161.186</b>円　損切り幅 <b>244</b> pips　<span class="stop">現値から 逆指値まで 294 pips</span>　スワップ <b>-408</b>円（12日分）</span></div>
   <div class="posline"><span class="stop">決済ライン（今回の引けで判定）<b>158.494</b>円（ドンチャン10日高値を終値で超えたら決済／到達なら利益 <b>+92</b>円・スワップ込み概算）　← 先に効くのはこちら　現値からの距離 0.22ATR（★過去の同方向保有時の下位3%＝かなり接近中。値動き次第で近日中に決済判定が入りうる）</span></div>
   <div class="note">※決済ラインは<b>終値での判定</b>。指値注文としては置かない
     （日中に触れただけでは決済せず、終値で超えた翌朝の指示書が決済指示になる）。
@@ -135,7 +135,7 @@ footer { color:var(--sub); font-size:.7rem; margin-top:22px;
   <div class="card-head"><h2>短期スイング</h2>
     <span class="params">ドンチャン20/8・ATR×1.5</span></div>
   <div class="action gold">ストップ切上げ</div>
-  <div class="posline"><span class="pos sell">売 2,000通貨</span><span class="stop">ストップ <b>158.913</b>円　損切り幅 <b>64</b> pips　<span class="stop">現値から 逆指値まで 67 pips</span>　スワップ <b>-443</b>円（13日分）</span></div>
+  <div class="posline"><span class="pos sell">売 2,000通貨</span><span class="stop">ストップ <b>158.900</b>円　損切り幅 <b>63</b> pips　<span class="stop">現値から 逆指値まで 65 pips</span>　スワップ <b>-443</b>円（13日分）</span></div>
   <div class="posline"><span class="stop">決済ライン（今回の引けで判定）<b>158.494</b>円（ドンチャン8日高値を終値で超えたら決済／到達なら損失 <b>-887</b>円・スワップ込み概算）　← 先に効くのはこちら　現値からの距離 0.22ATR（★過去の同方向保有時の下位4%＝かなり接近中。値動き次第で近日中に決済判定が入りうる）</span></div>
   <div class="note">※決済ラインは<b>終値での判定</b>。指値注文としては置かない
     （日中に触れただけでは決済せず、終値で超えた翌朝の指示書が決済指示になる）。
@@ -175,9 +175,9 @@ footer { color:var(--sub); font-size:.7rem; margin-top:22px;
   <h3>リスクリワード管理（保有中の全建玉）</h3>
   <div class="kpis" style="margin-top:10px">
     <div class="kpi"><div class="l">合計リスク額<br><small>全ストップ同時到達</small></div>
-      <div class="v down">-7,081円</div></div>
+      <div class="v down">-6,991円</div></div>
     <div class="kpi"><div class="l">口座資金に対する比率</div>
-      <div class="v">0.71%</div></div>
+      <div class="v">0.70%</div></div>
     <div class="kpi"><div class="l">現在の含み損益<br><small>各系の最終確定バー評価</small></div>
       <div class="v up">
         +197円</div>
@@ -189,7 +189,7 @@ footer { color:var(--sub); font-size:.7rem; margin-top:22px;
   <div class="tablewrap"><table>
     <tr><th>系</th><th>売買/数量</th><th>建値</th><th>現値</th><th>含み損益</th>
       <th>ストップ到達</th><th>利確到達</th><th>RR</th><th>評価</th></tr>
-    <tr><td>長期</td><td>売 2,000</td><td>158.744</td><td>158.246</td><td class="up">+588円</td><td class="down">-5,356円</td><td>－</td><td>－</td><td>利確目標を置かない設計（トレンド追随）。検証PF 2.07 が実質のリスクリワード</td></tr><tr><td>短期</td><td>売 2,000</td><td>158.272</td><td>158.246</td><td class="down">-391円</td><td class="down">-1,725円</td><td>－</td><td>－</td><td>利確目標を置かない設計（トレンド追随）。検証PF 1.53 が実質のリスクリワード</td></tr>
+    <tr><td>長期</td><td>売 2,000</td><td>158.744</td><td>158.246</td><td class="up">+588円</td><td class="down">-5,292円</td><td>－</td><td>－</td><td>利確目標を置かない設計（トレンド追随）。検証PF 2.07 が実質のリスクリワード</td></tr><tr><td>短期</td><td>売 2,000</td><td>158.272</td><td>158.246</td><td class="down">-391円</td><td class="down">-1,699円</td><td>－</td><td>－</td><td>利確目標を置かない設計（トレンド追随）。検証PF 1.53 が実質のリスクリワード</td></tr>
   </table></div>
   <div class="note">※「ストップ到達」「利確到達」は<b>建値との差＋スワップ</b>で
     計算した決済損益の概算。含み益が乗っていればストップ到達でも利益になる
@@ -250,8 +250,8 @@ footer { color:var(--sub); font-size:.7rem; margin-top:22px;
   <div class="note">2026-07-29 1,000,000円 → 2026-10-10 922,537円（-77,463円・53営業日）　※各点＝口座資金＋その日までの4システム累計実現損益（スワップ込）＋日足2システムの評価損益。デイトレ2系統の過去の含み損益は点に含まない（最終点のみ全建玉を評価）。</div>
 </section>
 <section class="card span2">
-  <h3>本日の注文指示書（速報・参考・指標イベント欄含む）</h3>
-  <pre class="order">■ ドル円 注文指示書【速報②】 2026-10-10
+  <h3>本日の注文指示書（最終確定・指標イベント欄含む）</h3>
+  <pre class="order">■ ドル円 注文指示書【最終確定】 2026-10-10
   終値: 158.246円  ATR(14): 1.143円
 ----------------------------------------------
 ▼ 長期トレンド（ドンチャン25/10・ATR×3.5・リスク1.0%）
@@ -286,7 +286,6 @@ footer { color:var(--sub); font-size:.7rem; margin-top:22px;
 ----------------------------------------------
 ※発注はMATRIX TRADERで本人が手動で行うこと(JFXはEA等の自動発注禁止)。
 ※逆指値は建玉と必ずセットで維持すること。
-※本書は速報(参考)。発注判断は8時配信の【最終確定】に従うこと。
 
 ==============================================
 ◆ 発注カード（MATRIX TRADERへそのまま転記）
@@ -321,7 +320,6 @@ footer { color:var(--sub); font-size:.7rem; margin-top:22px;
   現値から    : 158.246円 → 逆指値まで 65 pips
 
 ※値はエンジンの確定値。転記後、送信は必ずご本人が行うこと。
-※速報段階のため暫定。発注は【最終確定】のカードで行うこと。
 ==============================================
 
 ==============================================
@@ -409,7 +407,7 @@ footer { color:var(--sub); font-size:.7rem; margin-top:22px;
   <h3>直近の記録</h3>
   <div class="tablewrap"><table>
     <tr><th>日付</th><th>系</th><th>アクション</th><th>ストップ</th></tr>
-    <tr><td>2026-10-09</td><td>長期</td><td>ストップ変更</td><td>161.218</td></tr><tr><td>2026-10-09</td><td>短期</td><td>ストップ変更</td><td>158.913</td></tr><tr><td>10-09 03:04</td><td>デイ</td><td>ストップ決済確認</td><td>—</td></tr><tr><td>10-09 02:04</td><td>15分</td><td>決済</td><td>—</td></tr><tr><td>10-09 01:04</td><td>デイ</td><td>新規買(ロング)</td><td>157.606</td></tr><tr><td>10-09 01:04</td><td>15分</td><td>新規買(ロング)</td><td>157.843</td></tr><tr><td>10-08 11:04</td><td>デイ</td><td>ストップ決済確認</td><td>—</td></tr><tr><td>10-08 10:04</td><td>15分</td><td>新規売(ショート)</td><td>158.36</td></tr><tr><td>2026-10-08</td><td>長期</td><td>ストップ変更</td><td>161.345</td></tr><tr><td>2026-10-08</td><td>短期</td><td>ストップ変更</td><td>158.968</td></tr>
+    <tr><td>2026-10-10</td><td>長期</td><td>ストップ変更</td><td>161.186</td></tr><tr><td>2026-10-10</td><td>短期</td><td>ストップ変更</td><td>158.9</td></tr><tr><td>2026-10-09</td><td>長期</td><td>ストップ変更</td><td>161.218</td></tr><tr><td>2026-10-09</td><td>短期</td><td>ストップ変更</td><td>158.913</td></tr><tr><td>10-09 03:04</td><td>デイ</td><td>ストップ決済確認</td><td>—</td></tr><tr><td>10-09 02:04</td><td>15分</td><td>決済</td><td>—</td></tr><tr><td>10-09 01:04</td><td>デイ</td><td>新規買(ロング)</td><td>157.606</td></tr><tr><td>10-09 01:04</td><td>15分</td><td>新規買(ロング)</td><td>157.843</td></tr><tr><td>10-08 11:04</td><td>デイ</td><td>ストップ決済確認</td><td>—</td></tr><tr><td>10-08 10:04</td><td>15分</td><td>新規売(ショート)</td><td>158.36</td></tr>
   </table></div>
 </section>
 <section class="card">
