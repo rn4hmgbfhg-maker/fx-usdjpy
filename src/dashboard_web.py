@@ -80,6 +80,11 @@ ANALYSIS_CARD = """
       <option value="4">4倍</option>
       <option value="4.5">4.5倍</option>
       <option value="5">5倍</option>
+      <option value="6">6倍</option>
+      <option value="7">7倍</option>
+      <option value="8">8倍</option>
+      <option value="9">9倍</option>
+      <option value="10">10倍（最大）</option>
     </select>
     <button class="abtn ghost" id="a-reload" type="button">更新（最新のボードを読み込み、発注の数字を倍率で調整）</button>
     <button class="abtn gold" id="a-run" type="button" hidden>今すぐ分析</button>
@@ -211,6 +216,36 @@ ANALYSIS_JS = r"""
          + "恒久的に変えるなら config.json のリスク率を変更（Claudeに別途依頼）。</p>";
     }
     adj.innerHTML = h;
+    syncOrderText();
+  }
+  // 2026-10-12: 倍率を変えたら「本日の注文指示書」の発注カード（新規建ての数量と到達時の金額）
+  // もその場で書き換え、分析欄の調整表と同じ数字にする（発注数指示の同期）。
+  // 元の文面は data-orig に残し、1倍に戻せば元に戻る。通知メールはクラウド生成のため元の数量のまま。
+  function syncOrderText() {
+    var pre = document.querySelector("pre.order");
+    if (!pre) return;
+    if (pre.dataset.orig == null) pre.dataset.orig = pre.textContent;
+    var txt = pre.dataset.orig;
+    if (mult === 1) { pre.textContent = txt; return; }
+    var changed = 0;
+    var chunks = txt.split(/(?=［\d+\/\d+］)/).map(function (ch) {
+      var head = ch.split("\n")[0] || "";
+      if (!/新規建て/.test(head)) return ch;
+      var m = ch.match(/数量\s*: ([\d,]+) 通貨/);
+      if (!m) return ch;
+      var u = parseInt(m[1].replace(/,/g, ""), 10);
+      if (!(u > 0)) return ch;
+      var a = Math.max(1000, Math.round(u * mult / 1000) * 1000), f = a / u;
+      ch = ch.replace(/(数量\s*: )([\d,]+)( 通貨)/,
+        "$1" + a.toLocaleString() + "$3   ← リスク" + mult + "倍（元 " + u.toLocaleString() + " 通貨）");
+      ch = ch.replace(/／([+-])([\d,]+)円/g, function (_, sgn, n) {
+        return "／" + sgn + Math.round(parseInt(n.replace(/,/g, ""), 10) * f).toLocaleString() + "円";
+      });
+      changed++;
+      return ch;
+    });
+    pre.textContent = (changed ? "※リスク倍率 " + mult + "倍 を新規建ての数量に適用して表示中（" + changed
+      + "件・逆指値の水準は変わらない・通知メールの数量は元のまま）\n\n" : "") + chunks.join("");
   }
   renderAdjust();
   // スキャル欄の「1回のリスク」選択肢: 1・2・3・5%、以降5%刻みで40%まで（2026-10-12 指示）。
@@ -317,7 +352,7 @@ ANALYSIS_JS = r"""
       direction: "今後の方向性（150字前後）",
       risks: ["注意すべきリスク（3〜5個）"],
       changes_since_last: "前回からの変化（前回が無ければ空文字）",
-      recommended_multiplier: "0.5／1／1.5／2／2.5／3／3.5／4／4.5／5 のいずれか（数値）。いまの成績と相場環境から、新規建ての数量に掛けるおすすめのリスク倍率（成績が悪い・環境が不安定なら小さく、安定していれば大きく）",
+      recommended_multiplier: "0.5／1／1.5／2／2.5／3／3.5／4／4.5／5／6／7／8／9／10 のいずれか（数値）。いまの成績と相場環境から、新規建ての数量に掛けるおすすめのリスク倍率（成績が悪い・環境が不安定なら小さく、安定していれば大きく）",
       multiplier_reason: "その倍率をすすめる理由（80字以内）"
     }));
     p.push("【運用ボードの内容】\n" + boardText());
@@ -380,7 +415,7 @@ ANALYSIS_JS = r"""
         // 自分で選んだ倍率は上書きせず、おすすめを「適用」ボタンで提示するだけにした。
         var rec = parseFloat(result && result.recommended_multiplier);
         var reason = result && result.multiplier_reason ? "（" + result.multiplier_reason + "）" : "";
-        if ([0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5].indexOf(rec) >= 0) {
+        if ([0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 6, 7, 8, 9, 10].indexOf(rec) >= 0) {
           var applyRec = function () {
             mult = rec; riskSel.value = String(rec);
             try { localStorage.setItem("fx_risk_mult", String(rec)); } catch (e) {}
