@@ -69,6 +69,12 @@ ANALYSIS_CARD = """
       <option value="0.5">半分（0.5倍）</option>
       <option value="1.5">1.5倍</option>
       <option value="2">2倍</option>
+      <option value="2.5">2.5倍</option>
+      <option value="3">3倍</option>
+      <option value="3.5">3.5倍</option>
+      <option value="4">4倍</option>
+      <option value="4.5">4.5倍</option>
+      <option value="5">5倍</option>
     </select>
     <button class="abtn ghost" id="a-reload" type="button">更新（最新のボードを読み込み、発注の数字を倍率で調整）</button>
     <button class="abtn gold" id="a-run" type="button" hidden>今すぐ分析</button>
@@ -306,7 +312,7 @@ ANALYSIS_JS = r"""
       direction: "今後の方向性（150字前後）",
       risks: ["注意すべきリスク（3〜5個）"],
       changes_since_last: "前回からの変化（前回が無ければ空文字）",
-      recommended_multiplier: "0.5／1／1.5／2 のいずれか（数値）。いまの成績と相場環境から、新規建ての数量に掛けるおすすめのリスク倍率",
+      recommended_multiplier: "0.5／1／1.5／2／2.5／3／3.5／4／4.5／5 のいずれか（数値）。いまの成績と相場環境から、新規建ての数量に掛けるおすすめのリスク倍率（成績が悪い・環境が不安定なら小さく、安定していれば大きく）",
       multiplier_reason: "その倍率をすすめる理由（80字以内）"
     }));
     p.push("【運用ボードの内容】\n" + boardText());
@@ -364,18 +370,30 @@ ANALYSIS_JS = r"""
         var doc = { result: result, text: plain(result), at: new Date().toISOString(), rate: rate, tier: tier };
         render(doc);
         status.textContent = "分析完了 " + fmtAt(doc.at) + "（" + Math.round((Date.now() - t0) / 1000) + "秒）";
-        // 分析のおすすめ倍率で発注数量を更新（選択肢にある値のときだけ）
+        // 分析のおすすめ倍率: 選択が「現状のまま(1倍)」のときだけ自動で適用する。
+        // 2026-10-12: 自分で2倍を選んでも分析のたびに戻されていた（ユーザー指摘）ため、
+        // 自分で選んだ倍率は上書きせず、おすすめを「適用」ボタンで提示するだけにした。
         var rec = parseFloat(result && result.recommended_multiplier);
-        if ([0.5, 1, 1.5, 2].indexOf(rec) >= 0) {
-          if (rec !== mult) {
+        var reason = result && result.multiplier_reason ? "（" + result.multiplier_reason + "）" : "";
+        if ([0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5].indexOf(rec) >= 0) {
+          var applyRec = function () {
             mult = rec; riskSel.value = String(rec);
             try { localStorage.setItem("fx_risk_mult", String(rec)); } catch (e) {}
-            status.textContent += "　→ 分析のおすすめにより発注数量を " + rec + "倍 に更新"
-              + (result.multiplier_reason ? "（" + result.multiplier_reason + "）" : "");
-          } else {
+            renderAdjust();
+          };
+          if (rec === mult) {
             status.textContent += "　→ 倍率は " + rec + "倍 のまま（分析も同じ判断）";
+          } else if (mult === 1) {
+            applyRec();
+            status.textContent += "　→ 分析のおすすめにより発注数量を " + rec + "倍 に更新" + reason;
+          } else {
+            status.innerHTML = esc(status.textContent) + "　分析のおすすめ倍率は <b>" + rec + "倍</b>"
+              + esc(reason) + "（いまの選択 " + mult + "倍 はそのまま）"
+              + " <button class='abtn ghost' id='a-apply' type='button'>おすすめを適用</button>";
+            $("a-apply").onclick = function () {
+              applyRec(); status.textContent = "発注数量を " + rec + "倍 に更新しました";
+            };
           }
-          renderAdjust();
         }
         if (latestRef) {
           try { await latestRef.set(doc); }
