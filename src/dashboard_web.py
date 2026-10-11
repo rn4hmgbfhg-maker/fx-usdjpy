@@ -52,6 +52,11 @@ ANALYSIS_CSS = """
 .aout .lead { font-size:1rem; font-weight:700; padding:10px 12px;
   background:var(--chipbg); border-radius:10px; }
 .aout table td, .aout table th { white-space:normal; vertical-align:top; }
+/* 2026-10-12: パターン表の倍率・金額が途中で折り返されて読みにくかった（ユーザー指摘）。
+   数字の列は折り返さず、長い説明の列だけ折り返す */
+.aout table.scn td:nth-child(-n+5), .aout table.scn th { white-space:nowrap; }
+.aout table.scn td:nth-child(6) { min-width:14em; }
+.aout .tag { white-space:nowrap; }
 .aout .tag { display:inline-block; border-radius:999px; padding:1px 8px;
   font-size:.72rem; font-weight:700; color:#fff; background:var(--sub); }
 .aout .tag.now { background:var(--navy); } .aout .tag.more { background:var(--gold); }
@@ -250,11 +255,11 @@ ANALYSIS_JS = r"""
     if (r.fundamental) h += "<h4>ファンダメンタルズを踏まえた見方</h4><p>" + esc(r.fundamental.comment) + "</p>" + list(r.fundamental.points);
     if (r.scenarios && r.scenarios.length) {
       h += "<h4>リスク設定の比較（現状 と リスクを増やす場合）</h4>";
-      h += "<div class='tablewrap'><table><tr><th>パターン</th><th>1回のリスク</th>"
+      h += "<div class='tablewrap'><table class='scn'><tr><th>パターン</th><th>1回のリスク</th>"
          + "<th>全ストップ同時到達の損失</th><th>想定の年間リターン</th><th>想定の最大下落</th><th>向き不向き</th></tr>";
       r.scenarios.forEach(function (s) {
         h += "<tr><td><span class='tag " + tagOf(s.name) + "'>" + esc(s.name) + "</span></td>"
-           + "<td>" + esc(s.risk) + "</td><td>" + esc(s.loss_if_all_stops) + "</td>"
+           + "<td>" + esc(s.risk).replace(/[／\/]\s*/g, "<br>") + "</td><td>" + esc(s.loss_if_all_stops) + "</td>"
            + "<td>" + esc(s.expected_return) + "</td><td>" + esc(s.expected_drawdown) + "</td>"
            + "<td>" + esc(s.comment) + "</td></tr>";
       });
