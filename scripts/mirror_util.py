@@ -27,6 +27,8 @@ RESEARCH_PATHS = [
     "results/research_15m_log.csv",
     "results/pair_scan.csv",
     "results/pair_scan_log.csv",
+    "results/research_scalp_latest.json",
+    "results/research_scalp_log.csv",
 ]
 MAC_PATHS = FUND_PATHS + RESEARCH_PATHS
 BACKUP_ROOT = "backup/mirror_discard"
