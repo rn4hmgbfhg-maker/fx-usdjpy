@@ -54,8 +54,8 @@ ANALYSIS_CSS = """
 .aout table td, .aout table th { white-space:normal; vertical-align:top; }
 /* 2026-10-12: パターン表の倍率・金額が途中で折り返されて読みにくかった（ユーザー指摘）。
    数字の列は折り返さず、長い説明の列だけ折り返す */
-.aout table.scn td:nth-child(-n+5), .aout table.scn th { white-space:nowrap; }
-.aout table.scn td:nth-child(6) { min-width:14em; }
+.aout table td:not(:last-child), .aout table th { white-space:nowrap; }
+.aout table td:last-child { white-space:normal; min-width:14em; }
 .aout .tag { white-space:nowrap; }
 .aout .tag { display:inline-block; border-radius:999px; padding:1px 8px;
   font-size:.72rem; font-weight:700; color:#fff; background:var(--sub); }
