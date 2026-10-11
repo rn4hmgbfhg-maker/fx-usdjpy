@@ -93,12 +93,7 @@ SCALP_CARD = """
     <span class="params">短時間で小さな値幅を取る超短期売買の案。日足4システムとは別枠・別管理</span></div>
   <div class="abar">
     <label class="params" for="s-risk">1回のリスク</label>
-    <select id="s-risk">
-      <option value="0.01">1%（10,000円）</option>
-      <option value="0.02" selected>2%（20,000円）</option>
-      <option value="0.03">3%（30,000円）</option>
-      <option value="0.05">5%（50,000円）</option>
-    </select>
+    <select id="s-risk"></select>
     <button class="abtn gold" id="s-run" type="button" hidden>スキャル分析（発注案を作る）</button>
     <button class="abtn ghost" id="s-stop" type="button" hidden>停止</button>
   </div>
@@ -205,6 +200,23 @@ ANALYSIS_JS = r"""
     adj.innerHTML = h;
   }
   renderAdjust();
+  // スキャル欄の「1回のリスク」選択肢: 1・2・3・5%、以降5%刻みで40%まで（2026-10-12 指示）。
+  // 金額は口座資金から計算。10%以上は1回の負けで資金が大きく減るため「危険」を明記。
+  (function () {
+    var sel = $("s-risk"), capS = orderData && orderData.口座資金 ? Number(orderData.口座資金) : 1000000;
+    var rates = [0.01, 0.02, 0.03, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40];
+    var saved = 0.02;
+    try { var v = parseFloat(localStorage.getItem("fx_scalp_risk")); if (rates.indexOf(v) >= 0) saved = v; } catch (e) {}
+    rates.forEach(function (r) {
+      var o = document.createElement("option");
+      o.value = String(r);
+      o.textContent = Math.round(r * 100) + "%（" + Math.round(capS * r).toLocaleString() + "円）"
+        + (r >= 0.20 ? " ⚠非常に危険" : r >= 0.10 ? " ⚠危険" : "");
+      if (r === saved) o.selected = true;
+      sel.appendChild(o);
+    });
+    sel.onchange = function () { try { localStorage.setItem("fx_scalp_risk", sel.value); } catch (e) {} };
+  })();
   // 「更新」＝最新のボードを読み込み → 自動で分析 → 分析のおすすめ倍率で発注数量を更新
   $("a-reload").onclick = function () {
     try { localStorage.setItem("fx_risk_mult", riskSel.value);
