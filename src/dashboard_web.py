@@ -29,6 +29,471 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 R = lambda *p: os.path.join(BASE_DIR, *p)  # noqa: E731
 OUT_HTML = R("results", "dashboard_web.html")
 
+# 2026-10-12 ユーザー指示: ボードに「更新」「今すぐ分析」ボタンと分析結果欄を設置。
+# 分析はアーティファクトの実行時機能（sample＝閲覧者のClaudeに問い合わせ／db＝結果を
+# 保存して全端末で共有）で行う。claude.ai の閲覧画面以外では「更新」だけが動く。
+# 結果は db の analysis/latest に保存され、ボードを再公開しても消えない。
+ANALYSIS_CSS = """
+.abar { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:8px; }
+.abtn { border:0; border-radius:999px; padding:8px 16px; font-weight:700;
+  font-size:.9rem; cursor:pointer; color:#fff; background:var(--navy); }
+.abtn.gold { background:var(--gold); }
+.abtn.ghost { background:var(--chipbg); color:var(--ink); }
+.abtn:disabled { opacity:.5; cursor:default; }
+.abar select { border:1px solid var(--line); border-radius:8px; padding:6px 8px;
+  background:var(--panel); color:var(--ink); font-size:.85rem; }
+.astatus { color:var(--sub); font-size:.78rem; margin-top:6px; }
+.aout { margin-top:10px; font-size:.9rem; }
+.aout h4 { margin:14px 0 4px; font-size:.9rem; color:var(--navy);
+  border-left:3px solid var(--gold); padding-left:8px; }
+.aout p { margin:4px 0; }
+.aout ul { margin:4px 0; padding-left:1.2em; }
+.aout li { margin:3px 0; }
+.aout .lead { font-size:1rem; font-weight:700; padding:10px 12px;
+  background:var(--chipbg); border-radius:10px; }
+.aout table td, .aout table th { white-space:normal; vertical-align:top; }
+.aout .tag { display:inline-block; border-radius:999px; padding:1px 8px;
+  font-size:.72rem; font-weight:700; color:#fff; background:var(--sub); }
+.aout .tag.now { background:var(--navy); } .aout .tag.more { background:var(--gold); }
+.aout .tag.warn { background:var(--down); }
+"""
+
+ANALYSIS_CARD = """
+<section class="card span2" id="analysis">
+  <div class="card-head"><h3>総合分析（Claude・ボタンを押すたびに最新の状況で分析し直す）</h3>
+    <span class="params">結果はこのボードに保存され、次に開いたときも表示</span></div>
+  <div class="abar">
+    <label class="params" for="a-risk">リスク倍率</label>
+    <select id="a-risk">
+      <option value="1">現状のまま（1倍）</option>
+      <option value="0.5">半分（0.5倍）</option>
+      <option value="1.5">1.5倍</option>
+      <option value="2">2倍</option>
+    </select>
+    <button class="abtn ghost" id="a-reload" type="button">更新（最新のボードを読み込み、発注の数字を倍率で調整）</button>
+    <button class="abtn gold" id="a-run" type="button" hidden>今すぐ分析</button>
+    <button class="abtn ghost" id="a-stop" type="button" hidden>停止</button>
+    <select id="a-depth" hidden>
+      <option value="default">標準（1分前後）</option>
+      <option value="complex">詳細（数分かかる・より深く考える）</option>
+    </select>
+  </div>
+  <div class="aout" id="a-adj"></div>
+  <div class="astatus" id="a-status">読み込み中…</div>
+  <div class="aout" id="a-out"></div>
+  <div class="note">※分析は「このボードに表示されている数字」だけを材料にした読み物で、
+    投資助言ではありません。リスクを増やすパターンは概算の比較であり、変更する・しないは
+    ご本人の判断です（変更するときは config.json の調整＝別途依頼）。発注は従来どおり手動。</div>
+</section>
+"""
+
+SCALP_CARD = """
+<section class="card span2" id="scalp">
+  <div class="card-head"><h3>スキャルピング専用（高リスク発注欄・ファンダ連動）</h3>
+    <span class="params">短時間で小さな値幅を取る超短期売買の案。日足4システムとは別枠・別管理</span></div>
+  <div class="abar">
+    <label class="params" for="s-risk">1回のリスク</label>
+    <select id="s-risk">
+      <option value="0.01">1%（10,000円）</option>
+      <option value="0.02" selected>2%（20,000円）</option>
+      <option value="0.03">3%（30,000円）</option>
+      <option value="0.05">5%（50,000円）</option>
+    </select>
+    <button class="abtn gold" id="s-run" type="button" hidden>スキャル分析（発注案を作る）</button>
+    <button class="abtn ghost" id="s-stop" type="button" hidden>停止</button>
+  </div>
+  <div class="astatus" id="s-status">読み込み中…</div>
+  <div class="aout" id="s-out"></div>
+  <div class="note">※ボードの時点のレート・ファンダ・テクニカル合議を材料にした<b>案</b>です。
+    実際の発注前に必ず現在値を確認し、案の価格帯から離れていたら見送ってください。
+    高リスク設定のため、損失額は日足系の数倍になります。発注・決済はすべてご本人が手動で行い、
+    結果はモデル成績には含まれません（別管理）。投資助言ではありません。</div>
+</section>
+"""
+
+ANALYSIS_JS = r"""
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var runBtn = $("a-run"), stopBtn = $("a-stop"), depthSel = $("a-depth");
+  var status = $("a-status"), out = $("a-out");
+  var esc = function (s) { return String(s == null ? "" : s)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); };
+  var fmtAt = function (iso) {
+    try { var d = new Date(iso);
+      return (d.getMonth() + 1) + "/" + d.getDate() + " " + d.getHours() + ":" +
+        ("0" + d.getMinutes()).slice(-2); } catch (e) { return iso || ""; }
+  };
+  var list = function (arr) {
+    if (!arr || !arr.length) return "";
+    return "<ul>" + arr.map(function (x) { return "<li>" + esc(x) + "</li>"; }).join("") + "</ul>";
+  };
+  var tagOf = function (name) {
+    var n = String(name || "");
+    if (/現状|現在|いま/.test(n)) return "now";
+    if (/警戒|危険|注意/.test(n)) return "warn";
+    return "more";
+  };
+
+  // ── リスク倍率（「更新」で発注の数字を調整して表示）──
+  // 数量＝リスク額÷ストップ幅 なので、リスクを k 倍にすると新規建ての数量が k 倍になる
+  // （逆指値の水準は ATR で決まり変わらない）。既存建玉の注文変更は数量を変えられない。
+  var riskSel = $("a-risk"), adj = $("a-adj");
+  var readMult = function () {
+    try { var v = parseFloat(localStorage.getItem("fx_risk_mult")); return v > 0 ? v : 1; }
+    catch (e) { return 1; }
+  };
+  var mult = readMult();
+  riskSel.value = String(mult);
+  if (riskSel.value !== String(mult)) { mult = 1; riskSel.value = "1"; }
+  var orderData = null;
+  try { var od = document.getElementById("order-data"); if (od) orderData = JSON.parse(od.textContent); }
+  catch (e) { orderData = null; }
+  var yen = function (n) { return (n < 0 ? "-" : "+") + Math.round(Math.abs(n)).toLocaleString() + "円"; };
+  function adjustedRows() {
+    var rows = [];
+    if (!orderData || !orderData.操作) return rows;
+    Object.keys(orderData.操作).forEach(function (sysName) {
+      (orderData.操作[sysName] || []).forEach(function (op) {
+        var kind = String(op.種別 || "");
+        var units = Number(op.数量 || 0);
+        var isNew = kind === "新規建て";
+        var adjUnits = isNew && units ? Math.max(1000, Math.round(units * mult / 1000) * 1000) : units;
+        var sl = op["損切り幅pips_数値"], tp = op["利確幅pips_数値"];
+        var price = op.レート != null ? op.レート : op.変更後 != null ? op.変更後 : op.決済逆指値;
+        rows.push({ sys: sysName, kind: kind, side: op.売買 || op.対象 || "", units: units, adjUnits: adjUnits,
+          isNew: isNew, price: price, stop: op.決済逆指値 != null ? op.決済逆指値 : op.変更後,
+          tp: op["決済指値(利確)"], slYen: sl != null && adjUnits ? -sl * 0.01 * adjUnits : null,
+          tpYen: tp != null && adjUnits ? tp * 0.01 * adjUnits : null, slPips: sl, tpPips: tp });
+      });
+    });
+    return rows;
+  }
+  function renderAdjust() {
+    var rates = orderData && orderData.リスク率 ? orderData.リスク率 : null;
+    var cap = orderData && orderData.口座資金 ? Number(orderData.口座資金) : null;
+    var h = "";
+    var rateTxt = rates ? Object.keys(rates).map(function (k) {
+      return k + " " + (Number(rates[k]) * 100 * mult).toFixed(2).replace(/\.?0+$/, "") + "%"; }).join("／") : "";
+    if (mult === 1) {
+      h += "<p class='note'>リスク倍率: <b>現状のまま</b>（発注カードの数字をそのまま使う）"
+         + (rateTxt ? "　1回のリスク: " + esc(rateTxt) : "") + "</p>";
+    } else {
+      var rows = adjustedRows();
+      h += "<h4>調整後の発注数値（リスク " + mult + "倍" + (cap ? "・口座資金 " + cap.toLocaleString() + "円" : "") + "）</h4>";
+      if (rateTxt) h += "<p class='note'>1回のリスク（倍率適用後）: " + esc(rateTxt) + "</p>";
+      if (!rows.length) {
+        h += "<p class='note'>本日の発注作業はありません（新規建てが出た日に、ここに倍率を掛けた数量が出ます）。</p>";
+      } else {
+        h += "<div class='tablewrap'><table><tr><th>系</th><th>種別</th><th>売買/対象</th><th>数量（元）</th>"
+           + "<th>数量（調整後）</th><th>レート</th><th>到達時の損失（調整後）</th><th>利確時（調整後）</th></tr>";
+        rows.forEach(function (r) {
+          h += "<tr><td>" + esc(r.sys) + "</td><td>" + esc(r.kind) + "</td><td>" + esc(r.side) + "</td>"
+             + "<td>" + (r.units ? r.units.toLocaleString() : "—") + "</td>"
+             + "<td>" + (r.isNew ? "<b>" + r.adjUnits.toLocaleString() + "</b> ← この数量で" :
+                         (r.units ? r.units.toLocaleString() + "（既存建玉のため変えない）" : "—")) + "</td>"
+             + "<td>" + (r.price != null ? Number(r.price).toFixed(3) : "—") + "</td>"
+             + "<td class='down'>" + (r.slYen != null ? yen(r.slYen) + "（" + Math.round(r.slPips) + "pips）" : "—") + "</td>"
+             + "<td class='up'>" + (r.tpYen != null ? yen(r.tpYen) + "（" + Math.round(r.tpPips) + "pips）" : "—") + "</td></tr>";
+        });
+        h += "</table></div>";
+      }
+      h += "<p class='note'>※逆指値・利確の水準は変わらず、新規建ての数量だけが倍率で変わる（1,000通貨単位に丸め）。"
+         + "エンジンの建玉管理は現状の数量で追跡するので、倍率で建てた分の差は手動で把握が必要。"
+         + "恒久的に変えるなら config.json のリスク率を変更（Claudeに別途依頼）。</p>";
+    }
+    adj.innerHTML = h;
+  }
+  renderAdjust();
+  // 「更新」＝最新のボードを読み込み → 自動で分析 → 分析のおすすめ倍率で発注数量を更新
+  $("a-reload").onclick = function () {
+    try { localStorage.setItem("fx_risk_mult", riskSel.value);
+          localStorage.setItem("fx_auto_analyze", "1"); } catch (e) {}
+    location.reload();
+  };
+  riskSel.onchange = function () {
+    try { localStorage.setItem("fx_risk_mult", riskSel.value); } catch (e) {}
+    mult = parseFloat(riskSel.value) || 1; renderAdjust();
+  };
+
+  function render(doc) {
+    if (!doc || !doc.text && !doc.result) {
+      out.innerHTML = "<p class='note'>まだ分析はありません。「今すぐ分析」を押してください。</p>";
+      return;
+    }
+    var r = doc.result;
+    if (!r) { out.innerHTML = "<p>" + esc(doc.text).replace(/\n/g, "<br>") + "</p>"; return; }
+    var h = "";
+    if (r.headline) h += "<div class='lead'>" + esc(r.headline) + "</div>";
+    if (r.summary) h += "<h4>いまの状況（やさしく）</h4><p>" + esc(r.summary) + "</p>";
+    if (r.performance) h += "<h4>収益状況の評価</h4><p>" + esc(r.performance.comment) + "</p>" + list(r.performance.points);
+    if (r.fundamental) h += "<h4>ファンダメンタルズを踏まえた見方</h4><p>" + esc(r.fundamental.comment) + "</p>" + list(r.fundamental.points);
+    if (r.scenarios && r.scenarios.length) {
+      h += "<h4>リスク設定の比較（現状 と リスクを増やす場合）</h4>";
+      h += "<div class='tablewrap'><table><tr><th>パターン</th><th>1回のリスク</th>"
+         + "<th>全ストップ同時到達の損失</th><th>想定の年間リターン</th><th>想定の最大下落</th><th>向き不向き</th></tr>";
+      r.scenarios.forEach(function (s) {
+        h += "<tr><td><span class='tag " + tagOf(s.name) + "'>" + esc(s.name) + "</span></td>"
+           + "<td>" + esc(s.risk) + "</td><td>" + esc(s.loss_if_all_stops) + "</td>"
+           + "<td>" + esc(s.expected_return) + "</td><td>" + esc(s.expected_drawdown) + "</td>"
+           + "<td>" + esc(s.comment) + "</td></tr>";
+      });
+      h += "</table></div>";
+      if (r.scenario_note) h += "<p class='note'>" + esc(r.scenario_note) + "</p>";
+    }
+    if (r.proposals && r.proposals.length) {
+      h += "<h4>改善点・提案（採用するかはご本人の判断）</h4><ul>";
+      r.proposals.forEach(function (p) {
+        h += "<li><b>" + esc(p.title) + "</b>：" + esc(p.detail)
+           + (p.effect ? "<br><span class='note'>期待できる効果: " + esc(p.effect) + "</span>" : "") + "</li>";
+      });
+      h += "</ul>";
+    }
+    if (r.direction) h += "<h4>今後の方向性</h4><p>" + esc(r.direction) + "</p>";
+    if (r.risks && r.risks.length) h += "<h4>注意すべきリスク</h4>" + list(r.risks);
+    if (r.changes_since_last) h += "<h4>前回の分析からの変化</h4><p>" + esc(r.changes_since_last) + "</p>";
+    out.innerHTML = h;
+  }
+
+  function boardText() {
+    var parts = [];
+    var head = document.querySelector("header.top");
+    if (head) parts.push(head.innerText);
+    document.querySelectorAll(".banner").forEach(function (b) { parts.push(b.innerText); });
+    document.querySelectorAll(".grid > *").forEach(function (el) {
+      if (el.id === "analysis" || el.id === "scalp") return;
+      parts.push("■ " + el.innerText.trim());
+    });
+    var t = parts.join("\n\n").replace(/\n{3,}/g, "\n\n");
+    return t.length > 60000 ? t.slice(0, 60000) + "\n…（以下省略）" : t;
+  }
+
+  function buildPrompt(prev) {
+    var p = [];
+    p.push("あなたは個人のFXドル円・半自動売買スキーム（4システム: 長期トレンド／短期スイング／デイトレ複合時間軸／デイトレ15分。ドンチャン・ブレイクアウト＋ATRストップ。発注は本人が手動）の運用レビュー担当です。");
+    p.push("下の【運用ボードの内容】だけを材料に、現状を総合的に分析してください。数字はボードの値をそのまま使い、無い数字は作らず『不明』と書くこと。");
+    p.push("読む人はIT・金融の専門家ではありません。専門用語は避けるか一言説明を添え、結論を先に、短い文で書いてください。");
+    p.push("必ず含める観点: ①いまの状況のやさしい要約 ②収益状況の評価（累計損益・勝率・PF・システム別の寄与、どこで損をしているか） ③ファンダメンタルズ研究欄（レジーム・材料バランス・翌日予測・焦点・ニュース総括）を踏まえた見方と、それが保有ポジションにどう効くか ④リスク設定の比較: 『現状』（ボードの各システムのリスク率と合計リスク額）と『リスクを増やす場合』の2〜3パターン（例: 現状の1.5倍、2倍）。各パターンの『全ストップ同時到達の損失』『想定の年間リターン』『想定の最大下落』は、現状の値とボードの15年検証値（総リターン・最大DD）を倍率で比例させた概算で示し、概算である旨を書く ⑤改善点・提案（リスクリワード・ストップ幅・リスク率・システムの停止や縮小など。具体的な数値つき。採否は本人） ⑥今後の方向性 ⑦注意すべきリスク（指標イベント・介入・窓開けなど）。");
+    p.push("発注の指示（今すぐ買え・売れ）は書かない。投資助言ではなく、本人のシステムの点検レポートとして書く。");
+    if (mult !== 1) p.push("閲覧者はいま『リスク倍率 " + mult + "倍』を選んでいる。scenarios には必ずこの倍率のパターンを含め、現状との違いを説明する。");
+    if (prev && prev.text) {
+      p.push("【前回の分析（" + fmtAt(prev.at) + "・参考）】\n" + String(prev.text).slice(0, 4000));
+      p.push("前回からの変化（損益・ポジション・相場環境）があれば changes_since_last に1〜3文で書く。");
+    }
+    p.push("出力は次のJSONオブジェクトのみ（前後に文章を付けない）:\n" + JSON.stringify({
+      headline: "1行の結論（40字以内）",
+      summary: "いまの状況のやさしい要約（200字前後）",
+      performance: { comment: "収益状況の総評（150字前後）", points: ["箇条書き（3〜5個）"] },
+      fundamental: { comment: "ファンダを踏まえた見方（150字前後）", points: ["箇条書き（3〜5個）"] },
+      scenarios: [{ name: "現状", risk: "長期1.0%／短期0.5%…のように", loss_if_all_stops: "-◯円（◯%）",
+        expected_return: "年+◯%（概算）", expected_drawdown: "-◯%（概算）", comment: "向き不向き・注意（60字以内）" }],
+      scenario_note: "比較の前提と概算である旨（100字以内）",
+      proposals: [{ title: "提案名", detail: "具体的な内容と数値", effect: "期待できる効果" }],
+      direction: "今後の方向性（150字前後）",
+      risks: ["注意すべきリスク（3〜5個）"],
+      changes_since_last: "前回からの変化（前回が無ければ空文字）",
+      recommended_multiplier: "0.5／1／1.5／2 のいずれか（数値）。いまの成績と相場環境から、新規建ての数量に掛けるおすすめのリスク倍率",
+      multiplier_reason: "その倍率をすすめる理由（80字以内）"
+    }));
+    p.push("【運用ボードの内容】\n" + boardText());
+    return p.join("\n\n");
+  }
+
+  function plain(r) {   // 保存・前回参照用の素テキスト
+    try {
+      var s = [r.headline, r.summary, r.performance && r.performance.comment,
+        r.fundamental && r.fundamental.comment, r.direction].filter(Boolean).join("\n");
+      if (r.proposals) s += "\n提案: " + r.proposals.map(function (p) { return p.title; }).join("／");
+      return s;
+    } catch (e) { return ""; }
+  }
+
+  var copyFor = {
+    not_granted: "この画面ではClaudeの利用が許可されていません（許可すると使えます）。",
+    rate_limited: "呼び出しが多すぎるか利用上限です。しばらくしてからもう一度押してください。",
+    refused: "この内容では分析できませんでした。", invalid_json: "結果の形が崩れました。もう一度押してください。",
+    upstream_error: "通信が途切れました。もう一度押してください。", session_expired: "サインインし直してください。"
+  };
+
+  function setup(sample, db) {
+    var latestRef = db ? db.doc("analysis/latest") : null;
+    var latest = null;
+    if (latestRef) {
+      latestRef.onSnapshot(function (snap) {
+        latest = snap.exists ? snap.data() : null;
+        render(latest);
+        status.textContent = latest ? "最終分析 " + fmtAt(latest.at) + "（レート " + (latest.rate || "—") + "円・"
+          + (latest.tier === "complex" ? "詳細" : "標準") + "）" : "まだ分析はありません。";
+      }, function (e) { status.textContent = "保存先に接続できません（" + e.code + "）。分析はこの画面内だけ表示します。"; render(null); });
+    } else { render(null); status.textContent = "保存機能なし（この画面内だけ表示します）。"; }
+    if (!sample) {
+      status.textContent += " ※「今すぐ分析」は claude.ai の閲覧画面でのみ使えます。";
+      return;
+    }
+    runBtn.hidden = false; depthSel.hidden = false;
+    var ctl = null, timer = null;
+    stopBtn.onclick = function () { if (ctl) ctl.abort(); };
+    runBtn.onclick = async function () {
+      runBtn.disabled = true; stopBtn.hidden = false;
+      ctl = new AbortController();
+      var t0 = Date.now();
+      status.textContent = "分析中…（0秒）";
+      timer = setInterval(function () {
+        status.textContent = "分析中…（" + Math.round((Date.now() - t0) / 1000) + "秒）";
+      }, 1000);
+      var tier = depthSel.value;
+      var rateEl = document.querySelector("header.top .rate");
+      var rate = rateEl ? rateEl.textContent.replace(/[^0-9.]/g, "") : "";
+      try {
+        var result = await sample.json(buildPrompt(latest),
+          { modelTier: tier, cache: false, signal: ctl.signal });
+        var doc = { result: result, text: plain(result), at: new Date().toISOString(), rate: rate, tier: tier };
+        render(doc);
+        status.textContent = "分析完了 " + fmtAt(doc.at) + "（" + Math.round((Date.now() - t0) / 1000) + "秒）";
+        // 分析のおすすめ倍率で発注数量を更新（選択肢にある値のときだけ）
+        var rec = parseFloat(result && result.recommended_multiplier);
+        if ([0.5, 1, 1.5, 2].indexOf(rec) >= 0) {
+          if (rec !== mult) {
+            mult = rec; riskSel.value = String(rec);
+            try { localStorage.setItem("fx_risk_mult", String(rec)); } catch (e) {}
+            status.textContent += "　→ 分析のおすすめにより発注数量を " + rec + "倍 に更新"
+              + (result.multiplier_reason ? "（" + result.multiplier_reason + "）" : "");
+          } else {
+            status.textContent += "　→ 倍率は " + rec + "倍 のまま（分析も同じ判断）";
+          }
+          renderAdjust();
+        }
+        if (latestRef) {
+          try { await latestRef.set(doc); }
+          catch (e) { status.textContent += " ※保存できませんでした（閲覧のみの権限）。この画面内だけ表示します。"; }
+        }
+      } catch (e) {
+        if (e && e.code === "cancelled") { status.textContent = "停止しました。"; render(latest); }
+        else {
+          status.textContent = (copyFor[e && e.code] || "分析に失敗しました（" + (e && e.code) + "）。")
+            + (e && e.text ? "" : "");
+          if (e && e.text && e.code === "invalid_json") out.innerHTML = "<p>" + esc(e.text).replace(/\n/g, "<br>") + "</p>";
+          else render(latest);
+        }
+      } finally {
+        clearInterval(timer); runBtn.disabled = false; stopBtn.hidden = true;
+      }
+    };
+    // 「更新」直後の自動分析（押した瞬間に最新データで分析→数量更新）
+    var auto = false;
+    try { auto = localStorage.getItem("fx_auto_analyze") === "1"; localStorage.removeItem("fx_auto_analyze"); }
+    catch (e) {}
+    if (auto) runBtn.onclick();
+  }
+
+  // ── スキャルピング専用（高リスク発注欄）──
+  function setupScalp(sample, db) {
+    var sRun = $("s-run"), sStop = $("s-stop"), sRisk = $("s-risk");
+    var sStatus = $("s-status"), sOut = $("s-out");
+    var ref = db ? db.doc("analysis/scalp") : null;
+    var last = null;
+    var cap = orderData && orderData.口座資金 ? Number(orderData.口座資金) : 1000000;
+    function units(entry, stop, riskRate) {
+      var pips = Math.abs(Number(entry) - Number(stop)) * 100;
+      if (!(pips > 0)) return { pips: 0, units: 0 };
+      var u = Math.floor(cap * riskRate / (pips * 0.01) / 1000) * 1000;
+      return { pips: pips, units: Math.max(0, u) };
+    }
+    function renderScalp(doc) {
+      if (!doc || !doc.result) { sOut.innerHTML = "<p class='note'>まだ案はありません。「スキャル分析」を押してください。</p>"; return; }
+      var r = doc.result, h = "";
+      var v = String(r.verdict || "見送り");
+      var cls = /買/.test(v) ? "buy" : /売/.test(v) ? "sell" : "flat";
+      h += "<div class='lead'><span class='pos " + cls + "'>" + esc(v) + "</span>　"
+         + esc(r.headline || "") + (r.confidence ? "　<span class='tag'>" + esc("自信 " + r.confidence) + "</span>" : "") + "</div>";
+      if (r.reason) h += "<h4>根拠（テクニカル）</h4>" + list(r.reason);
+      if (r.fundamental) h += "<h4>ファンダの読み（この案に効く材料）</h4>" + list(r.fundamental);
+      if (cls !== "flat" && r.entry != null && r.stop != null) {
+        var u = units(r.entry, r.stop, doc.riskRate || 0.02);
+        var tpPips = r.take_profit != null ? Math.abs(Number(r.take_profit) - Number(r.entry)) * 100 : null;
+        var lossYen = -u.pips * 0.01 * u.units, profYen = tpPips != null ? tpPips * 0.01 * u.units : null;
+        h += "<h4>発注案（MATRIX TRADERへ転記・USD/JPY）</h4><div class='tablewrap'><table>"
+           + "<tr><th>項目</th><th>値</th></tr>"
+           + "<tr><td>売買</td><td><b>" + esc(v) + "</b></td></tr>"
+           + "<tr><td>数量</td><td><b>" + u.units.toLocaleString() + " 通貨</b>（1回のリスク " + Math.round((doc.riskRate || 0.02) * 100) + "%＝" + Math.round(cap * (doc.riskRate || 0.02)).toLocaleString() + "円を損切り幅で割った値）</td></tr>"
+           + "<tr><td>エントリー</td><td>" + Number(r.entry).toFixed(3) + " 円" + (r.entry_zone ? "（目安の価格帯 " + esc(r.entry_zone) + "）" : "") + "</td></tr>"
+           + "<tr><td>逆指値（損切り）</td><td>" + Number(r.stop).toFixed(3) + " 円　損切り幅 " + Math.round(u.pips) + " pips　<span class='down'>" + yen(lossYen) + "</span></td></tr>"
+           + "<tr><td>指値（利確）</td><td>" + (r.take_profit != null ? Number(r.take_profit).toFixed(3) + " 円　利確幅 " + Math.round(tpPips) + " pips　<span class='up'>" + yen(profYen) + "</span>" : "—") + "</td></tr>"
+           + "<tr><td>有効時間</td><td>" + esc(r.valid_until || "—") + "</td></tr>"
+           + "<tr><td>基準レート</td><td>" + esc(r.reference_rate || "—") + "（ボード時点。現在値と" + esc(r.max_slippage || "10pips") + "以上ずれたら見送り）</td></tr>"
+           + "</table></div>";
+        if (u.units === 0) h += "<p class='note'>※損切り幅に対してリスク額が小さく、1,000通貨未満になるため発注不可。</p>";
+      } else if (cls !== "flat") {
+        h += "<p class='note'>価格が指定されなかったため発注案は出せません。もう一度押してください。</p>";
+      }
+      if (r.checklist) h += "<h4>発注前チェック</h4>" + list(r.checklist);
+      if (r.other_pairs && r.other_pairs.length) {
+        h += "<h4>他の通貨ペアへの含意（方向のみ・数値なし＝ボードに値動きデータが無いため）</h4><ul>";
+        r.other_pairs.forEach(function (p) { h += "<li><b>" + esc(p.pair) + "</b> " + esc(p.bias) + "：" + esc(p.why) + "</li>"; });
+        h += "</ul>";
+      }
+      if (r.caution) h += "<h4>注意</h4>" + list(r.caution);
+      sOut.innerHTML = h;
+    }
+    if (ref) {
+      ref.onSnapshot(function (snap) {
+        last = snap.exists ? snap.data() : null; renderScalp(last);
+        sStatus.textContent = last ? "最終案 " + fmtAt(last.at) + "（レート " + (last.rate || "—") + "円・リスク " + Math.round((last.riskRate || 0) * 100) + "%）" : "まだ案はありません。";
+      }, function (e) { sStatus.textContent = "保存先に接続できません（" + e.code + "）。"; renderScalp(null); });
+    } else { renderScalp(null); sStatus.textContent = "保存機能なし（この画面内だけ表示します）。"; }
+    if (!sample) { sStatus.textContent += " ※「スキャル分析」は claude.ai の閲覧画面でのみ使えます。"; return; }
+    sRun.hidden = false;
+    var ctl = null, timer = null;
+    sStop.onclick = function () { if (ctl) ctl.abort(); };
+    sRun.onclick = async function () {
+      sRun.disabled = true; sStop.hidden = false; ctl = new AbortController();
+      var t0 = Date.now(); sStatus.textContent = "スキャル分析中…（0秒）";
+      timer = setInterval(function () { sStatus.textContent = "スキャル分析中…（" + Math.round((Date.now() - t0) / 1000) + "秒）"; }, 1000);
+      var riskRate = parseFloat(sRisk.value) || 0.02;
+      var rateEl = document.querySelector("header.top .rate");
+      var rate = rateEl ? rateEl.textContent.replace(/[^0-9.]/g, "") : "";
+      var p = [];
+      p.push("あなたはドル円のスキャルピング（数分〜数十分で5〜20pips程度を狙う超短期売買）の案を作る担当です。下の【運用ボードの内容】だけを材料にします。数字はボードの値を使い、無い数字は作らず『不明』と書くこと。");
+      p.push("読む人は専門家ではありません。専門用語は避け、短い文で。これは本人のツール内の案であり投資助言ではない。");
+      p.push("判断材料: テクニカル合議（15分足・1時間足）、ATR、直近の値動き・高値安値・節目（ファンダ研究欄の『次の焦点』にある節目）、ファンダメンタルズ（レジーム・材料バランス・翌日予測・ニュース総括・当局のけん制・指標イベント）。指標発表の前後30分や★5級イベント直前なら『見送り』。材料が拮抗し方向が読めないときも『見送り』を選ぶ（無理に案を出さない）。");
+      p.push("価格は『基準レート』（ボードのヘッダのレート＝ボード時点の値）を起点に、エントリーは基準レートから±0.15円以内、損切りは8〜25pips、利確は損切りの1〜2倍で具体的な小数3桁の数値を出す。数量は書かない（ページが口座資金とリスク率から計算する）。");
+      p.push("他の通貨ペア（ユーロ円・ポンド円・豪ドル円・ユーロドル）については、ボードに値動きデータが無いので数値は書かず、ファンダ（ドル全面主導かどうか等）から『円安寄り／円高寄り／中立』の方向だけを一言で。");
+      p.push("出力は次のJSONオブジェクトのみ:\n" + JSON.stringify({
+        verdict: "買／売／見送り", confidence: "高／中／低", headline: "1行の結論（40字以内）",
+        reference_rate: "基準にしたレートと時点", entry: 158.123, entry_zone: "158.10〜158.15 のように",
+        stop: 158.0, take_profit: 158.3, valid_until: "何時まで有効か（例: 本日12:00まで／次の1時間足確定まで）",
+        max_slippage: "10pips", reason: ["テクニカルの根拠（2〜4個）"], fundamental: ["ファンダの根拠（2〜4個）"],
+        checklist: ["発注前に確認すること（2〜4個）"],
+        other_pairs: [{ pair: "ユーロ円", bias: "円安寄り", why: "一言" }], caution: ["注意（2〜4個）"]
+      }));
+      p.push("【運用ボードの内容】\n" + boardText());
+      try {
+        var result = await sample.json(p.join("\n\n"), { modelTier: "default", cache: false, signal: ctl.signal });
+        var doc = { result: result, at: new Date().toISOString(), rate: rate, riskRate: riskRate };
+        renderScalp(doc);
+        sStatus.textContent = "案を更新 " + fmtAt(doc.at) + "（" + Math.round((Date.now() - t0) / 1000) + "秒・リスク " + Math.round(riskRate * 100) + "%）";
+        if (ref) { try { await ref.set(doc); } catch (e) { sStatus.textContent += " ※保存できませんでした（閲覧のみの権限）。"; } }
+      } catch (e) {
+        if (e && e.code === "cancelled") { sStatus.textContent = "停止しました。"; renderScalp(last); }
+        else { sStatus.textContent = copyFor[e && e.code] || "分析に失敗しました（" + (e && e.code) + "）。"; renderScalp(last); }
+      } finally { clearInterval(timer); sRun.disabled = false; sStop.hidden = true; }
+    };
+  }
+
+  if (!window.claude || typeof window.claude.use !== "function") {
+    status.textContent = "この画面では「更新」のみ使えます（分析は claude.ai の閲覧画面で）。";
+    $("s-status").textContent = "スキャル分析は claude.ai の閲覧画面でのみ使えます。";
+    render(null);
+    return;
+  }
+  Promise.all([claude.use("sample"), claude.use("db")]).then(function (r) {
+    setup(r[0], r[1]);
+    setupScalp(r[0], r[1]);
+  });
+})();
+</script>
+"""
+
 ACT_STYLE = {  # アクション → (表示, クラス)
     "新規買(ロング)": ("新規 買", "buy"), "新規売(ショート)": ("新規 売", "sell"),
     "ストップ変更": ("ストップ切上げ", "gold"), "決済": ("全決済", "gold"),
@@ -270,6 +735,7 @@ def build():
 
     # 指示書(最新日の最上位ステージ: 確定 > 速報2 > 速報1)
     order_text = "本日の指示書はまだ生成されていません。"
+    order_json = None
     is_flash = False   # 速報段階の表示か
     odir = R("results", "orders")
     if os.path.isdir(odir):
@@ -285,6 +751,28 @@ def build():
             is_flash = "確定" not in pick
             order_text = open(os.path.join(odir, pick),
                               encoding="utf-8").read().strip()
+            # 2026-10-12: 発注カードの機械可読版を埋め込み、ボード上の「更新」で
+            # リスク倍率を掛けた数量・損失額を表示できるようにする（表示専用）
+            oj = os.path.join(odir, pick.replace("_指示_", "_発注_")
+                              .replace(".txt", ".json"))
+            if os.path.exists(oj):
+                try:
+                    order_json = json.load(open(oj, encoding="utf-8"))
+                except (OSError, ValueError):
+                    order_json = None
+    if order_json is not None:
+        order_json["リスク率"] = {k: float(v.get("リスク率", 0))
+                                  for k, v in systems.items()}
+        for key, name in (("デイトレ", "デイトレ複合時間軸"),
+                          ("デイトレ15分", "デイトレ15分")):
+            if cfg.get(key, {}).get("リスク率") is not None:
+                order_json["リスク率"][name] = float(cfg[key]["リスク率"])
+        order_json["口座資金"] = float(cfg["口座資金_円"])
+        order_data_html = ('<script type="application/json" id="order-data">'
+                           + json.dumps(order_json, ensure_ascii=False)
+                           .replace("</", "<\\/") + "</script>")
+    else:
+        order_data_html = ""
     # 本日の配信メタ（各ステージの実際の生成時刻・遅延印・完成率）
     # 2026-08-12: launchdの発火遅れ+エンジンの長時間ハングで最終確定が09:34になった
     # が、ボード上に痕跡が無く遅延に気づけなかった。以後ヘッダで常時可視化する。
@@ -1247,6 +1735,7 @@ details {{ margin-top:6px; font-size:.78rem; color:var(--sub); }}
 details summary {{ cursor:pointer; }}
 footer {{ color:var(--sub); font-size:.7rem; margin-top:22px;
   line-height:1.6; }}
+{ANALYSIS_CSS}
 </style>
 <div class="wrap">
 <header class="top">
@@ -1258,6 +1747,8 @@ footer {{ color:var(--sub); font-size:.7rem; margin-top:22px;
 </header>
 {banner}
 <div class="grid">
+{ANALYSIS_CARD}
+{SCALP_CARD}
 {''.join(sys_cards)}
 {rr_card}
 {fund_html}
@@ -1316,6 +1807,8 @@ footer {{ color:var(--sub); font-size:.7rem; margin-top:22px;
 検証値は過去データによるもので将来の成果を保証しない。高重要度指標イベント日は新規建てを自動見送り。
 本ページは情報提供であり投資助言ではない。</footer>
 </div>
+{order_data_html}
+{ANALYSIS_JS}
 """
     os.makedirs(os.path.dirname(OUT_HTML), exist_ok=True)
     with open(OUT_HTML, "w", encoding="utf-8") as f:
