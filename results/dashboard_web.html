@@ -135,7 +135,7 @@ footer { color:var(--sub); font-size:.7rem; margin-top:22px;
   <h1>FXドル円 運用ボード</h1>
   <span class="rate">158.315<small>円</small></span>
   <span class="meta">更新 2026-10-12 07:19（朝6・7・8時台の3回＋デイトレ毎時判定）
-   ｜ 生成元: クラウド(GitHub Actions)
+   ｜ 生成元: Mac
    ｜ 運用先: MATRIX TRADER（発注は手動）<br>本日の配信 速報① 06:04 ／ 速報② 07:04 ／ 最終確定 未　｜ 完成率(直近10営業日) 29/29</span>
 </header>
 <div class="banner ok">速報配信中——正式な発注判断は8時すぎの【最終確定】で</div>
@@ -635,8 +635,67 @@ footer { color:var(--sub); font-size:.7rem; margin-top:22px;
       changed++;
       return ch;
     });
-    pre.textContent = (changed ? "※リスク倍率 " + mult + "倍 を新規建ての数量に適用して表示中（" + changed
-      + "件・逆指値の水準は変わらない・通知メールの数量は元のまま）\n\n" : "") + chunks.join("");
+    // 2026-10-12: 各システム見出し（▼…リスク1.0%）のリスク率も倍率後の値に書き換える
+    var body = chunks.join("").split("\n").map(function (ln) {
+      if (!/^▼/.test(ln)) return ln;
+      return ln.replace(/リスク(\d+(?:\.\d+)?)%/, function (_, r) {
+        return "リスク" + (parseFloat(r) * mult).toFixed(2).replace(/\.?0+$/, "") + "%（元" + r + "%×" + mult + "倍）";
+      });
+    }).join("\n");
+    pre.textContent = "※リスク倍率 " + mult + "倍 を適用して表示中（新規建ての数量" + changed
+      + "件を調整・保有中建玉の数量と逆指値の水準は変わらない・通知メールは元のまま）\n\n" + body;
+  }
+  // 2026-10-12: 「今すぐ分析」のたびに、倍率適用後の指示書を Google Drive の「指示書」フォルダへ
+  // 書き出す（ユーザー指示: 問答無用で全て更新）。フォルダはエンジンが置く *_指示_確定.txt の
+  // 親フォルダを検索で特定（IDをリポジトリに書かない）。同じ日付の前回の調整版はゴミ箱へ移して1日1本に保つ。
+  var mcpNs = null;
+  async function pushDrive(db, headline) {
+    if (!mcpNs) return "Drive未接続（この画面ではGoogle Driveを使えません）";
+    var pre = document.querySelector("pre.order");
+    var day = orderData && orderData.日付 ? orderData.日付 : new Date().toISOString().slice(0, 10);
+    var stage = orderData && orderData.段階 ? orderData.段階 : "";
+    var now = new Date();
+    var stamp = now.getFullYear() + "-" + ("0" + (now.getMonth() + 1)).slice(-2) + "-" + ("0" + now.getDate()).slice(-2)
+      + " " + ("0" + now.getHours()).slice(-2) + ":" + ("0" + now.getMinutes()).slice(-2);
+    try {
+      var found = await mcpNs.callTool("Google Drive", "search_files", {
+        query: "title contains '_指示_確定' and title contains '.txt'", excludeContentSnippets: true, pageSize: 5
+      }, { cache: false });
+      var files = (found.payload && found.payload.files) || [];
+      var parent = files.length ? files[0].parentId : null;
+      if (!parent) return "Drive指示書フォルダが見つかりません";
+      var text = "■ ドル円 注文指示書【リスク倍率調整版】 " + day + "（元: " + stage + "）\n"
+        + "  作成: " + stamp + "（ボードの「今すぐ分析」で自動更新）\n"
+        + "  リスク倍率: " + mult + "倍" + (mult === 1 ? "（現状のまま）" : "") + "\n"
+        + (headline ? "  分析の結論: " + headline + "\n" : "")
+        + "  ※エンジンの正本は " + day + "_指示_確定.txt。本書は倍率を新規建ての数量に掛けた転記用。\n\n"
+        + (pre ? pre.textContent : "");
+      var title = day + "_指示_リスク調整版.txt";
+      var made = await mcpNs.callTool("Google Drive", "create_file", {
+        title: title, parentId: parent, textContent: text,
+        contentMimeType: "text/plain", disableConversionToGoogleType: true
+      }, { cache: false });
+      var p = made.payload || {};
+      var newId = p.id || (p.file && p.file.id) || null;
+      var ref = db ? db.doc("drive/adjusted") : null;
+      if (ref) {
+        try {
+          var prev = await ref.get();
+          var pd = prev.exists ? prev.data() : null;
+          if (pd && pd.day === day && pd.id && pd.id !== newId) {
+            try { await mcpNs.callTool("Google Drive", "trash_file", { fileId: pd.id }, { cache: false }); } catch (e) {}
+          }
+          if (newId) await ref.set({ day: day, id: newId, at: now.toISOString(), mult: mult });
+        } catch (e) {}
+      }
+      return "Drive指示書を更新（" + title + "・" + mult + "倍）";
+    } catch (e) {
+      var why = { needs_reauth: "Google Driveの再接続が必要（claude.ai 設定→コネクタ）",
+        server_not_connected: "Google Driveコネクタが未接続（claude.ai 設定→コネクタで追加）",
+        not_in_manifest: "Google Driveの利用がこの画面で許可されていません",
+        approval_required: "Google Driveへの書き込みが未承認" }[e && e.code];
+      return "Drive指示書の更新失敗（" + (why || (e && (e.message || e.code)) || "不明") + "）";
+    }
   }
   renderAdjust();
   // スキャル欄の「1回のリスク」選択肢: 1・2・3・5%、以降5%刻みで40%まで（2026-10-12 指示）。
@@ -766,7 +825,16 @@ footer { color:var(--sub); font-size:.7rem; margin-top:22px;
     upstream_error: "通信が途切れました。もう一度押してください。", session_expired: "サインインし直してください。"
   };
 
+  // 発注一覧・Drive指示書の同期状況を出す行（分析の状況表示とは別。保存時の再描画で消えないように）
+  function syncLine(t) {
+    var el = $("a-sync");
+    if (!el) { el = document.createElement("div"); el.className = "astatus"; el.id = "a-sync";
+      status.parentNode.insertBefore(el, status.nextSibling); }
+    el.textContent = t;
+  }
+  var dbRef = null;
   function setup(sample, db) {
+    dbRef = db;
     var latestRef = db ? db.doc("analysis/latest") : null;
     var latest = null;
     if (latestRef) {
@@ -786,6 +854,12 @@ footer { color:var(--sub); font-size:.7rem; margin-top:22px;
     stopBtn.onclick = function () { if (ctl) ctl.abort(); };
     runBtn.onclick = async function () {
       runBtn.disabled = true; stopBtn.hidden = false;
+      // 押した時点の選択倍率を必ず反映（問答無用で発注一覧を更新）
+      mult = parseFloat(riskSel.value) || 1;
+      try { localStorage.setItem("fx_risk_mult", String(mult)); } catch (e) {}
+      renderAdjust();
+      var headline = "", cancelled = false;
+      syncLine("発注一覧を " + mult + "倍 で更新済み／Drive指示書は分析のあとに更新します…");
       ctl = new AbortController();
       var t0 = Date.now();
       status.textContent = "分析中…（0秒）";
@@ -800,6 +874,7 @@ footer { color:var(--sub); font-size:.7rem; margin-top:22px;
           { modelTier: tier, cache: false, signal: ctl.signal });
         var doc = { result: result, text: plain(result), at: new Date().toISOString(), rate: rate, tier: tier };
         render(doc);
+        headline = result && result.headline ? String(result.headline) : "";
         status.textContent = "分析完了 " + fmtAt(doc.at) + "（" + Math.round((Date.now() - t0) / 1000) + "秒）";
         // 分析のおすすめ倍率: 選択が「現状のまま(1倍)」のときだけ自動で適用する。
         // 2026-10-12: 自分で2倍を選んでも分析のたびに戻されていた（ユーザー指摘）ため、
@@ -821,8 +896,10 @@ footer { color:var(--sub); font-size:.7rem; margin-top:22px;
             status.innerHTML = esc(status.textContent) + "　分析のおすすめ倍率は <b>" + rec + "倍</b>"
               + esc(reason) + "（いまの選択 " + mult + "倍 はそのまま）"
               + " <button class='abtn ghost' id='a-apply' type='button'>おすすめを適用</button>";
-            $("a-apply").onclick = function () {
+            $("a-apply").onclick = async function () {
               applyRec(); status.textContent = "発注数量を " + rec + "倍 に更新しました";
+              syncLine("発注一覧を " + mult + "倍 で更新済み／Drive指示書を更新中…");
+              syncLine("発注一覧を " + mult + "倍 で更新済み／" + await pushDrive(dbRef, headline));
             };
           }
         }
@@ -831,7 +908,7 @@ footer { color:var(--sub); font-size:.7rem; margin-top:22px;
           catch (e) { status.textContent += " ※保存できませんでした（閲覧のみの権限）。この画面内だけ表示します。"; }
         }
       } catch (e) {
-        if (e && e.code === "cancelled") { status.textContent = "停止しました。"; render(latest); }
+        if (e && e.code === "cancelled") { cancelled = true; status.textContent = "停止しました。"; render(latest); }
         else {
           status.textContent = (copyFor[e && e.code] || "分析に失敗しました（" + (e && e.code) + "）。")
             + (e && e.text ? "" : "");
@@ -839,7 +916,15 @@ footer { color:var(--sub); font-size:.7rem; margin-top:22px;
           else render(latest);
         }
       } finally {
-        clearInterval(timer); runBtn.disabled = false; stopBtn.hidden = true;
+        clearInterval(timer); stopBtn.hidden = true;
+        // 分析の成否にかかわらず（停止を除く）、倍率適用後の指示書をDriveへ書き出す
+        if (!cancelled) {
+          syncLine("発注一覧を " + mult + "倍 で更新済み／Drive指示書を更新中…");
+          syncLine("発注一覧を " + mult + "倍 で更新済み／" + await pushDrive(dbRef, headline) + "（" + fmtAt(new Date().toISOString()) + "）");
+        } else {
+          syncLine("発注一覧を " + mult + "倍 で更新済み／停止したためDrive指示書は未更新");
+        }
+        runBtn.disabled = false;
       }
     };
     // 「更新」直後の自動分析（押した瞬間に最新データで分析→数量更新）
@@ -1006,7 +1091,8 @@ footer { color:var(--sub); font-size:.7rem; margin-top:22px;
     render(null);
     return;
   }
-  Promise.all([claude.use("sample"), claude.use("db")]).then(function (r) {
+  Promise.all([claude.use("sample"), claude.use("db"), claude.use("mcp")]).then(function (r) {
+    mcpNs = r[2];
     setup(r[0], r[1]);
     setupScalp(r[0], r[1]);
   });
