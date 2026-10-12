@@ -267,7 +267,6 @@ ANALYSIS_JS = r"""
   var mcpNs = null;
   async function pushDrive(db, headline) {
     if (!mcpNs) return "Drive未接続（この画面ではGoogle Driveを使えません）";
-    var pre = document.querySelector("pre.order");
     var day = orderData && orderData.日付 ? orderData.日付 : new Date().toISOString().slice(0, 10);
     var stage = orderData && orderData.段階 ? orderData.段階 : "";
     var now = new Date();
@@ -285,7 +284,8 @@ ANALYSIS_JS = r"""
         + "  リスク倍率: " + mult + "倍" + (mult === 1 ? "（現状のまま）" : "") + "\n"
         + (headline ? "  分析の結論: " + headline + "\n" : "")
         + "  ※エンジンの正本は " + day + "_指示_確定.txt。本書は倍率を新規建ての数量に掛けた転記用。\n\n"
-        + (pre ? pre.textContent : "");
+        + Array.prototype.map.call(document.querySelectorAll("pre.order"), function (x) {
+            return x.textContent; }).join("\n\n");  // 2026-10-13: ユーロドルの指示書も含める
       var title = day + "_指示_リスク調整版.txt";
       var made = await mcpNs.callTool("Google Drive", "create_file", {
         title: title, parentId: parent, textContent: text,
@@ -829,6 +829,38 @@ def _fund_chip(pos, bal):
     return f'<span class="chip">{txt}<small>・参考</small></span>'
 
 
+def _intraday_block(latest_path, state_path, name, label, stale_hours=3):
+    """デイトレの最新指示を指示書欄に併記する文面。古い指示は「現況」に差し替える。"""
+    if not os.path.exists(latest_path):
+        return ""
+    body = open(latest_path, encoding="utf-8").read().strip()
+    head = "\n\n" + "=" * 46 + f"\n▼ {name} {label}\n" + "=" * 46 + "\n"
+    try:
+        st = json.load(open(state_path, encoding="utf-8"))
+        upd = datetime.fromisoformat(str(st.get("updated", ""))[:16])
+        m = re.search(r"(\d{4}-\d{2}-\d{2} \d{2}:\d{2})", body.split("\n", 1)[0])
+        ts = datetime.strptime(m.group(1), "%Y-%m-%d %H:%M") if m else None
+    except Exception:  # noqa: BLE001
+        return head + body
+    if ts is None or (upd - ts).total_seconds() < stale_hours * 3600:
+        return head + body
+    s0 = st.get("state", {}) or {}
+    pos = int(s0.get("position", 0) or 0)
+    lines = [f"■ ドル円 {name} 現況（最終判定 {upd:%Y-%m-%d %H:%M}・確定バー {st.get('last_bar', '—')}）"]
+    if pos == 0:
+        lines.append("【待機】ノーポジ。新しい指示なし。発注不要。")
+    else:
+        side = "買" if pos > 0 else "売"
+        def f3(v):
+            return f"{float(v):.3f}円" if v not in (None, "") else "—"
+        lines.append(f"【保有継続】{side} {int(s0.get('units', 0) or 0):,}通貨　建値 {f3(s0.get('entry'))}"
+                     f"　決済逆指値 {f3(s0.get('stop'))}　利確指値 {f3(s0.get('tp'))}")
+        lines.append("  新しい指示なし。発注不要（MATRIX TRADER上の逆指値・利確が上の値と一致しているかだけ確認）。")
+    lines.append(f"  ※直近の指示（{ts:%Y-%m-%d %H:%M}）は{stale_hours}時間以上前のもので処理済みの前提。"
+                 "転記用の発注カードは出さない（全文は当時の通知メール）。")
+    return head + "\n".join(lines)
+
+
 def _parse_order_actions(order_text, names):
     """指示書本文から日足システムごとの【見出し】を読み、カード表示へ写す。
 
@@ -1345,21 +1377,14 @@ def build():
                     + f"　｜ 完成率(直近{len(days)}営業日) {got}/{exp}"
                     + ("　⚠欠落あり" if got < exp else ""))
 
-    # デイトレの最新指示を同じ指示書欄に併記（3システムを1枚で確認できるように）
-    latest_intraday = R("results", "intraday_latest.txt")
-    if os.path.exists(latest_intraday):
-        order_text += ("\n\n" + "=" * 46 +
-                       "\n▼ デイトレ複合時間軸 最新指示（毎時更新）\n" + "=" * 46 +
-                       "\n" + open(latest_intraday,
-                                   encoding="utf-8").read().strip())
-
-    # デイトレ15分の最新指示も併記（4システムを1枚で確認できるように）
-    latest_i15 = R("results", "intraday15_latest.txt")
-    if os.path.exists(latest_i15):
-        order_text += ("\n\n" + "=" * 46 +
-                       "\n▼ デイトレ15分 最新指示（15分ごと更新）\n" + "=" * 46 +
-                       "\n" + open(latest_i15,
-                                   encoding="utf-8").read().strip())
+    # デイトレの最新指示を同じ指示書欄に併記（4システムを1枚で確認できるように）。
+    # 2026-10-13: *_latest.txt は通知があった回だけ書き換わるため、何日も前の
+    # 「決済」「要確認」カードが最新指示として残り、転記の誤りを招いていた（ユーザー指摘）。
+    # エンジンの最終判定より3時間以上古い指示は、状態ファイルから作った「現況」に差し替える。
+    order_text += _intraday_block(R("results", "intraday_latest.txt"), R("state_intraday.json"),
+                                  "デイトレ複合時間軸", "最新指示（毎時更新）")
+    order_text += _intraday_block(R("results", "intraday15_latest.txt"), R("state_intraday15.json"),
+                                  "デイトレ15分", "最新指示（15分ごと更新）")
 
     # 速報段階のみ: 当日バーでのストップ到達を暫定反映する。
     # エンジンの正式計上(trades.csv追記・state更新)は8時の最終確定でのみ行われる
