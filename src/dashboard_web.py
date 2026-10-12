@@ -421,7 +421,7 @@ ANALYSIS_CSS = """
 /* スキャルのチャート（2026-10-13）: ローソク＋EMA＋ペーパートレード＋AIの案。色は既存トークンのみ */
 .sc-wrap{margin-top:var(--s3);border:1px solid var(--line);border-radius:var(--r3);background:var(--panel);padding:var(--s3)}
 .sc-bar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;justify-content:space-between}
-.sc-tabs{display:flex;gap:4px}
+.sc-tabs{display:flex;flex-wrap:wrap;gap:4px}
 .sc-tabs button{border:1px solid var(--line-strong);background:var(--raised);color:var(--ink);border-radius:999px;padding:3px 12px;font-size:var(--fs-cap);font-weight:700;cursor:pointer}
 .sc-tabs button[aria-pressed="true"]{background:var(--ink);color:var(--panel);border-color:var(--ink)}
 .sc-legend{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:var(--fs-cap);color:var(--sub)}
@@ -522,7 +522,7 @@ SCALP_CARD = """
   <div class="astatus" id="s-status">読み込み中…</div>
   <div class="sc-wrap" id="sc-wrap">
     <div class="sc-bar"><b id="sc-title">チャート</b>
-      <div class="sc-tabs" role="group" aria-label="時間足"><button type="button" data-tf="15分" aria-pressed="true">15分足</button><button type="button" data-tf="1時間" aria-pressed="false">1時間足</button></div></div>
+      <div class="sc-tabs" role="group" aria-label="時間足"><button type="button" data-tf="15分" aria-pressed="true">15分</button><button type="button" data-tf="30分" aria-pressed="false">30分</button><button type="button" data-tf="1時間" aria-pressed="false">1時間</button><button type="button" data-tf="4時間" aria-pressed="false">4時間</button><button type="button" data-tf="8時間" aria-pressed="false">8時間</button><button type="button" data-tf="12時間" aria-pressed="false">12時間</button><button type="button" data-tf="24時間" aria-pressed="false">24時間</button></div></div>
     <div class="sc-legend"><span><i style="border-color:var(--navy)"></i>EMA20</span><span><i style="border-color:var(--gold)"></i>EMA50</span>
       <span>▲▼ ペーパー売買（塗り＝1時間ルール／白抜き＝15分ルール）</span><span>● 決済（緑＝勝ち・赤＝負け）</span><span>◆ AIの案</span>
       <span><i style="border-color:var(--ink)"></i>最新案の入る値</span><span><i style="border-color:var(--up);border-top-style:dashed"></i>利確</span><span><i style="border-color:var(--down);border-top-style:dashed"></i>損切り</span></div>
@@ -1121,7 +1121,10 @@ ANALYSIS_JS = r"""
     var aw = done.filter(function (x) { return x[1].pips > 0; }).length, asum = done.reduce(function (a, x) { return a + x[1].pips; }, 0);
     var skip = ev.filter(function (x) { return x[1].res === "見送り"; }).length, nofill = ev.filter(function (x) { return x[1].res === "未約定"; }).length;
     tiles += "<div><span>AIの案（◆・自動判定）</span><b class='" + (!done.length ? "" : asum >= 0 ? "up" : "down") + "'>" + (done.length ? (asum >= 0 ? "+" : "") + asum.toFixed(1) + " pips" : "記録待ち") + "</b>"
-      + "<small>" + mine.length + "回分析・決着" + done.length + "（勝ち" + aw + "）・未約定" + nofill + "・見送り" + skip + "</small></div>";
+      + "<small>" + mine.length + "回分析・決着" + done.length + "（勝ち" + aw + "）・未約定" + nofill + "・見送り" + skip
+      + (function () { var wr = done.filter(function (x) { return x[0].win_rate != null; });
+          return wr.length ? "<br>想定勝率の平均 " + Math.round(wr.reduce(function (a, x) { return a + Number(x[0].win_rate); }, 0) / wr.length) + "% ／ 実際 " + Math.round(100 * wr.filter(function (x) { return x[1].pips > 0; }).length / wr.length) + "%" : ""; })()
+      + "</small></div>";
     $("sc-stats").innerHTML = tiles;
     var cum2 = 0; series.push({ name: "AIの案", cls: "s3", pts: done.slice().sort(function (a, b) { return (a[1].out || 0) - (b[1].out || 0); }).map(function (x) { cum2 += x[1].pips; return [x[1].out, cum2]; }) });
     done.forEach(function (x) { rows.push([x[1].in || Math.floor(Date.parse(x[0].at) / 60000), "AIの案", /買/.test(x[0].verdict) ? "買" : "売", Number(x[0].entry).toFixed(S.dec) + " → " + Number(x[1].x).toFixed(S.dec), x[1].why || (x[1].res === "勝ち" ? "利確" : "損切り"), x[1].pips]); });
@@ -1162,11 +1165,15 @@ ANALYSIS_JS = r"""
   document.querySelectorAll("#sc-wrap .sc-tabs button").forEach(function (b) {
     b.onclick = function () {
       SC.tf = b.dataset.tf;
+      try { localStorage.setItem("fx_scalp_tf", SC.tf); } catch (e) {}
       document.querySelectorAll("#sc-wrap .sc-tabs button").forEach(function (o) { o.setAttribute("aria-pressed", o === b ? "true" : "false"); });
       scDraw();
     };
   });
-  (function () { var ps = $("s-pair"); if (ps) SC.pair = ps.value; try { var sp = localStorage.getItem("fx_scalp_pair"); if (sp) SC.pair = sp; } catch (e) {} })();
+  (function () {
+    try { var st = localStorage.getItem("fx_scalp_tf"); if (st && scAll && scAll["ドル円"] && scAll["ドル円"].tf && scAll["ドル円"].tf[st]) {
+      SC.tf = st; document.querySelectorAll("#sc-wrap .sc-tabs button").forEach(function (o) { o.setAttribute("aria-pressed", o.dataset.tf === st ? "true" : "false"); }); } } catch (e) {}
+    var ps = $("s-pair"); if (ps) SC.pair = ps.value; try { var sp = localStorage.getItem("fx_scalp_pair"); if (sp) SC.pair = sp; } catch (e) {} })();
   scDraw();
   var scRz = null;
   window.addEventListener("resize", function () { clearTimeout(scRz); scRz = setTimeout(scDraw, 200); });
@@ -1272,7 +1279,8 @@ ANALYSIS_JS = r"""
       var cls = side > 0 ? "buy" : side < 0 ? "sell" : "flat";
       var ref = doc.rate ? Number(doc.rate) : null;
       var big = side > 0 ? "買いで入る（ロング）" : side < 0 ? "売りで入る（ショート）" : "今は入らない（見送り）";
-      var sub = S.code + "・" + esc(r.headline || "") + (r.confidence ? "・自信 " + esc(r.confidence) : "");
+      var sub = S.code + "・" + esc(r.headline || "") + (r.confidence ? "・自信 " + esc(r.confidence) : "")
+        + (r.win_rate != null ? "・想定勝率 " + esc(r.win_rate) + "%" : "");
       h += "<div class='ticket " + cls + "'><div class='t-head'><div class='t-pair'>" + S.code + "</div>"
          + "<div class='t-do'>" + big + "</div><div class='t-sub'>" + sub + "</div></div>";
       // 2026-10-13: 判断を緩めた代わりに、自信『低』の案はリスクを半分にして数量を出す
@@ -1331,6 +1339,7 @@ ANALYSIS_JS = r"""
       }
       if (r.checklist && r.checklist.length) h += "<h4>発注前チェック</h4>" + list(r.checklist);
       var more = "";
+      if (r.win_rate_basis) more += "<h4>想定勝率の根拠</h4><p>" + esc(r.win_rate_basis) + "</p>";
       if (r.reason) more += "<h4>根拠（テクニカル）</h4>" + list(r.reason);
       if (r.fundamental) more += "<h4>ファンダの読み</h4>" + list(r.fundamental);
       if (r.forecast && r.forecast.length) more += "<h4>予想の根拠</h4>" + list(r.forecast.map(function (f) { return f.timeframe + ": " + (f.basis || ""); }));
@@ -1381,9 +1390,9 @@ ANALYSIS_JS = r"""
       if (S.name === "ユーロドル") p.push("ユーロドルはドル円より短い足の優位性が小さい（15分足はPF1未満）。前半・後半ともPF1.1以上の条件（例: 4時間足『EMA20押し目/戻り・EMA200と同方向』、30分足『RSI行き過ぎの戻り・EMA200と同方向』）に合えば自信『中』以上、PF1.0以上の条件に下の決まりで2つ合えば自信『低』で案を出してよい。ECB・ユーロ圏CPIなどユーロ側の★5級も避ける。");
       p.push("あなたは" + S.name + "のスキャルピング（数分〜数十分で5〜20pips程度を狙う超短期売買）の案を作る担当です。下の【運用ボードの内容】だけを材料にします。数字はボードの値を使い、無い数字は作らず『不明』と書くこと。");
       p.push("読む人は専門家ではありません。専門用語は避け、短い文で。これは本人のツール内の案であり投資助言ではない。");
-      p.push("判断材料: テクニカル合議（15分足・1時間足）、ATR、直近の値動き・高値安値・節目（ファンダ研究欄の『次の焦点』にある節目）、ファンダメンタルズ（レジーム・材料バランス・翌日予測・ニュース総括・当局のけん制・指標イベント）。指標発表の前後30分や★5級イベント直前なら『見送り』。材料が拮抗していても、下の『判断の決まり』で2つ以上の条件がそろえば自信『低』で案を出す（2026-10-13 落合さん指示: 見送りばかりで実績が見えないため判断を少し緩める）。");
+      p.push("判断材料: テクニカル合議（15分足・1時間足）、ATR、直近の値動き・高値安値・節目（ファンダ研究欄の『次の焦点』にある節目）、ファンダメンタルズ（レジーム・材料バランス・翌日予測・ニュース総括・当局のけん制・指標イベント）。★5級イベントの前後30分は caution に必ず書く（案は出してよい。発注するかは本人が判断する）。");
       p.push("価格は『直近の値動き』の最終バー終値（あれば。無ければボードのヘッダのレート）を基準レートにし、エントリーは基準レートから" + S.zone + "以内、損切りは12pips前後（8〜16）、利確は損切りの1.2〜1.5倍で具体的な小数" + S.dec + "桁の数値を出す。数量は書かない（ページが口座資金とリスク率から計算する）。");
-      p.push("判断の決まり（過去の検証に寄せる）: ①『スキャル研究』のPF1.0以上の時間足の上位条件（入り方・EMA200と同方向か・時間帯）と、『直近の値動き』のその足の RSI14／EMA20とEMA50の配列／EMA200の向き／いまの時刻（JST）を比べる。4つとも合えば自信『高』、3つなら『中』、2つなら『低』で案を出す（緩めた基準。研究結論の『合わなければ見送り』よりこちらを優先）。②1つ以下しか合わない時だけ『見送り』。③★5級イベントの前後30分は必ず見送り。『避ける時間帯』は見送りにせず自信を1段下げる（低の場合は見送り）。④『これまでの案と結果』で負けが続いている型（同じ時間帯・同じ向き）は避ける。⑤案を出すときは reason に『時間足=◯・RSI=◯・EMA200の向き=◯・時間帯=◯時台（研究の勝率◯%）』と数字で根拠を書く。損切り/利確はその足の『損切りpips目安／利確pips目安』を使う。");
+      p.push("判断の決まり（2026-10-13 落合さん指示: スキャルは『想定勝率が50%を超えれば必ず案を出す。発注は本人が判断』。研究結論の『合わなければ見送り』よりこちらを優先）: ①いまの状況に最も近い研究の条件を選び、想定勝率を出す。想定勝率＝その時間足の上位条件の勝率を基準に、『同じ入り方の時間帯幅別』でいまの時刻（JST）を含む時間帯の勝率があればそれを優先し、RSI14／EMA20とEMA50の配列／EMA200の向きが条件と逆なら1つにつき5ポイント下げる。②買い・売りの両方向で想定勝率を出し、高い方を candidate に必ず入れる（見送りでも価格つきで）。③candidate の想定勝率が50%を超えたら、verdict は必ずその向き（買／売）。50%以下なら『見送り』。④自信は、RSI・EMA配列・EMA200の向き・時間帯の4つのうち条件と合う数で決める（4つ＝高、3つ＝中、2つ以下＝低）。⑤★5級イベントの前後30分や『避ける時間帯』は勝率を下げる材料にしつつ、caution に書く。④『これまでの案と結果』で負けが続いている型（同じ時間帯・同じ向き）は避ける。⑤案を出すときは reason に『時間足=◯・RSI=◯・EMA200の向き=◯・時間帯=◯時台（研究の勝率◯%）』と数字で根拠を書く。損切り/利確はその足の『損切りpips目安／利確pips目安』を使う。");
       p.push("内部予想（見送りでも必ず）: forecast に 15分・1時間・4時間・日足 の4行を入れ、各行で『方向（上／下／横ばい）・確率（%）・想定レンジ（円）・根拠（RSI・EMA配列・ATR・節目・ファンダを数字で）』を書く。確率は50%を中立とし、材料が無いときは50〜55%に留める。entry_triggers には『何が起きたら買い／売りの案に変わるか』を価格と時刻で2〜4個、next_check には次に見るべき時刻（JST）を書く。");
       if (sd && sd.研究) p.push("【スキャル研究（短い足から日足まで・時間帯幅1/2/3/6時間・JSON）】\n" + JSON.stringify(sd.研究).slice(0, 24000));
       if (sd && sd.値動き) p.push("【直近の値動き（15分・30分・1時間・4時間・日足の指標と直近バー。時刻はJST）】\n" + JSON.stringify(sd.値動き).slice(0, 16000));
@@ -1392,6 +1401,8 @@ ANALYSIS_JS = r"""
       p.push("他の通貨ペア（ユーロ円・ポンド円・豪ドル円・" + S.other + "）については、ここでは数値は書かず、ファンダ（ドル全面主導かどうか等）から『円安寄り／円高寄り／中立』の方向だけを一言で。");
       p.push("出力は次のJSONオブジェクトのみ:\n" + JSON.stringify({
         verdict: "買／売／見送り", confidence: "高／中／低", headline: "1行の結論（40字以内）",
+        win_rate: 54, win_rate_basis: "例: 1時間足『RSI行き過ぎの戻り・EMA200と同方向』勝率54%（118回）、06-07時台の時間帯勝率53%、RSIが条件と逆で-5",
+        candidate: { side: "買／売（高い方）", win_rate: 54, entry: 158.123, stop: 158.0, take_profit: 158.3 },
         reference_rate: "基準にしたレートと時点", entry: 158.123, entry_zone: "158.10〜158.15 のように",
         stop: 158.0, take_profit: 158.3, valid_until: "何時まで有効か（例: 本日12:00まで／次の1時間足確定まで）",
         max_slippage: "10pips", reason: ["テクニカルの根拠（2〜4個）"], fundamental: ["ファンダの根拠（2〜4個）"],
@@ -1404,6 +1415,17 @@ ANALYSIS_JS = r"""
       p.push("【運用ボードの内容】\n" + boardText());
       try {
         var result = await sample.json(p.join("\n\n"), { modelTier: "default", cache: false, signal: ctl.signal });
+        // 2026-10-13: 想定勝率が50%を超えたら、AIが見送りと書いても候補の向きで案にする（発注は本人判断）
+        try {
+          var cd = result && result.candidate, wr = Number(cd && cd.win_rate);
+          if (cd && wr > 50 && /見送/.test(String(result.verdict || "見送り")) && cd.entry != null && cd.stop != null) {
+            result.verdict = /売/.test(String(cd.side)) ? "売" : "買";
+            result.entry = cd.entry; result.stop = cd.stop; result.take_profit = cd.take_profit;
+            result.win_rate = wr; result.confidence = "低";
+            result.headline = "想定勝率" + wr + "%（50%超）のため案を表示 — " + (result.headline || "");
+          }
+          if (result && result.win_rate == null && cd) result.win_rate = cd.win_rate;
+        } catch (e) {}
         var doc = { result: result, at: new Date().toISOString(), rate: rate, riskRate: riskRate, pair: runPair };
         lastBy[runPair] = doc;
         if (pairSel.value === runPair) renderScalp(doc);
@@ -1415,7 +1437,7 @@ ANALYSIS_JS = r"""
             await SC.histCol.doc(String(doc.at).replace(/[^0-9A-Za-z]/g, "") + (runPair === "ユーロドル" ? "eu" : "uj")).set(JSON.parse(JSON.stringify({
               at: doc.at, pair: runPair, verdict: r0.verdict || "見送り", confidence: r0.confidence || "",
               entry: r0.entry, stop: r0.stop, take_profit: r0.take_profit, rate: rate, riskRate: riskRate,
-              headline: r0.headline || "" })));
+              headline: r0.headline || "", win_rate: r0.win_rate != null ? Number(r0.win_rate) : null })));
           } catch (e) {}
         }
       } catch (e) {
@@ -1913,9 +1935,13 @@ def _scalp_chart(pair="usdjpy", days=10):
         res = json.load(open(R("results", cfgp["out"]), encoding="utf-8"))
         end = m15.index[-1]
         out = {"tf": {}, "paper": [], "最終": f"{end:%m/%d %H:%M}"}
-        frames = {"15分": (m15, 320), "1時間": (rs._base_for("1時間", m15, h1), 200)}
-        for name, (src, keep) in frames.items():
-            df = rs.add_indicators(rs.resample(src, "15min" if name == "15分" else "1h")).tail(keep)
+        # 2026-10-13: 30分・4時間・8時間・12時間・24時間のスイッチを追加（落合さん指示）
+        hsrc = rs._base_for("1時間", m15, h1)
+        frames = {"15分": (m15, "15min", 320), "30分": (m15, "30min", 240), "1時間": (hsrc, "1h", 220),
+                  "4時間": (hsrc, "4h", 200), "8時間": (hsrc, "8h", 180), "12時間": (hsrc, "12h", 160),
+                  "24時間": (hsrc, "1D", 160)}
+        for name, (src, rule, keep) in frames.items():
+            df = rs.add_indicators(rs.resample(src, rule)).tail(keep)
             out["tf"][name] = [[int(t.timestamp() // 60), round(r.Open, dec), round(r.High, dec),
                                 round(r.Low, dec), round(r.Close, dec),
                                 round(r.ema20, dec), round(r.ema50, dec)] for t, r in df.iterrows()]
