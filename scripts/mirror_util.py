@@ -29,6 +29,11 @@ RESEARCH_PATHS = [
     "results/pair_scan_log.csv",
     "results/research_scalp_latest.json",
     "results/research_scalp_log.csv",
+    # 2026-10-12 ユーロドル（研究は Mac が書き手）
+    "results/research_eurusd_latest.json",
+    "results/research_eurusd_log.csv",
+    "results/research_scalp_eurusd_latest.json",
+    "results/research_scalp_eurusd_log.csv",
 ]
 MAC_PATHS = FUND_PATHS + RESEARCH_PATHS
 BACKUP_ROOT = "backup/mirror_discard"
@@ -59,7 +64,7 @@ def actions_owned(p):
     （2026-09-22: 未コミットの signals.yml 編集を巻き戻した事故の再発防止）。"""
     if p in MAC_PATHS:
         return False
-    return (p in ("state.json", "state_intraday.json", "state_intraday15.json")
+    return (p in ("state.json", "state_intraday.json", "state_intraday15.json", "state_eurusd.json")
             or p.startswith("results/") or p.startswith("data/"))
 
 

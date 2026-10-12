@@ -125,6 +125,22 @@ def instruction_text(d):
         return f.read().rstrip()
 
 
+def eu_instruction(d):
+    """ユーロドル最終確定の (本文, 発注件数)。無ければ (None, 0)。"""
+    p = os.path.join(ORDERS_DIR, f"{d.isoformat()}_ユーロドル指示_確定.txt")
+    if not os.path.exists(p):
+        return None, 0
+    body = open(p, encoding="utf-8").read().rstrip()
+    n = 0
+    jp = os.path.join(ORDERS_DIR, f"{d.isoformat()}_ユーロドル発注_確定.json")
+    try:
+        data = json.load(open(jp, encoding="utf-8"))
+        n = sum(1 for v in data.get("操作", {}).values() for op in v if op.get("種別") != "要確認")
+    except (OSError, ValueError):
+        pass
+    return body, n
+
+
 def marker_path(d):
     # 2026-09-27: GitHub一本化後、旧 .sent は .gitignore 対象のため Actions の次ランに
     # 引き継がれず、8時台の実行ごとに最終確定メールが再送されていた（1日3〜4通）。
@@ -145,12 +161,19 @@ def compose(d):
     body = instruction_text(d)
     if body is None:
         return None
-    n = order_count(d)
+    n_uj = order_count(d)
+    # 2026-10-12: ユーロドル追加（2通貨運用）。同じメールに続けて載せ、件数も合算する。
+    eu_body, n_eu = eu_instruction(d)
+    n = n_uj + n_eu
     head = f"{d:%-m/%-d}" if os.name != "nt" else f"{d.month}/{d.day}"
-    subject = (f"【FX最終確定】{head} 発注{n}件（要発注）" if n
-               else f"【FX最終確定】{head} 発注不要")
-    text = (f"ドル円 最終確定指示 {d.isoformat()}\n"
-            f"発注作業: {n}件\n"
+    subject = (f"【FX最終確定】{head} 発注{n}件（ドル円{n_uj}・ユーロドル{n_eu}）" if n
+               else f"【FX最終確定】{head} 発注不要（ドル円・ユーロドル）")
+    if eu_body:
+        body = body + "\n\n" + "#" * 46 + "\n" + eu_body
+    else:
+        body = body + "\n\n※ユーロドルの最終確定指示書は未生成（ボードで確認）"
+    text = (f"ドル円・ユーロドル 最終確定指示 {d.isoformat()}\n"
+            f"発注作業: {n}件（ドル円{n_uj}件・ユーロドル{n_eu}件）\n"
             f"運用ボード: {BOARD_URL}\n"
             + "=" * 46 + "\n\n" + body + "\n\n" + "=" * 46 + "\n"
             "発注はMATRIX TRADER（Mac版アプリ）でご本人が手動転記・送信のこと。\n"

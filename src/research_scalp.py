@@ -25,6 +25,7 @@ results/research_scalp_latest.json に保存し、ボードのスキャル欄と
 import argparse
 import json
 import os
+import sys
 from datetime import datetime
 
 import numpy as np
@@ -35,6 +36,11 @@ DATA = os.path.join(BASE_DIR, "data")
 RES = os.path.join(BASE_DIR, "results")
 OUT_JSON = os.path.join(RES, "research_scalp_latest.json")
 LOG_CSV = os.path.join(RES, "research_scalp_log.csv")
+# 2通貨対応（2026-10-12 ユーロドル追加）。MULT＝価格差→pips の倍率
+PAIRS = {"usdjpy": {"名": "ドル円", "MULT": 100, "out": "research_scalp_latest.json", "log": "research_scalp_log.csv"},
+         "eurusd": {"名": "ユーロドル", "MULT": 10000, "out": "research_scalp_eurusd_latest.json",
+                    "log": "research_scalp_eurusd_log.csv"}}
+MULT = 100
 
 COST_PIPS = 0.8
 TFS = {"15分": "15min", "30分": "30min", "1時間": "1h", "2時間": "2h",
@@ -93,7 +99,7 @@ def add_indicators(df):
     df["trend"] = np.sign(df["ema200"].diff(4)).fillna(0)
     tr = pd.concat([df["High"] - df["Low"], (df["High"] - c.shift()).abs(),
                     (df["Low"] - c.shift()).abs()], axis=1).max(axis=1)
-    df["atr"] = tr.rolling(14).mean() * 100          # pips
+    df["atr"] = tr.rolling(14).mean() * MULT         # pips
     df["hour"] = df.index.hour
     return df
 
@@ -116,7 +122,7 @@ def signals(df, name):
     return s
 
 
-def simulate(df, sig, sl_k, tp_k, hold, trend_only):
+def simulate(df, sig, sl_k, tp_k, hold, trend_only, cross=None):
     o, h, l, c = (df[k].values for k in ("Open", "High", "Low", "Close"))
     atr, tr, hours = df["atr"].values, df["trend"].values, df["hour"].values
     idx = np.where(sig.values != 0)[0]
@@ -127,9 +133,12 @@ def simulate(df, sig, sl_k, tp_k, hold, trend_only):
         d = int(sig.values[i])
         if trend_only and tr[i] != d:
             continue
+        # 相手通貨での確認: ドルが同じ向きに動いている（相手の向き＝自分の逆）時だけ入る
+        if cross is not None and cross[i] != -d:
+            continue
         sl, tp = sl_k * atr[i], tp_k * atr[i]
         entry = o[i + 1]
-        stop, take = entry - d * sl / 100, entry + d * tp / 100
+        stop, take = entry - d * sl / MULT, entry + d * tp / MULT
         pnl, j_exit = None, None
         for j in range(i + 1, min(i + 1 + hold, n)):
             hit_sl = (l[j] <= stop) if d > 0 else (h[j] >= stop)
@@ -142,7 +151,7 @@ def simulate(df, sig, sl_k, tp_k, hold, trend_only):
                 break
         if pnl is None:
             j_exit = min(i + hold, n - 1)
-            pnl = (c[j_exit] - entry) * d * 100
+            pnl = (c[j_exit] - entry) * d * MULT
         out.append((d, pnl - COST_PIPS, hours[i + 1]))
         last_exit = j_exit
     return pd.DataFrame(out, columns=["dir", "pips", "hour"])
@@ -179,13 +188,59 @@ def label(m):
             + f"（損切りATR×{m['損切りATR']}／利確ATR×{m['利確ATR']}／最長{m['保有本数']}本）")
 
 
-def run(quick=False):
-    base = load_15m()
+def _load_pair(pair):
+    """(15分足, 1時間足) を JST index で返す。1時間足以上は1時間足の方が長い履歴を持つことがある。"""
+    if pair == "eurusd":
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        import data_fetch_eurusd as dfe                               # noqa: PLC0415
+        m15 = dfe.load_intraday("15m").tz_convert("Asia/Tokyo")
+        h1 = dfe.load_intraday("1h").tz_convert("Asia/Tokyo")
+        return m15, h1
+    m15 = load_15m()
+    h1 = pd.read_csv(os.path.join(DATA, "usdjpy_1h.csv"), index_col="Time", parse_dates=["Time"])
+    if h1.index.tz is None:
+        h1.index = h1.index.tz_localize("UTC")
+    h1 = h1[["Open", "High", "Low", "Close"]].astype(float).tz_convert("Asia/Tokyo")
+    return m15, h1
+
+
+def _base_for(tf_name, m15, h1):
+    """15分・30分は15分足、1時間足以上は 15分足と1時間足のうち長い方を使う。"""
+    if tf_name in ("15分", "30分"):
+        return m15
+    m15h = resample(m15, "1h")
+    return h1 if len(h1) > len(m15h) else m15h
+
+
+def _cross_trend(other_h1, index):
+    """相手通貨の1時間足EMA200の向き（4本前比）を、こちらの足の時刻へ合わせた配列。"""
+    e = other_h1["Close"].ewm(span=200, adjust=False).mean()
+    tr = np.sign(e.diff(4))
+    return tr.reindex(index, method="ffill").fillna(0).values
+
+
+def run(quick=False, pair="usdjpy"):
+    global MULT, OUT_JSON, LOG_CSV
+    cfgp = PAIRS[pair]
+    MULT = cfgp["MULT"]
+    OUT_JSON = os.path.join(RES, cfgp["out"])
+    LOG_CSV = os.path.join(RES, cfgp["log"])
+    m15, h1 = _load_pair(pair)
     if quick:
-        base = base[base.index >= base.index[-1] - pd.Timedelta(days=365)]
+        m15 = m15[m15.index >= m15.index[-1] - pd.Timedelta(days=365)]
+    try:
+        other = "eurusd" if pair == "usdjpy" else "usdjpy"
+        other_h1 = _load_pair(other)[1]
+    except Exception:                                                # noqa: BLE001
+        other_h1 = None
+    base = m15
     report, all_best = {}, []
     for tf_name, rule in TFS.items():
-        df = add_indicators(resample(base, rule))
+        src = _base_for(tf_name, m15, h1)
+        if len(src) < 500:
+            print(f"[{tf_name}] データ不足（{len(src)}本）→ 省略")
+            continue
+        df = add_indicators(resample(src, rule))
         results = []
         for mname in METHODS:
             sig = signals(df, mname)
@@ -216,6 +271,19 @@ def run(quick=False):
                     good.append(f"{k}（{w}・勝率{v['勝率']:.0%}）")
                 if v["勝率"] <= 0.42 or v["PF"] <= 0.85:
                     bad.append(f"{k}（{w}・勝率{v['勝率']:.0%}）")
+        # 相乗効果: 上位3条件を「相手通貨の1時間足の向きでドルの動きを確認できた時だけ」に絞って再検証
+        cross_rows = []
+        if other_h1 is not None and top:
+            cx = _cross_trend(other_h1, df.index)
+            for m in top[:3]:
+                t2 = simulate(df, signals(df, m["入り方"]), m["損切りATR"], m["利確ATR"],
+                              m["保有本数"], m["順行のみ"], cross=cx)
+                m2 = metrics(t2)
+                cross_rows.append({"条件": label(m), "元の勝率": m["勝率"], "元のPF": m["PF"],
+                                   "元の回数": m["取引数"], "確認後の勝率": m2["勝率"],
+                                   "確認後のPF": m2["PF"], "確認後のPF前": m2["PF前"],
+                                   "確認後のPF後": m2["PF後"], "確認後の回数": m2["取引数"],
+                                   "改善": bool(m2["取引数"] >= 30 and min(m2["PF前"], m2["PF後"]) > m["スコア"] * 1.05)})
         atr_now = float(df["atr"].dropna().iloc[-1]) if len(df["atr"].dropna()) else None
         report[tf_name] = {
             "本数": int(len(df)), "現在ATRpips": round(atr_now, 1) if atr_now else None,
@@ -227,6 +295,7 @@ def run(quick=False):
             "最良条件の時間帯幅別": bands_best,
             "同じ入り方の時間帯幅別(全変種合算)": bands_all,
             "狙い目の時間帯": good[:8], "避ける時間帯": bad[:8],
+            "相手通貨で確認した場合": cross_rows,
         }
         if top:
             b = top[0]
@@ -245,7 +314,9 @@ def run(quick=False):
                  "合わなければ見送り。見送りでも各時間足の内部予想は毎回出す。")
     summary = {
         "更新": datetime.now().strftime("%Y-%m-%dT%H:%M"),
-        "期間": f"{base.index[0]:%Y-%m-%d}〜{base.index[-1]:%Y-%m-%d}",
+        "通貨ペア": cfgp["名"],
+        "期間": f"15分足 {m15.index[0]:%Y-%m-%d}〜{m15.index[-1]:%Y-%m-%d}（{len(m15):,}本）／"
+                f"1時間足 {h1.index[0]:%Y-%m-%d}〜{h1.index[-1]:%Y-%m-%d}",
         "前提": f"往復コスト{COST_PIPS}pips・損切り/利確はその時間足のATR倍率・同時到達は損切り扱い・"
                 f"時間帯幅は{BAND_WIDTHS}時間の4通り",
         "時間足横断の最良": all_best,
@@ -270,4 +341,9 @@ def run(quick=False):
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--quick", action="store_true")
-    run(quick=ap.parse_args().quick)
+    ap.add_argument("--pair", choices=list(PAIRS), default=None,
+                    help="省略時はドル円→ユーロドルの順に両方")
+    a = ap.parse_args()
+    for p in ([a.pair] if a.pair else ["usdjpy", "eurusd"]):
+        print(f"##### {PAIRS[p]['名']} #####")
+        run(quick=a.quick, pair=p)

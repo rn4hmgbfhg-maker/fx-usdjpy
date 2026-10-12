@@ -48,7 +48,13 @@ jobs:
         run: python3 src/run_intraday.py
         continue-on-error: true
 
-      - name: 日足2システム（JST6-8時台のみ）
+      # 2026-10-12: ユーロドル追加（2通貨運用）。データは毎回更新（ボードのスキャル分析が
+      # 15分足・1時間足を読むため）。日足の判定は run_morning.py の中でドル円の後に行う。
+      - name: ユーロドル データ更新
+        run: python3 src/data_fetch_eurusd.py
+        continue-on-error: true
+
+      - name: 日足2システム（JST6-8時台のみ・ドル円→ユーロドル）
         run: |
           H=$(TZ=Asia/Tokyo date +%H)
           if [ "$H" -ge 6 ] && [ "$H" -le 8 ]; then
@@ -70,7 +76,7 @@ jobs:
         run: |
           git config user.name  "fx-actions"
           git config user.email "actions@users.noreply.github.com"
-          git add -A state.json state_intraday.json state_intraday15.json results data 2>/dev/null || true
+          git add -A state.json state_intraday.json state_intraday15.json state_eurusd.json results data 2>/dev/null || true
           if git diff --staged --quiet; then
             echo "変更なし"
           else

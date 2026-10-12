@@ -108,6 +108,11 @@ SCALP_CARD = """
   <div class="card-head"><h3>スキャルピング専用（高リスク発注欄・ファンダ連動）</h3>
     <span class="params">短時間で小さな値幅を取る超短期売買の案。日足4システムとは別枠・別管理</span></div>
   <div class="abar">
+    <label class="params" for="s-pair">通貨ペア</label>
+    <select id="s-pair">
+      <option value="ドル円">ドル円（USD/JPY）</option>
+      <option value="ユーロドル">ユーロドル（EUR/USD）</option>
+    </select>
     <label class="params" for="s-risk">1回のリスク</label>
     <select id="s-risk"></select>
     <button class="abtn gold" id="s-run" type="button" hidden>スキャル分析（発注案を作る）</button>
@@ -222,7 +227,9 @@ ANALYSIS_JS = r"""
   // もその場で書き換え、分析欄の調整表と同じ数字にする（発注数指示の同期）。
   // 元の文面は data-orig に残し、1倍に戻せば元に戻る。通知メールはクラウド生成のため元の数量のまま。
   function syncOrderText() {
-    var pre = document.querySelector("pre.order");
+    document.querySelectorAll("pre.order").forEach(syncOne);
+  }
+  function syncOne(pre) {
     if (!pre) return;
     if (pre.dataset.orig == null) pre.dataset.orig = pre.textContent;
     var txt = pre.dataset.orig;
@@ -389,7 +396,7 @@ ANALYSIS_JS = r"""
 
   function buildPrompt(prev) {
     var p = [];
-    p.push("あなたは個人のFXドル円・半自動売買スキーム（4システム: 長期トレンド／短期スイング／デイトレ複合時間軸／デイトレ15分。ドンチャン・ブレイクアウト＋ATRストップ。発注は本人が手動）の運用レビュー担当です。");
+    p.push("あなたは個人のFX半自動売買スキーム（2通貨運用・2026-10-13〜）の運用レビュー担当です。ドル円は4システム（長期トレンド／短期スイング／デイトレ複合時間軸／デイトレ15分。ドンチャン・ブレイクアウト＋ATRストップ）、ユーロドルは2システム（押し目戻り＝200日線の向きに沿ったボリンジャー逆張り・トレンド＝移動平均クロス10/50）。発注は本人が手動。ドル円とユーロドルの連動（ドル全面主導か、円・ユーロ単独か）も評価に入れること。");
     p.push("下の【運用ボードの内容】だけを材料に、現状を総合的に分析してください。数字はボードの値をそのまま使い、無い数字は作らず『不明』と書くこと。");
     p.push("読む人はIT・金融の専門家ではありません。専門用語は避けるか一言説明を添え、結論を先に、短い文で書いてください。");
     p.push("必ず含める観点: ①いまの状況のやさしい要約 ②収益状況の評価（累計損益・勝率・PF・システム別の寄与、どこで損をしているか） ③ファンダメンタルズ研究欄（レジーム・材料バランス・翌日予測・焦点・ニュース総括）を踏まえた見方と、それが保有ポジションにどう効くか ④リスク設定の比較: 『現状』（ボードの各システムのリスク率と合計リスク額）と『リスクを増やす場合』の2〜3パターン（例: 現状の1.5倍、2倍）。各パターンの『全ストップ同時到達の損失』『想定の年間リターン』『想定の最大下落』は、現状の値とボードの15年検証値（総リターン・最大DD）を倍率で比例させた概算で示し、概算である旨を書く ⑤改善点・提案（リスクリワード・ストップ幅・リスク率・システムの停止や縮小など。具体的な数値つき。採否は本人） ⑥今後の方向性 ⑦注意すべきリスク（指標イベント・介入・窓開けなど）。");
@@ -547,12 +554,28 @@ ANALYSIS_JS = r"""
   function setupScalp(sample, db) {
     var sRun = $("s-run"), sStop = $("s-stop"), sRisk = $("s-risk");
     var sStatus = $("s-status"), sOut = $("s-out");
-    var ref = db ? db.doc("analysis/scalp") : null;
-    var last = null;
+    var pairSel = $("s-pair");
+    try { var sp = localStorage.getItem("fx_scalp_pair"); if (sp) pairSel.value = sp; } catch (e) {}
     var cap = orderData && orderData.口座資金 ? Number(orderData.口座資金) : 1000000;
-    var sd = null;
-    try { var sde = document.getElementById("scalp-data"); if (sde) sd = JSON.parse(sde.textContent); }
-    catch (e) { sd = null; }
+    var sdAll = null;
+    try { var sde = document.getElementById("scalp-data"); if (sde) sdAll = JSON.parse(sde.textContent); }
+    catch (e) { sdAll = null; }
+    // 通貨ペアごとの仕様（2026-10-12 ユーロドル追加）。jpy＝1ドル(クォート通貨)あたりの円
+    var ujEl = document.querySelector("header.top .rate");
+    var ujRate = ujEl ? parseFloat(ujEl.textContent.replace(/[^0-9.]/g, "")) : 158;
+    function spec(p) {
+      return p === "ユーロドル"
+        ? { name: p, code: "EUR/USD", mult: 10000, dec: 5, unit: "ドル", jpy: ujRate, zone: "±0.0015ドル", other: "ドル円" }
+        : { name: "ドル円", code: "USD/JPY", mult: 100, dec: 3, unit: "円", jpy: 1, zone: "±0.15円", other: "ユーロドル" };
+    }
+    var refs = db ? { "ドル円": db.doc("analysis/scalp"), "ユーロドル": db.doc("analysis/scalp_eurusd") } : null;
+    var lastBy = { "ドル円": null, "ユーロドル": null };
+    var last = null, ref = null, sd = null;
+    function selectPair() {
+      var p = pairSel.value;
+      ref = refs ? refs[p] : null; last = lastBy[p]; sd = sdAll ? sdAll[p] : null;
+    }
+    selectPair();
     // 案の結果（勝ち・負け・見送った）を記録して勝率を出し、次の案の材料にする
     var sLog = $("s-log"), logCol = db ? db.collection("scalp_log") : null, logs = [];
     function renderLog() {
@@ -573,7 +596,7 @@ ANALYSIS_JS = r"""
         b.onclick = async function () {
           var r = last.result, id = String(last.at).replace(/[^0-9A-Za-z]/g, "");
           try {
-            await logCol.doc(id).set({ at: last.at, outcome: b.dataset.oc, verdict: r.verdict,
+            await logCol.doc(id).set({ at: last.at, outcome: b.dataset.oc, verdict: r.verdict, pair: last.pair || "ドル円",
               entry: r.entry, stop: r.stop, take_profit: r.take_profit, riskRate: last.riskRate,
               recordedAt: new Date().toISOString() });
           } catch (e) { sStatus.textContent = "結果を記録できませんでした（閲覧のみの権限）。"; }
@@ -585,11 +608,12 @@ ANALYSIS_JS = r"""
         logs = snap.docs.map(function (d) { return d.data(); }); renderLog();
       }, function () {});
     }
-    function units(entry, stop, riskRate) {
-      var pips = Math.abs(Number(entry) - Number(stop)) * 100;
-      if (!(pips > 0)) return { pips: 0, units: 0 };
-      var u = Math.floor(cap * riskRate / (pips * 0.01) / 1000) * 1000;
-      return { pips: pips, units: Math.max(0, u) };
+    function units(entry, stop, riskRate, S) {
+      var d = Math.abs(Number(entry) - Number(stop));
+      if (!(d > 0)) return { pips: 0, units: 0, yenPerUnit: 0 };
+      var yenPerUnit = d * S.jpy;              // 1通貨あたり、逆指値に当たった時の損失（円）
+      var u = Math.floor(cap * riskRate / yenPerUnit / 1000) * 1000;
+      return { pips: d * S.mult, units: Math.max(0, u), yenPerUnit: yenPerUnit };
     }
     function renderScalp(doc) {
       if (!doc || !doc.result) { sOut.innerHTML = "<p class='note'>まだ案はありません。「スキャル分析」を押してください。</p>"; return; }
@@ -614,16 +638,18 @@ ANALYSIS_JS = r"""
       if (r.entry_triggers && r.entry_triggers.length) h += "<h4>何が起きたら入るか（次に見る条件）</h4>" + list(r.entry_triggers);
       if (r.next_check) h += "<p class='note'>次に見るべき時刻: " + esc(r.next_check) + "</p>";
       if (cls !== "flat" && r.entry != null && r.stop != null) {
-        var u = units(r.entry, r.stop, doc.riskRate || 0.02);
-        var tpPips = r.take_profit != null ? Math.abs(Number(r.take_profit) - Number(r.entry)) * 100 : null;
-        var lossYen = -u.pips * 0.01 * u.units, profYen = tpPips != null ? tpPips * 0.01 * u.units : null;
-        h += "<h4>発注案（MATRIX TRADERへ転記・USD/JPY）</h4><div class='tablewrap'><table>"
+        var S = spec(doc.pair || "ドル円");
+        var u = units(r.entry, r.stop, doc.riskRate || 0.02, S);
+        var tpD = r.take_profit != null ? Math.abs(Number(r.take_profit) - Number(r.entry)) : null;
+        var tpPips = tpD != null ? tpD * S.mult : null;
+        var lossYen = -u.yenPerUnit * u.units, profYen = tpD != null ? tpD * S.jpy * u.units : null;
+        h += "<h4>発注案（MATRIX TRADERへ転記・" + S.code + "）</h4><div class='tablewrap'><table>"
            + "<tr><th>項目</th><th>値</th></tr>"
            + "<tr><td>売買</td><td><b>" + esc(v) + "</b></td></tr>"
            + "<tr><td>数量</td><td><b>" + u.units.toLocaleString() + " 通貨</b>（1回のリスク " + Math.round((doc.riskRate || 0.02) * 100) + "%＝" + Math.round(cap * (doc.riskRate || 0.02)).toLocaleString() + "円を損切り幅で割った値）</td></tr>"
-           + "<tr><td>エントリー</td><td>" + Number(r.entry).toFixed(3) + " 円" + (r.entry_zone ? "（目安の価格帯 " + esc(r.entry_zone) + "）" : "") + "</td></tr>"
-           + "<tr><td>逆指値（損切り）</td><td>" + Number(r.stop).toFixed(3) + " 円　損切り幅 " + Math.round(u.pips) + " pips　<span class='down'>" + yen(lossYen) + "</span></td></tr>"
-           + "<tr><td>指値（利確）</td><td>" + (r.take_profit != null ? Number(r.take_profit).toFixed(3) + " 円　利確幅 " + Math.round(tpPips) + " pips　<span class='up'>" + yen(profYen) + "</span>" : "—") + "</td></tr>"
+           + "<tr><td>エントリー</td><td>" + Number(r.entry).toFixed(S.dec) + " " + S.unit + (r.entry_zone ? "（目安の価格帯 " + esc(r.entry_zone) + "）" : "") + "</td></tr>"
+           + "<tr><td>逆指値（損切り）</td><td>" + Number(r.stop).toFixed(S.dec) + " " + S.unit + "　損切り幅 " + Math.round(u.pips) + " pips　<span class='down'>" + yen(lossYen) + "</span></td></tr>"
+           + "<tr><td>指値（利確）</td><td>" + (r.take_profit != null ? Number(r.take_profit).toFixed(S.dec) + " " + S.unit + "　利確幅 " + Math.round(tpPips) + " pips　<span class='up'>" + yen(profYen) + "</span>" : "—") + "</td></tr>"
            + "<tr><td>有効時間</td><td>" + esc(r.valid_until || "—") + "</td></tr>"
            + "<tr><td>基準レート</td><td>" + esc(r.reference_rate || "—") + "（ボード時点。現在値と" + esc(r.max_slippage || "10pips") + "以上ずれたら見送り）</td></tr>"
            + "</table></div>";
@@ -640,11 +666,19 @@ ANALYSIS_JS = r"""
       if (r.caution) h += "<h4>注意</h4>" + list(r.caution);
       sOut.innerHTML = h;
     }
-    if (ref) {
-      ref.onSnapshot(function (snap) {
-        last = snap.exists ? snap.data() : null; renderScalp(last); renderLog();
-        sStatus.textContent = last ? "最終案 " + fmtAt(last.at) + "（レート " + (last.rate || "—") + "円・リスク " + Math.round((last.riskRate || 0) * 100) + "%）" : "まだ案はありません。";
-      }, function (e) { sStatus.textContent = "保存先に接続できません（" + e.code + "）。"; renderScalp(null); });
+    function showPair() {
+      selectPair(); renderScalp(last); renderLog();
+      sStatus.textContent = last ? pairSel.value + "の最終案 " + fmtAt(last.at) + "（レート " + (last.rate || "—")
+        + "・リスク " + Math.round((last.riskRate || 0) * 100) + "%）" : pairSel.value + "の案はまだありません。";
+    }
+    pairSel.onchange = function () { try { localStorage.setItem("fx_scalp_pair", pairSel.value); } catch (e) {} showPair(); };
+    if (refs) {
+      Object.keys(refs).forEach(function (p) {
+        refs[p].onSnapshot(function (snap) {
+          lastBy[p] = snap.exists ? snap.data() : null;
+          if (p === pairSel.value) showPair();
+        }, function (e) { sStatus.textContent = "保存先に接続できません（" + e.code + "）。"; });
+      });
     } else { renderScalp(null); sStatus.textContent = "保存機能なし（この画面内だけ表示します）。"; }
     if (!sample) { sStatus.textContent += " ※「スキャル分析」は claude.ai の閲覧画面でのみ使えます。"; return; }
     sRun.hidden = false;
@@ -655,20 +689,25 @@ ANALYSIS_JS = r"""
       var t0 = Date.now(); sStatus.textContent = "スキャル分析中…（0秒）";
       timer = setInterval(function () { sStatus.textContent = "スキャル分析中…（" + Math.round((Date.now() - t0) / 1000) + "秒）"; }, 1000);
       var riskRate = parseFloat(sRisk.value) || 0.02;
-      var rateEl = document.querySelector("header.top .rate");
-      var rate = rateEl ? rateEl.textContent.replace(/[^0-9.]/g, "") : "";
+      selectPair();
+      var S = spec(pairSel.value), runPair = pairSel.value, runRef = ref;
+      var rate = sd && sd.値動き && sd.値動き["15分"] ? String(sd.値動き["15分"].終値) : "";
       var p = [];
-      p.push("あなたはドル円のスキャルピング（数分〜数十分で5〜20pips程度を狙う超短期売買）の案を作る担当です。下の【運用ボードの内容】だけを材料にします。数字はボードの値を使い、無い数字は作らず『不明』と書くこと。");
+      p.push("対象の通貨ペアは【" + S.name + "（" + S.code + "）】。価格は小数" + S.dec + "桁・単位は" + S.unit
+        + "・1pip＝" + (S.mult === 100 ? "0.01円" : "0.0001ドル") + "。相手の通貨（" + S.other
+        + "）はドルの動きを確認する材料として使う（ボードに両方の値動き・研究が載っている）。");
+      if (S.name === "ユーロドル") p.push("ユーロドルの研究結果: 15分〜1時間足は機械的な入り方がPF1未満（優位性なし）。案を出してよいのは4時間足の『EMA20押し目/戻り・EMA200と同方向』など、スキャル研究でPF1.1以上の条件に合う時だけ。合わなければ見送り。ECB・ユーロ圏CPIなどユーロ側の★5級も避ける。");
+      p.push("あなたは" + S.name + "のスキャルピング（数分〜数十分で5〜20pips程度を狙う超短期売買）の案を作る担当です。下の【運用ボードの内容】だけを材料にします。数字はボードの値を使い、無い数字は作らず『不明』と書くこと。");
       p.push("読む人は専門家ではありません。専門用語は避け、短い文で。これは本人のツール内の案であり投資助言ではない。");
       p.push("判断材料: テクニカル合議（15分足・1時間足）、ATR、直近の値動き・高値安値・節目（ファンダ研究欄の『次の焦点』にある節目）、ファンダメンタルズ（レジーム・材料バランス・翌日予測・ニュース総括・当局のけん制・指標イベント）。指標発表の前後30分や★5級イベント直前なら『見送り』。材料が拮抗し方向が読めないときも『見送り』を選ぶ（無理に案を出さない）。");
-      p.push("価格は『直近の値動き』の最終バー終値（あれば。無ければボードのヘッダのレート）を基準レートにし、エントリーは基準レートから±0.15円以内、損切りは12pips前後（8〜16）、利確は損切りの1.2〜1.5倍で具体的な小数3桁の数値を出す。数量は書かない（ページが口座資金とリスク率から計算する）。");
+      p.push("価格は『直近の値動き』の最終バー終値（あれば。無ければボードのヘッダのレート）を基準レートにし、エントリーは基準レートから" + S.zone + "以内、損切りは12pips前後（8〜16）、利確は損切りの1.2〜1.5倍で具体的な小数" + S.dec + "桁の数値を出す。数量は書かない（ページが口座資金とリスク率から計算する）。");
       p.push("判断の決まり（過去の検証に寄せる）: ①『スキャル研究』の各時間足の上位条件（入り方・EMA200と同方向か・損切り/利確のATR倍率・時間帯）に、『直近の値動き』のその足の RSI14／EMA20とEMA50の配列／EMA200の向き／いまの時刻（JST）が合うときだけ案を出す。PFが1.0未満の足は案を出さない。②合わなければ必ず『見送り』。③『避ける時間帯』・指標の前後30分・★5級イベント接近時も見送り。④『これまでの案と結果』で負けが続いている型（同じ時間帯・同じ向き）は避ける。⑤案を出すときは reason に『時間足=◯・RSI=◯・EMA200の向き=◯・時間帯=◯時台（研究の勝率◯%）』と数字で根拠を書く。損切り/利確はその足の『損切りpips目安／利確pips目安』を使う。");
       p.push("内部予想（見送りでも必ず）: forecast に 15分・1時間・4時間・日足 の4行を入れ、各行で『方向（上／下／横ばい）・確率（%）・想定レンジ（円）・根拠（RSI・EMA配列・ATR・節目・ファンダを数字で）』を書く。確率は50%を中立とし、材料が無いときは50〜55%に留める。entry_triggers には『何が起きたら買い／売りの案に変わるか』を価格と時刻で2〜4個、next_check には次に見るべき時刻（JST）を書く。");
       if (sd && sd.研究) p.push("【スキャル研究（短い足から日足まで・時間帯幅1/2/3/6時間・JSON）】\n" + JSON.stringify(sd.研究).slice(0, 24000));
       if (sd && sd.値動き) p.push("【直近の値動き（15分・30分・1時間・4時間・日足の指標と直近バー。時刻はJST）】\n" + JSON.stringify(sd.値動き).slice(0, 16000));
       if (logs.length) p.push("【これまでの案と結果（新しい順・最大10件）】\n" + JSON.stringify(logs.slice(0, 10).map(function (x) {
-        return { 時刻: x.at, 売買: x.verdict, 結果: x.outcome, エントリー: x.entry, 損切り: x.stop, 利確: x.take_profit }; })));
-      p.push("他の通貨ペア（ユーロ円・ポンド円・豪ドル円・ユーロドル）については、ボードに値動きデータが無いので数値は書かず、ファンダ（ドル全面主導かどうか等）から『円安寄り／円高寄り／中立』の方向だけを一言で。");
+        return { 通貨: x.pair || "ドル円", 時刻: x.at, 売買: x.verdict, 結果: x.outcome, エントリー: x.entry, 損切り: x.stop, 利確: x.take_profit }; })));
+      p.push("他の通貨ペア（ユーロ円・ポンド円・豪ドル円・" + S.other + "）については、ここでは数値は書かず、ファンダ（ドル全面主導かどうか等）から『円安寄り／円高寄り／中立』の方向だけを一言で。");
       p.push("出力は次のJSONオブジェクトのみ:\n" + JSON.stringify({
         verdict: "買／売／見送り", confidence: "高／中／低", headline: "1行の結論（40字以内）",
         reference_rate: "基準にしたレートと時点", entry: 158.123, entry_zone: "158.10〜158.15 のように",
@@ -683,10 +722,11 @@ ANALYSIS_JS = r"""
       p.push("【運用ボードの内容】\n" + boardText());
       try {
         var result = await sample.json(p.join("\n\n"), { modelTier: "default", cache: false, signal: ctl.signal });
-        var doc = { result: result, at: new Date().toISOString(), rate: rate, riskRate: riskRate };
-        renderScalp(doc);
+        var doc = { result: result, at: new Date().toISOString(), rate: rate, riskRate: riskRate, pair: runPair };
+        lastBy[runPair] = doc;
+        if (pairSel.value === runPair) renderScalp(doc);
         sStatus.textContent = "案を更新 " + fmtAt(doc.at) + "（" + Math.round((Date.now() - t0) / 1000) + "秒・リスク " + Math.round(riskRate * 100) + "%）";
-        if (ref) { try { await ref.set(doc); } catch (e) { sStatus.textContent += " ※保存できませんでした（閲覧のみの権限）。"; } }
+        if (runRef) { try { await runRef.set(doc); } catch (e) { sStatus.textContent += " ※保存できませんでした（閲覧のみの権限）。"; } }
       } catch (e) {
         if (e && e.code === "cancelled") { sStatus.textContent = "停止しました。"; renderScalp(last); }
         else { sStatus.textContent = copyFor[e && e.code] || "分析に失敗しました（" + (e && e.code) + "）。"; renderScalp(last); }
@@ -928,19 +968,20 @@ def _spark_svg(values, w=640, h=180):
             f'<circle cx="{ex}" cy="{ey}" r="4" class="dot"/></svg>')
 
 
-def _scalp_snapshot():
+def _scalp_snapshot(pair="usdjpy"):
     """スキャル分析に渡す「直近の値動き」を短い足から長期まで（15分・30分・1時間・
     4時間・日足）そろえる。各足の RSI14・EMA20/50/200・EMA200の向き・ATR・直近バー。
     日足終値しか材料が無いと超短期の案も内部予想も作れない（2026-10-12）。"""
     try:
         import numpy as np                                   # noqa: PLC0415
-        m15 = pd.read_csv(R("data", "usdjpy_15m.csv"))
+        mult, dec = (10000, 5) if pair == "eurusd" else (100, 3)
+        m15 = pd.read_csv(R("data", f"{pair}_15m.csv"))
         m15["Time"] = pd.to_datetime(m15["Time"], utc=True).dt.tz_convert("Asia/Tokyo")
         m15 = m15.set_index("Time").sort_index()[["Open", "High", "Low", "Close"]].astype(float)
-        h1 = pd.read_csv(R("data", "usdjpy_1h.csv"))
+        h1 = pd.read_csv(R("data", f"{pair}_1h.csv"))
         h1["Time"] = pd.to_datetime(h1["Time"], utc=True).dt.tz_convert("Asia/Tokyo")
         h1 = h1.set_index("Time").sort_index()[["Open", "High", "Low", "Close"]].astype(float)
-        dly = pd.read_csv(R("data", "usdjpy_daily.csv"))
+        dly = pd.read_csv(R("data", f"{pair}_daily.csv"))
         dly["Date"] = pd.to_datetime(dly["Date"])
         dly = dly.set_index("Date").sort_index()[["Open", "High", "Low", "Close"]].astype(float)
         agg = {"Open": "first", "High": "max", "Low": "min", "Close": "last"}
@@ -959,20 +1000,20 @@ def _scalp_snapshot():
             e20, e50, e200 = (c.ewm(span=n, adjust=False).mean() for n in (20, 50, 200))
             tr = pd.concat([df["High"] - df["Low"], (df["High"] - c.shift()).abs(),
                             (df["Low"] - c.shift()).abs()], axis=1).max(axis=1)
-            atr = tr.rolling(14).mean() * 100
+            atr = tr.rolling(14).mean() * mult
             fmt = "%m/%d" if name == "日足" else "%m/%d %H:%M"
             out[name] = {
-                "最終バー(JST)": f"{df.index[-1]:{fmt}}", "終値": round(float(c.iloc[-1]), 3),
+                "最終バー(JST)": f"{df.index[-1]:{fmt}}", "終値": round(float(c.iloc[-1]), dec),
                 "RSI14": round(float(rsi.iloc[-1]), 1),
-                "EMA20": round(float(e20.iloc[-1]), 3), "EMA50": round(float(e50.iloc[-1]), 3),
-                "EMA200": round(float(e200.iloc[-1]), 3),
+                "EMA20": round(float(e20.iloc[-1]), dec), "EMA50": round(float(e50.iloc[-1]), dec),
+                "EMA200": round(float(e200.iloc[-1]), dec),
                 "EMA200の向き": "上" if e200.iloc[-1] > e200.iloc[-5] else "下",
                 "EMA20とEMA50": "上昇配列" if e20.iloc[-1] > e50.iloc[-1] else "下降配列",
                 "ATR14pips": round(float(atr.iloc[-1]), 1),
-                "直近高値": round(float(df["High"].tail(nbars).max()), 3),
-                "直近安値": round(float(df["Low"].tail(nbars).min()), 3),
-                "直近バー": [{"t": f"{t:{fmt}}", "o": round(r.Open, 3), "h": round(r.High, 3),
-                            "l": round(r.Low, 3), "c": round(r.Close, 3)}
+                "直近高値": round(float(df["High"].tail(nbars).max()), dec),
+                "直近安値": round(float(df["Low"].tail(nbars).min()), dec),
+                "直近バー": [{"t": f"{t:{fmt}}", "o": round(r.Open, dec), "h": round(r.High, dec),
+                            "l": round(r.Low, dec), "c": round(r.Close, dec)}
                            for t, r in df.tail(nbars).iterrows()],
             }
         last = m15.index[-1]
@@ -980,18 +1021,25 @@ def _scalp_snapshot():
         prev_days = m15[m15.index.date < last.date()]
         prev = prev_days[prev_days.index.date == prev_days.index.date[-1]] if len(prev_days) else today
         out["共通"] = {"最終15分バー(JST)": f"{last:%Y-%m-%d %H:%M}",
-                     "当日高値": round(float(today["High"].max()), 3), "当日安値": round(float(today["Low"].min()), 3),
-                     "前日高値": round(float(prev["High"].max()), 3), "前日安値": round(float(prev["Low"].min()), 3)}
+                     "当日高値": round(float(today["High"].max()), dec), "当日安値": round(float(today["Low"].min()), dec),
+                     "前日高値": round(float(prev["High"].max()), dec), "前日安値": round(float(prev["Low"].min()), dec)}
         return out
     except Exception as e:                                   # データ欠損時は材料なしで続行
         return {"エラー": str(e)[:120]}
 
 
-def _scalp_research_html(sr):
+def _scalp_research_html(sr, pair_name="ドル円"):
     if not sr:
-        return ('<p class="note">スキャル研究（過去3年の検証）はまだありません'
+        return (f'<p class="note">{pair_name}のスキャル研究はまだありません'
                 '（python3 src/research_scalp.py で作成）。</p>')
-    rows = ""
+    rows, cross = "", ""
+    other = "ユーロドル" if pair_name == "ドル円" else "ドル円"
+    for tf, rep in (sr.get("時間足別") or {}).items():
+        for c in (rep.get("相手通貨で確認した場合") or [])[:1]:
+            mark = "<b>改善</b>" if c.get("改善") else "変化小・悪化"
+            cross += (f'<tr><td>{html.escape(tf)}</td><td>{c["元の勝率"]:.0%}→{c["確認後の勝率"]:.0%}</td>'
+                      f'<td>{c["元のPF"]}→{c["確認後のPF"]}</td><td>{c["元の回数"]}→{c["確認後の回数"]}</td>'
+                      f'<td>{mark}</td></tr>')
     for tf, rep in (sr.get("時間足別") or {}).items():
         top = (rep.get("上位条件") or [])
         if not top:
@@ -1005,7 +1053,7 @@ def _scalp_research_html(sr):
                  f'<td>{x["取引数"]}</td><td>{x["損切りpips目安"] or "—"}／{x["利確pips目安"] or "—"}</td>'
                  f'<td>狙い目: {html.escape(good)}<br>避ける: {html.escape(bad)}</td></tr>')
     return (
-        f'<h4>スキャル研究（短い足から日足まで×時間帯幅1/2/3/6時間で検証・'
+        f'<h4>{pair_name}のスキャル研究（短い足から日足まで×時間帯幅1/2/3/6時間で検証・'
         f'{html.escape(str(sr.get("更新", ""))[:10])}）</h4>'
         f'<p class="note"><b>{html.escape(str(sr.get("結論", "")))}</b></p>'
         f'<div class="tablewrap"><table><tr><th>時間足</th><th>最も安定した入り方</th><th>勝率</th>'
@@ -1013,7 +1061,134 @@ def _scalp_research_html(sr):
         f'{rows}</table></div>'
         f'<p class="note">※{html.escape(str(sr.get("期間", "")))}・{html.escape(str(sr.get("前提", "")))}。'
         f'PFが1.0前後の足は、機械的に入っても往復コストでほぼ利益が残らない＝その足では'
-        f'「見送り」が基本。各足の上位6条件と時間帯幅別の勝率表は「スキャル分析」が読んでいる。</p>')
+        f'「見送り」が基本。各足の上位6条件と時間帯幅別の勝率表は「スキャル分析」が読んでいる。</p>'
+        + (f'<p class="note"><b>{other}の向きで確認した場合</b>（ドルが両通貨で同じ向きに動いている時だけ入る・'
+           f'各足の最良条件）</p><div class="tablewrap"><table><tr><th>時間足</th><th>勝率</th><th>PF</th>'
+           f'<th>回数</th><th>評価</th></tr>{cross}</table></div>' if cross else ""))
+
+
+def _eurusd_section(cfg):
+    """ユーロドル（2通貨目・2026-10-12〜）の表示一式。
+    戻り値: (ヘッダ用レート文字列, 運用カードHTML, 研究カードHTML, 指示書テキスト, 指示書ファイル名)"""
+    ecfg = cfg.get("ユーロドル") or {}
+    if not ecfg.get("有効"):
+        return "", "", "", "", ""
+    try:
+        import data_fetch_eurusd as dfe                      # noqa: PLC0415
+        import eurusd_engine as eng                          # noqa: PLC0415
+        from strategies import make_signal                   # noqa: PLC0415
+        px = dfe.load_daily()
+        close = float(px["Close"].iloc[-1])
+        jpy = eng.usdjpy_now()
+        sw = eng.swap_cfg(cfg)
+    except Exception as e:                                   # noqa: BLE001
+        return "", (f'<section class="card span2"><h3>ユーロドル</h3><p class="note">'
+                    f'データを読めません（{html.escape(str(e)[:120])}）</p></section>'), "", "", ""
+    state = {}
+    if os.path.exists(R("state_eurusd.json")):
+        state = json.load(open(R("state_eurusd.json"), encoding="utf-8"))
+    # 本日の指示書（確定 > 速報2 > 速報1）
+    odir = R("results", "orders")
+    text, fname = "", ""
+    if os.path.isdir(odir):
+        fs = sorted(f for f in os.listdir(odir) if "_ユーロドル指示_" in f)
+        if fs:
+            day = max(f[:10] for f in fs)
+            rank = {"速報1": 1, "速報2": 2, "確定": 3}
+            todays = sorted((f for f in fs if f.startswith(day)),
+                            key=lambda f: rank.get(f.rsplit("_", 1)[-1].replace(".txt", ""), 0))
+            fname = todays[-1]
+            text = open(os.path.join(odir, fname), encoding="utf-8").read().strip()
+    acts = {k.replace("ユーロドル ", ""): v for k, v in _parse_order_actions(
+        text, [f"ユーロドル {n}" for n in (ecfg.get("システム") or {})]).items()} if text else {}
+    a_pips = float(atr(px).iloc[-1]) / eng.PIP
+    cards, tot_risk, tot_pnl = [], 0.0, 0.0
+    for name, scfg in (ecfg.get("システム") or {}).items():
+        if not scfg.get("有効", True):
+            continue
+        st = state.get(name, {})
+        pos = int(st.get("position", 0) or 0)
+        act, cls = acts.get(name, ("指示書待ち" if not text else "待機", "flat"))
+        units = float(st.get("units") or 0)
+        pos_html = ('<span class="pos flat">ポジションなし</span>' if not pos else
+                    f'<span class="pos {"buy" if pos > 0 else "sell"}">{"買" if pos > 0 else "売"} {units:,.0f}通貨</span>')
+        stop_html = "ストップ設定なし"
+        if pos and st.get("stop"):
+            stop, entry = float(st["stop"]), float(st.get("entry") or close)
+            w = risk.order_widths(pos, close, stop=stop, units=units, entry=entry, pip=eng.PIP, jpy=jpy)
+            ppl = units * (close - entry) * pos * jpy
+            sy, sd = swap.accrued(pos, units, st.get("entry_date"), sw=sw)
+            tot_pnl += ppl + sy
+            tot_risk += (w["損切り到達額円"] or 0) + sy
+            stop_html = (f'ストップ <b>{stop:.5f}</b>　現値から逆指値まで {w["損切り幅pips"]:.0f} pips'
+                         f'　到達なら {w["損切り到達額円"] + sy:+,.0f}円'
+                         f'　含み {ppl + sy:+,.0f}円（スワップ {sy:+,.0f}円・{sd}日）')
+        exit_txt = html.escape(eng.exit_line_text(scfg, px, pos).strip()) if pos else ""
+        v = (scfg.get("検証") or {})
+        cards.append(
+            f'<article class="card"><div class="card-head"><h2>ユーロドル {html.escape(name)}</h2>'
+            f'<span class="params">{html.escape(eng.describe(scfg))}・リスク{float(scfg["リスク率"]):.1%}</span></div>'
+            f'<div class="action {cls}">{html.escape(act)}</div>'
+            f'<div class="posline">{pos_html}<span class="stop">{stop_html}</span></div>'
+            + (f'<div class="posline"><span class="stop">{exit_txt}</span></div>' if exit_txt else "")
+            + f'<div class="note">※損益はドル建てをドル円{jpy:.2f}円で円換算。発注は MATRIX TRADER で'
+              f'<b>通貨ペアを EUR/USD に切り替えて</b>手動で。</div></article>')
+    sr = {}
+    if os.path.exists(R("results", "research_eurusd_latest.json")):
+        try:
+            sr = json.load(open(R("results", "research_eurusd_latest.json"), encoding="utf-8"))
+        except (OSError, ValueError):
+            sr = {}
+    risk_line = (f'<p class="note">ユーロドル建玉の合計: 含み {tot_pnl:+,.0f}円／全ストップ到達で {tot_risk:+,.0f}円'
+                 f'（ドル円の「リスクリワード管理」とは別計上）</p>') if state else ""
+    op_html = (f'<section class="card span2"><div class="card-head"><h3>ユーロドル（2通貨目・2026-10-13 稼働）</h3>'
+               f'<span class="params">終値 {close:.5f}ドル・ATR {a_pips:.0f}pips・ドル円 {jpy:.2f}円</span></div>'
+               f'<div class="grid" style="margin-top:8px">{"".join(cards)}</div>{risk_line}</section>')
+    # 研究カード
+    res_html = ""
+    if sr:
+        rows = ""
+        for nm, v in (sr.get("選定パラメータ") or {}).items():
+            t = v.get("検証", {})
+            rows += (f'<tr><td>{html.escape(nm)}</td><td>{t.get("勝率", 0):.0%}</td><td>{t.get("PF全")}</td>'
+                     f'<td>{t.get("PF前")}/{t.get("PF後")}</td><td>{t.get("最大DD", 0):.1%}</td>'
+                     f'<td>{t.get("取引数")}</td></tr>')
+        cfg_rows = ""
+        for nm, scfg in (ecfg.get("システム") or {}).items():
+            cfg_rows += f'<li><b>{html.escape(nm)}</b>: {html.escape(eng.describe(scfg))}・リスク{float(scfg["リスク率"]):.1%}</li>'
+        rel = sr.get("ドル円との関係") or {}
+        corr = rel.get("日次相関") or {}
+        share = rel.get("主役の割合(直近60日)") or {}
+        lead = rel.get("1時間足の先行遅行(相関)") or {}
+        syn = sr.get("相乗効果(ドル円日足×ユーロドル確認)") or {}
+        syn_rows = ""
+        for nm, v in syn.items():
+            base = v["比較"].get("現行", {})
+            best = max((vv for kk, vv in v["比較"].items() if kk != "現行"), key=lambda x: x["スコア"])
+            syn_rows += (f'<li>{html.escape(nm)}: 現行 スコア{base.get("スコア")}（PF{base.get("PF全")}・{base.get("取引数")}回）'
+                         f' → ユーロドルで確認 最良 スコア{best.get("スコア")}（PF{best.get("PF全")}・{best.get("取引数")}回）'
+                         f'＝{html.escape(v.get("判定", ""))}</li>')
+        dj = (sr.get("ドンチャン(ドル円と同じ型)の上位") or {}).get("長期") or [{}]
+        res_html = (
+            f'<section class="card span2"><div class="card-head"><h3>ユーロドル研究（日足15年・ドル円との関係）</h3>'
+            f'<span class="params">{html.escape(str(sr.get("更新", ""))[:16])}・{html.escape(str(sr.get("期間", "")))}</span></div>'
+            f'<h4 class="fh">採用中の売買ルール（落合さん承認 2026-10-12）</h4><ul class="focus">{cfg_rows}</ul>'
+            f'<div class="tablewrap"><table><tr><th>システム</th><th>勝率</th><th>PF</th><th>PF前半/後半</th>'
+            f'<th>最大下落</th><th>回数</th></tr>{rows}</table></div>'
+            f'<p class="note">※ドル円型のドンチャン（トレンド追随）はユーロドルでは後半（2019年〜）PF{dj[0].get("PF後", "—")}'
+            f'で負け越すため不採用。ユーロドルは「長期線の向きに沿った押し目・戻り」が効く通貨。</p>'
+            f'<h4 class="fh">ドル円との関係（2大通貨の連動）</h4>'
+            f'<ul class="focus"><li>日次の値動きの相関: 全期間 {corr.get("全期間")}／直近250日 {corr.get("直近250日")}／直近60日 {corr.get("直近60日")}'
+            f'（マイナス＝ドルが両方の通貨で同時に動く。−0.5前後は「ドルの強弱が共通の主役」の状態）</li>'
+            f'<li>直近60日の主役: ドル全面主導 {share.get("ドル全面主導", 0):.0%}／円主導 {share.get("円主導", 0):.0%}'
+            f'／ユーロ主導 {share.get("ユーロ主導", 0):.0%}／小動き {share.get("小動き・その他", 0):.0%}　最新日: <b>{html.escape(str(rel.get("最近の主役", "")))}</b></li>'
+            f'<li>1時間足の先行: ユーロドル1本前→ドル円 {lead.get("ユーロドル1本前→ドル円")}／ドル円1本前→ユーロドル {lead.get("ドル円1本前→ユーロドル")}'
+            f'（ほぼ0＝どちらかが先に動いて他方を予告する関係は無い。同時に動く）</li></ul>'
+            f'<h4 class="fh">相乗効果の検証（ドル円の日足売買をユーロドルの向きで確認したら）</h4><ul class="focus">{syn_rows}</ul>'
+            f'<p class="note">※採用基準（スコア1.05倍以上）に届かないため現行のまま。毎朝の研究で監視を続ける。'
+            f'スキャルでの相乗効果はスキャルピング欄の「相手通貨で確認した場合」を参照。</p></section>')
+    head = f'<span class="rate" style="font-size:1.1rem">EUR/USD {close:.5f}</span>'
+    return head, op_html, res_html, text, fname
 
 
 def build():
@@ -1077,17 +1252,24 @@ def build():
     else:
         order_data_html = ""
     # スキャル欄の材料: 過去検証の要約＋直近の値動き（2026-10-12）
-    scalp_research = None
-    if os.path.exists(R("results", "research_scalp_latest.json")):
+    def _rj(name):
         try:
-            scalp_research = json.load(open(R("results", "research_scalp_latest.json"),
-                                            encoding="utf-8"))
+            return json.load(open(R("results", name), encoding="utf-8"))
         except (OSError, ValueError):
-            scalp_research = None
+            return None
+    scalp_research = _rj("research_scalp_latest.json")
+    scalp_research_eu = _rj("research_scalp_eurusd_latest.json")
+    eu_head, eu_op_html, eu_res_html, eu_text, eu_fname = _eurusd_section(cfg)
+    eu_order_html = (f'<section class="card span2"><h3>本日のユーロドル注文指示書'
+                     f'（{"最終確定" if "確定" in eu_fname else "速報・参考"}）</h3>'
+                     f'<pre class="order">{html.escape(eu_text)}</pre></section>') if eu_text else ""
     scalp_card = SCALP_CARD.replace("__SCALP_RESEARCH__",
-                                    _scalp_research_html(scalp_research))
+                                    _scalp_research_html(scalp_research, "ドル円")
+                                    + _scalp_research_html(scalp_research_eu, "ユーロドル"))
     scalp_data_html = ('<script type="application/json" id="scalp-data">'
-                       + json.dumps({"研究": scalp_research, "値動き": _scalp_snapshot()},
+                       + json.dumps({"ドル円": {"研究": scalp_research, "値動き": _scalp_snapshot("usdjpy")},
+                                     "ユーロドル": {"研究": scalp_research_eu,
+                                               "値動き": _scalp_snapshot("eurusd")}},
                                     ensure_ascii=False).replace("</", "<\\/")
                        + "</script>")
     # 本日の配信メタ（各ステージの実際の生成時刻・遅延印・完成率）
@@ -1498,7 +1680,8 @@ def build():
     # 数字は risk.py だけが計算し、ボード側は並べるだけにする（出力先ごとに
     # 計算を書くと片方だけ直し残る＝memory feedback_fix_all_output_targets）。
     sys_short = {"長期トレンド": "長期", "短期スイング": "短期",
-                 "デイトレ複合時間軸": "デイ", "デイトレ15分": "15分"}
+                 "デイトレ複合時間軸": "デイ", "デイトレ15分": "15分",
+                 "ユーロドル押し目戻り": "EU押目", "ユーロドルトレンド": "EUトレ"}
     rr_card = ""
     if rr_rows:
         pr = risk.portfolio_risk(rr_rows, cfg["口座資金_円"])
@@ -2072,6 +2255,7 @@ footer {{ color:var(--sub); font-size:.7rem; margin-top:22px;
 <header class="top">
   <h1>FXドル円 運用ボード</h1>
   <span class="rate">{close:.3f}<small>円</small></span>
+  {eu_head}
   <span class="meta">更新 {datetime.now():%Y-%m-%d %H:%M}（朝6・7・8時台の3回＋デイトレ毎時判定）
    ｜ 生成元: {origin}
    ｜ 運用先: MATRIX TRADER（発注は手動）{delivery}</span>
@@ -2081,6 +2265,7 @@ footer {{ color:var(--sub); font-size:.7rem; margin-top:22px;
 {ANALYSIS_CARD}
 {scalp_card}
 {''.join(sys_cards)}
+{eu_op_html}
 {rr_card}
 {fund_html}
 <section class="card span2">
@@ -2120,6 +2305,8 @@ footer {{ color:var(--sub); font-size:.7rem; margin-top:22px;
   <h3>本日の注文指示書（{"速報・参考" if is_flash else "最終確定"}・指標イベント欄含む）</h3>
   <pre class="order">{html.escape(order_text)}</pre>
 </section>
+{eu_order_html}
+{eu_res_html}
 <section class="card">
   <h3>直近の記録</h3>
   <div class="tablewrap"><table>

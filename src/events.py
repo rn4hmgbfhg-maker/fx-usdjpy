@@ -123,8 +123,17 @@ def _feed(url):
         return stale[0] if stale else None
 
 
-def upcoming_events(hours=24):
-    """(JST日時, 通貨, 英名, 日本語補足) のリスト。取得失敗は None。"""
+# ユーロ側の★5級（2026-10-12 ユーロドル追加）。ECBの政策金利・会見とユーロ圏CPI速報。
+# ドル円の呼び出し（currencies 省略）には影響しない。
+STAR5_EUR = ["main refinancing rate", "ecb press conference", "monetary policy statement",
+             "cpi flash estimate", "deposit facility rate"]
+JP_NAMES.update({"Main Refinancing Rate": "ECB政策金利", "ECB Press Conference": "ECB総裁会見",
+                 "Deposit Facility Rate": "ECB預金金利", "CPI Flash Estimate": "ユーロ圏CPI速報"})
+
+
+def upcoming_events(hours=24, currencies=("USD", "JPY")):
+    """(JST日時, 通貨, 英名, 日本語補足) のリスト。取得失敗は None。
+    currencies: 対象通貨。ユーロドルは ("USD", "EUR")。"""
     events = []
     ok = False
     now = datetime.now(timezone.utc)
@@ -142,9 +151,13 @@ def upcoming_events(hours=24):
         for e in data:
             if e.get("impact") != "High":
                 continue
-            if e.get("country") not in ("USD", "JPY"):
+            if e.get("country") not in currencies:
                 continue
-            if not _is_star5(e.get("title", "")):
+            t = e.get("title", "")
+            if e.get("country") == "EUR":
+                if not any(p in t.lower() for p in STAR5_EUR):
+                    continue
+            elif not _is_star5(t):
                 continue  # ★4以下は警戒対象外
             try:
                 dt = datetime.fromisoformat(e["date"])

@@ -20,12 +20,13 @@
 PIP = 0.01   # 対円ペアの1pip（USD/JPY = 0.01円）
 
 
-def to_pips(width_yen):
-    """円建ての値幅を pips に換算する（符号はそのまま保つ）。"""
-    return None if width_yen is None else float(width_yen) / PIP
+def to_pips(width_yen, pip=None):
+    """値幅を pips に換算する（符号はそのまま保つ）。pip 省略時はドル円（0.01）。
+    ユーロドルは pip=0.0001（2026-10-12）。"""
+    return None if width_yen is None else float(width_yen) / (pip or PIP)
 
 
-def order_widths(side, base, stop=None, tp=None, units=0, entry=None):
+def order_widths(side, base, stop=None, tp=None, units=0, entry=None, pip=None, jpy=1.0):
     """発注カードの「損切り幅／利確幅 pips」の唯一の計算元
     （2026-08-18 ユーザー指示。カード側で幅を再計算しないこと）。
 
@@ -59,13 +60,14 @@ def order_widths(side, base, stop=None, tp=None, units=0, entry=None):
         d_stop = (base - float(stop)) * sign      # 正なら現値はストップの有利側
         out["損切り逆行"] = d_stop < 0
         out["損切り幅円"] = abs(d_stop)
-        out["損切り幅pips"] = abs(to_pips(d_stop))
-        out["損切り到達額円"] = (float(stop) - ref) * units * sign
+        out["損切り幅pips"] = abs(to_pips(d_stop, pip))
+        # jpy: クォート通貨→円の換算（ドル円=1.0／ユーロドル=その時点のドル円）
+        out["損切り到達額円"] = (float(stop) - ref) * units * sign * float(jpy)
     if tp:
         d_tp = (float(tp) - base) * sign
         out["利確幅円"] = abs(d_tp)
-        out["利確幅pips"] = abs(to_pips(d_tp))
-        out["利確到達額円"] = (float(tp) - ref) * units * sign
+        out["利確幅pips"] = abs(to_pips(d_tp, pip))
+        out["利確到達額円"] = (float(tp) - ref) * units * sign * float(jpy)
     if d_stop and d_tp and d_stop > 0 and d_tp > 0:
         out["RR"] = d_tp / d_stop
     return out

@@ -28,9 +28,13 @@ PIPS_LABEL = {"損切り幅pips": "損切り幅", "利確幅pips": "利確幅",
               "現値から": "現値から", "RR": "RR"}
 
 
+# レートの表示形式（ドル円＝小数3桁・円。ユーロドルは render(..., dec=5, unit="ドル")）
+_DEC, _UNIT = 3, "円"
+
+
 def _fmt(key, val):
     if key in RATE_FIELDS:
-        return f"{float(val):.3f} 円"
+        return f"{float(val):.{_DEC}f} {_UNIT}"
     if key == "数量":
         return f"{int(val):,} 通貨" if int(val) else "—"
     return str(val)
@@ -59,7 +63,7 @@ def _yen(amount, units):
     return f"／{amount:+,.0f}円" if units and amount is not None else ""
 
 
-def enrich(ops, mark=None, entry=None, stop=None, tp=None):
+def enrich(ops, mark=None, entry=None, stop=None, tp=None, pip=None, jpy=1.0):
     """発注操作に「損切り幅・利確幅（pips）」を必ず持たせる。
 
     mark : 想定約定価格（新規建ての基準。通常は判定に使った終値）
@@ -101,8 +105,10 @@ def enrich(ops, mark=None, entry=None, stop=None, tp=None):
         tpx = float(tpx) if tpx is not None else \
             (float(tp) if tp is not None else None)
 
+        dec = 5 if (pip or 0.01) < 0.001 else 3
+        unit = "ドル" if dec == 5 else "円"
         w = (risk.order_widths(pos or 1, ref, stop=sp, tp=tpx,
-                               units=op.get("数量") or 0)
+                               units=op.get("数量") or 0, pip=pip, jpy=jpy)
              if ref is not None else {})
         units = int(float(op.get("数量") or 0))
 
@@ -111,7 +117,7 @@ def enrich(ops, mark=None, entry=None, stop=None, tp=None):
             op["損切り幅pips"] = "—（逆指値の設定なし）"
             op["損切り幅pips_数値"] = None
         else:
-            head = f"{ref_label}{float(ref):.3f} → 逆指値{sp:.3f}"
+            head = f"{ref_label}{float(ref):.{dec}f} → 逆指値{sp:.{dec}f}"
             if new_entry or not pos:
                 tail = head
             elif w["損切り逆行"] or not round(d):
@@ -130,7 +136,7 @@ def enrich(ops, mark=None, entry=None, stop=None, tp=None):
         else:
             op["利確幅pips"] = (f"約{d:.0f} pips"
                               f"{_yen(w['利確到達額円'], units)}"
-                              f"（{ref_label}{float(ref):.3f} → 利確{tpx:.3f}）")
+                              f"（{ref_label}{float(ref):.{dec}f} → 利確{tpx:.{dec}f}）")
             op["利確幅pips_数値"] = round(d, 1)
 
         if w.get("RR") is not None:
@@ -138,7 +144,7 @@ def enrich(ops, mark=None, entry=None, stop=None, tp=None):
 
         # 保有玉は「いま値段からあと何pips」を併記（基準が建値のときのみ有効）
         if not new_entry and mark is not None and entry is not None:
-            now = risk.order_widths(pos or 1, mark, stop=sp, tp=tpx)
+            now = risk.order_widths(pos or 1, mark, stop=sp, tp=tpx, pip=pip)
             bits = []
             if now["損切り幅pips"] is not None:
                 bits.append(f"逆指値まで {now['損切り幅pips']:.0f} pips"
@@ -148,7 +154,7 @@ def enrich(ops, mark=None, entry=None, stop=None, tp=None):
                 bits.append(f"利確まで {now['利確幅pips']:.0f} pips")
                 op["現値から利確pips_数値"] = round(now["利確幅pips"], 1)
             if bits:
-                op["現値から"] = f"{float(mark):.3f}円 → " + "／".join(bits)
+                op["現値から"] = f"{float(mark):.{dec}f}{unit} → " + "／".join(bits)
     return ops
 
 
@@ -170,7 +176,7 @@ def pips_tail(op):
     return f"（{'／'.join(bits)}）" if bits else ""
 
 
-def hold_pips(pos, price, stop=None, tp=None):
+def hold_pips(pos, price, stop=None, tp=None, pip=None):
     """保有継続（発注作業なし）の日に指示書へ出す「現値からの距離」。
 
     発注カードが空でも、いま置いてある注文まであと何pipsかは毎回見えている
@@ -178,18 +184,21 @@ def hold_pips(pos, price, stop=None, tp=None):
     """
     if not pos or price is None or (stop is None and tp is None):
         return ""
-    w = risk.order_widths(pos, price, stop=stop, tp=tp)
+    w = risk.order_widths(pos, price, stop=stop, tp=tp, pip=pip)
+    dec, unit = (5, "ドル") if (pip or 0.01) < 0.001 else (3, "円")
     bits = []
     if w["損切り幅pips"] is not None:
         bits.append(f"逆指値まで {w['損切り幅pips']:.0f} pips"
                     + ("（★既に超過）" if w["損切り逆行"] else ""))
     if w["利確幅pips"] is not None:
         bits.append(f"利確まで {w['利確幅pips']:.0f} pips")
-    return f"　現値{float(price):.3f}円 → " + "／".join(bits) if bits else ""
+    return f"　現値{float(price):.{dec}f}{unit} → " + "／".join(bits) if bits else ""
 
 
-def render(ops_by_system, final=True):
+def render(ops_by_system, final=True, dec=3, unit="円"):
     """ops_by_system: {システム名: [op, ...]} → 発注カード文字列"""
+    global _DEC, _UNIT
+    _DEC, _UNIT = dec, unit
     flat = [(name, op) for name, ops in ops_by_system.items() for op in ops]
     todo = [x for x in flat if x[1].get("種別") != "要確認"]
     check = [x for x in flat if x[1].get("種別") == "要確認"]

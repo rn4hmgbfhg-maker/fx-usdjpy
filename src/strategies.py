@@ -154,6 +154,54 @@ def rsi_reversion(df: pd.DataFrame, n: int = 2, buy_th: int = 10,
     return pd.Series(sig.astype(int), index=df.index)
 
 
+def bb_reversion(df: pd.DataFrame, n: int = 10, z: float = 1.5,
+                 trend_n: int = 200) -> pd.Series:
+    """押し目買い・戻り売り（ボリンジャー逆張り＋長期線フィルタ）。2026-10-12 ユーロドル用に追加。
+    終値が trend_n 日線より上で n日ボリンジャーの -zσ を割ったら買い、下で +zσ を超えたら売り。
+    n日移動平均へ戻ったら手仕舞い（加えてバックテスト・エンジン側の ATR トレイルが効く）。
+    ユーロドルは2019年以降トレンド追随（ドンチャン）が効かず、この型が前後半とも安定した。"""
+    c = df["Close"]
+    ma = c.rolling(n).mean()
+    sd = c.rolling(n).std()
+    up, lo = (ma + z * sd).values, (ma - z * sd).values
+    tr = (c > sma(c, trend_n)).values
+    tr_ok = sma(c, trend_n).notna().values
+    cv, mv = c.values, ma.values
+    sig = np.zeros(len(df))
+    pos = 0
+    for i in range(len(df)):
+        if np.isnan(mv[i]) or not tr_ok[i]:
+            sig[i] = 0
+            continue
+        if pos == 0:
+            if cv[i] < lo[i] and tr[i]:
+                pos = 1
+            elif cv[i] > up[i] and not tr[i]:
+                pos = -1
+        elif (pos == 1 and cv[i] >= mv[i]) or (pos == -1 and cv[i] <= mv[i]):
+            pos = 0
+        sig[i] = pos
+    return pd.Series(sig.astype(int), index=df.index)
+
+
+def bb_reversion_exit_level(df: pd.DataFrame, n: int = 10):
+    """押し目・戻り系の手仕舞い線（n日移動平均）。ボード・指示書の決済ライン表示用。"""
+    return float(df["Close"].rolling(n).mean().iloc[-1])
+
+
+def make_signal(df: pd.DataFrame, scfg: dict) -> pd.Series:
+    """config のシステム定義から目標ポジション系列を作る共通関数（2通貨共通）。"""
+    kind = scfg.get("戦略", "ドンチャン")
+    if kind == "ドンチャン":
+        return donchian(df, n=int(scfg["エントリー期間"]), exit_n=int(scfg["イグジット期間"]))
+    if kind == "BB逆張り":
+        return bb_reversion(df, n=int(scfg["BB期間"]), z=float(scfg["BB係数"]),
+                            trend_n=int(scfg.get("トレンド期間", 200)))
+    if kind == "MAクロス":
+        return ma_cross(df, fast=int(scfg["短期MA"]), slow=int(scfg["長期MA"]))
+    raise ValueError(f"未知の戦略: {kind}")
+
+
 STRATEGIES = {
     "MAクロス(20/60)": ma_cross,
     "ドンチャン(20/10)": donchian,

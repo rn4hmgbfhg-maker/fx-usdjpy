@@ -21,3 +21,6 @@ local_settings.json
 results/*.log
 results/orders/*.sent
 scripts/set_mail_password.command
+
+# ユーロドル15分足の長期履歴（研究専用・Macのみ・大きい）
+data/eurusd_15m_hist.csv

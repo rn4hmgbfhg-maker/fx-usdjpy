@@ -114,6 +114,43 @@ def run_stage(stage, backfill=False):
     return False, out
 
 
+EU_ENGINE = os.path.join(BASE_DIR, "src", "eurusd_engine.py")
+
+
+def eu_order_path(stage, d=None):
+    d = d or date.today()
+    return os.path.join(ORDERS_DIR, f"{d.isoformat()}_ユーロドル指示_{TAG[stage]}.txt")
+
+
+def run_eurusd(target):
+    """ユーロドルの未生成ステージを手前から順に生成（冪等）。成否を run_log に記録。"""
+    ok_all = True
+    for st in range(1, target + 1):
+        if os.path.exists(eu_order_path(st)):
+            print(f"[ユーロドル {LABEL[st]}] 生成済み（スキップ）")
+            continue
+        started = time.time()
+        out, rc = "", -1
+        for attempt in range(2):
+            try:
+                p = subprocess.run([sys.executable, EU_ENGINE, "--stage", str(st)], cwd=BASE_DIR,
+                                   capture_output=True, text=True, timeout=STAGE_TIMEOUT_SEC)
+                out, rc = (p.stdout or "") + (p.stderr or ""), p.returncode
+            except subprocess.TimeoutExpired:
+                out, rc = f"{STAGE_TIMEOUT_SEC}秒でタイムアウト", -1
+            if rc == 0 and os.path.exists(eu_order_path(st)):
+                break
+            time.sleep(30)
+        ok = rc == 0 and os.path.exists(eu_order_path(st))
+        ok_all = ok_all and ok
+        print(f"[ユーロドル {LABEL[st]}] {'成功' if ok else '★失敗'}")
+        append_run_log([datetime.now().isoformat(timespec="seconds"), date.today().isoformat(),
+                        f"ユーロドル{LABEL[st]}", "成功" if ok else "失敗",
+                        f"{time.time() - started:.0f}",
+                        "" if ok else (out.strip().splitlines() or ["出力なし"])[-1][:200]])
+    return ok_all
+
+
 def _mark_backfill(stage):
     """定刻に出せず後から生成した指示書には、その旨を明記しておく。"""
     try:
@@ -185,6 +222,13 @@ def main():
                 ok_all = False
                 print(out.strip()[-600:])
 
+    # ユーロドル（2026-10-12 2通貨運用）。ドル円の後に同じ段階を生成する。
+    # 失敗してもドル円の配信・完成率には影響させない（別ファイル・別状態）。
+    if not args.check:
+        eu_ok = run_eurusd(target)
+        if not eu_ok:
+            print("[ユーロドル] ★失敗（ドル円の配信は継続）")
+
     # 最終確定はメールでも本人宛に自動送信する（2026-08-12 ユーザー指示）。
     # 失敗してもシグナル配信は続ける（メールは冗長経路であり必須経路ではない）。
     if not args.check and target == 3 and stage_done(3):
@@ -237,6 +281,12 @@ def main():
                 print(f.read().rstrip())
         else:
             print("★指示書を生成できていません。通知で必ずエラーを報告すること。")
+        print("\n=== 本日のユーロドル指示書（対象ステージ） ===")
+        if os.path.exists(eu_order_path(target)):
+            with open(eu_order_path(target), encoding="utf-8") as f:
+                print(f.read().rstrip())
+        else:
+            print("★ユーロドル指示書を生成できていません。通知で報告すること。")
 
     sys.exit(0 if ok_all and (args.check or stage_done(target)) else 1)
 
