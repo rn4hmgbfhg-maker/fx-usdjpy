@@ -419,6 +419,14 @@ ANALYSIS_CSS = """
 .t-steps li::marker{font-weight:800;color:var(--gold)}
 .mono{font-family:var(--f-num)}
 /* スキャルのチャート（2026-10-13）: ローソク＋EMA＋ペーパートレード＋AIの案。色は既存トークンのみ */
+.sc-sig{margin-top:var(--s3);padding:var(--s3) var(--s4);border:1px solid var(--line-strong);border-left:6px solid var(--gold);border-radius:var(--r3);background:var(--raised)}
+.sc-sig.live.buy{border-left-color:var(--buy)} .sc-sig.live.sell{border-left-color:var(--sell)}
+.sc-sig .k{font-size:var(--fs-cap);color:var(--sub);font-weight:700;letter-spacing:.04em}
+.sc-sig .big{font-size:var(--fs-key);font-weight:800;line-height:1.35}
+.sc-sig.live.buy .big{color:var(--buy)} .sc-sig.live.sell .big{color:var(--sell)}
+.sc-sig .row{display:flex;flex-wrap:wrap;gap:4px 16px;font-size:var(--fs-note);margin-top:4px}
+.sc-svg .sg{fill:var(--gold);stroke:var(--panel);stroke-width:1.5}
+.sc-eq .s4{fill:none;stroke:var(--ink);stroke-width:3}
 .sc-wrap{margin-top:var(--s3);border:1px solid var(--line);border-radius:var(--r3);background:var(--panel);padding:var(--s3)}
 .sc-bar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;justify-content:space-between}
 .sc-tabs{display:flex;flex-wrap:wrap;gap:4px}
@@ -516,16 +524,17 @@ SCALP_CARD = """
     </select>
     <label class="params" for="s-risk">1回のリスク</label>
     <select id="s-risk"></select>
-    <button class="abtn gold" id="s-run" type="button" hidden>スキャル分析（発注案を作る）</button>
+    <button class="abtn gold" id="s-run" type="button" hidden>スキャル分析（今入るとしたら・参考）</button>
     <button class="abtn ghost" id="s-stop" type="button" hidden>停止</button>
   </div>
   <div class="astatus" id="s-status">読み込み中…</div>
+  <div class="sc-sig" id="sc-sig"></div>
   <div class="sc-wrap" id="sc-wrap">
     <div class="sc-bar"><b id="sc-title">チャート</b>
       <div class="sc-tabs" role="group" aria-label="表示の拡大縮小"><button type="button" id="sc-zin" aria-label="拡大（本数を減らす）">＋ 拡大</button><button type="button" id="sc-zout" aria-label="縮小（本数を増やす）">− 広く</button><button type="button" id="sc-zreset">既定</button><span class="params" id="sc-zoomlbl"></span></div>
       <div class="sc-tabs" role="group" aria-label="時間足"><button type="button" data-tf="15分" aria-pressed="true">15分</button><button type="button" data-tf="30分" aria-pressed="false">30分</button><button type="button" data-tf="1時間" aria-pressed="false">1時間</button><button type="button" data-tf="4時間" aria-pressed="false">4時間</button><button type="button" data-tf="8時間" aria-pressed="false">8時間</button><button type="button" data-tf="12時間" aria-pressed="false">12時間</button><button type="button" data-tf="24時間" aria-pressed="false">24時間</button></div></div>
     <div class="sc-legend"><span><i style="border-color:var(--navy)"></i>EMA20</span><span><i style="border-color:var(--gold)"></i>EMA50</span>
-      <span>▲▼ ペーパー売買（塗り＝1時間ルール／白抜き＝15分ルール）</span><span>● 決済（緑＝勝ち・赤＝負け）</span><span>◆ AIの案</span>
+      <span>▲▼ ペーパー売買（塗り＝1時間ルール／白抜き＝15分ルール）</span><span>● 決済（緑＝勝ち・赤＝負け）</span><span>◆ AIの案（ボタン・参考）</span><span>★ シグナル配信（正式）</span>
       <span><i style="border-color:var(--ink)"></i>最新案の入る値</span><span><i style="border-color:var(--up);border-top-style:dashed"></i>利確</span><span><i style="border-color:var(--down);border-top-style:dashed"></i>損切り</span></div>
     <div style="position:relative"><svg class="sc-svg" id="sc-svg" viewBox="0 0 720 320" role="img" aria-label="スキャル用チャート"></svg><div class="sc-tip" id="sc-tip" hidden></div></div>
     <div class="sc-stats" id="sc-stats"></div>
@@ -1104,6 +1113,18 @@ ANALYSIS_JS = r"""
       var ev = scEvalAI(h);
       (marks[ii] = marks[ii] || []).push("AIの案 " + (h.verdict || "見送り") + (h.entry != null ? " " + Number(h.entry).toFixed(S.dec) : "") + "（" + ev.res + (ev.pips != null ? " " + (ev.pips > 0 ? "+" : "") + ev.pips + "pips" : "") + "）");
     });
+    // シグナル配信（★・正式）
+    (C.signals || []).forEach(function (sg) {
+      var ii = scIdx(bars, Math.floor(Date.parse(sg.sent_at) / 60000)); if (ii < 0) return;
+      var b = bars[ii], xx = x(ii), r = ms * 1.7;
+      var yy = sg.d > 0 ? y(b[3]) + r + 6 : y(b[2]) - r - 6;
+      var pts = [];
+      for (var q = 0; q < 10; q++) { var a = -Math.PI / 2 + q * Math.PI / 5, rr = q % 2 ? r * 0.45 : r; pts.push((xx + rr * Math.cos(a)).toFixed(1) + "," + (yy + rr * Math.sin(a)).toFixed(1)); }
+      g += "<polygon class='sg' points='" + pts.join(" ") + "'/>";
+      if (sg.result) g += "<circle class='" + (sg.pips > 0 ? "xw" : "xl") + "' cx='" + (xx + r + 4) + "' cy='" + yy + "' r='" + (ms * 0.55) + "'/>";
+      (marks[ii] = marks[ii] || []).push("★シグナル " + sg.side + " " + Number(sg.entry).toFixed(S.dec) + "（" + sg.tf + "足・想定勝率" + Math.round(sg.win * 100) + "%）"
+        + (sg.result ? " → " + sg.result + " " + (sg.pips > 0 ? "+" : "") + sg.pips + "pips（" + sg.why + "）" : " → 判定中"));
+    });
     // 最新案の線
     if (lines.length) {
       var li = scIdx(bars, Math.floor(Date.parse(last.at) / 60000)), lx = li < 0 ? X0 : x(li);
@@ -1132,6 +1153,23 @@ ANALYSIS_JS = r"""
     hit.addEventListener("pointerleave", function () { tip.hidden = true; ch.setAttribute("visibility", "hidden"); });
     scStats(C, S, VW);
   }
+  // いま有効なシグナル（配信から15分以内）を大きく、無ければ直近の配信を小さく出す
+  function scSigBox(C, S) {
+    var el = $("sc-sig"); if (!el) return;
+    var sgs = C.signals || [], last = sgs[sgs.length - 1], now = Date.now();
+    var upd = C.sig_updated ? "（最終判定 " + esc(fmtAt(C.sig_updated)) + "・15分ごと・ボードは最大1時間遅れ。正式な通知はメール）" : "";
+    if (last && now - Date.parse(last.sent_at) < 15 * 60000) {
+      var side = last.d > 0 ? "buy" : "sell";
+      el.className = "sc-sig live " + side;
+      el.innerHTML = "<div class='k'>★ シグナル配信（正式）— 配信から15分以内</div><div class='big'>" + esc(SC.pair) + "　" + esc(last.side) + (last.d > 0 ? "い" : "り") + "　" + Number(last.entry).toFixed(S.dec) + "</div>"
+        + "<div class='row'><span>利確 <b class='mono up'>" + Number(last.tp).toFixed(S.dec) + "</b></span><span>損切り <b class='mono down'>" + Number(last.stop).toFixed(S.dec) + "</b></span>"
+        + "<span>想定勝率 <b>" + Math.round(last.win * 100) + "%</b>（" + esc(last.tf) + "足）</span><span>" + esc(fmtAt(last.sent_at)) + " 配信</span></div>";
+    } else {
+      el.className = "sc-sig";
+      el.innerHTML = "<div class='k'>★ シグナル配信（正式）</div><div>いま有効なシグナルはありません" + upd + "</div>"
+        + (last ? "<div class='row'><span>直近: " + esc(fmtAt(last.sent_at)) + " " + esc(last.side) + " " + Number(last.entry).toFixed(S.dec) + "（" + esc(last.tf) + "足）</span><span>" + (last.result ? esc(last.result) + " " + (last.pips > 0 ? "+" : "") + last.pips + "pips" : "判定中") + "</span></div>" : "<div class='row'><span>まだ配信はありません（想定勝率50%超の条件がそろうとメールが届きます）</span></div>");
+    }
+  }
   function scStats(C, S, VW) {
     var now = (C.tf["15分"] && C.tf["15分"].length) ? C.tf["15分"][C.tf["15分"].length - 1][0] : 0;
     var series = [], tiles = "", rows = [];
@@ -1150,12 +1188,20 @@ ANALYSIS_JS = r"""
     var done = ev.filter(function (x) { return x[1].pips != null && x[1].done; });
     var aw = done.filter(function (x) { return x[1].pips > 0; }).length, asum = done.reduce(function (a, x) { return a + x[1].pips; }, 0);
     var skip = ev.filter(function (x) { return x[1].res === "見送り"; }).length, nofill = ev.filter(function (x) { return x[1].res === "未約定"; }).length;
-    tiles += "<div><span>AIの案（◆・自動判定）</span><b class='" + (!done.length ? "" : asum >= 0 ? "up" : "down") + "'>" + (done.length ? (asum >= 0 ? "+" : "") + asum.toFixed(1) + " pips" : "記録待ち") + "</b>"
+    tiles += "<div><span>AIの案（◆・ボタン・参考）</span><b class='" + (!done.length ? "" : asum >= 0 ? "up" : "down") + "'>" + (done.length ? (asum >= 0 ? "+" : "") + asum.toFixed(1) + " pips" : "記録待ち") + "</b>"
       + "<small>" + mine.length + "回分析・決着" + done.length + "（勝ち" + aw + "）・未約定" + nofill + "・見送り" + skip
       + (function () { var wr = done.filter(function (x) { return x[0].win_rate != null; });
           return wr.length ? "<br>想定勝率の平均 " + Math.round(wr.reduce(function (a, x) { return a + Number(x[0].win_rate); }, 0) / wr.length) + "% ／ 実際 " + Math.round(100 * wr.filter(function (x) { return x[1].pips > 0; }).length / wr.length) + "%" : ""; })()
       + "</small></div>";
+    var sgs = C.signals || [], sgd = sgs.filter(function (x) { return x.result; });
+    var sgw = sgd.filter(function (x) { return x.pips > 0; }).length, sgsum = sgd.reduce(function (a, x) { return a + x.pips; }, 0);
+    tiles = "<div><span>★ シグナル配信（正式・自動採点）</span><b class='" + (!sgd.length ? "" : sgsum >= 0 ? "up" : "down") + "'>" + (sgd.length ? (sgsum >= 0 ? "+" : "") + sgsum.toFixed(1) + " pips" : "配信待ち") + "</b>"
+      + "<small>" + sgs.length + "回配信・決着" + sgd.length + "（勝ち" + sgw + (sgd.length ? "・勝率" + Math.round(100 * sgw / sgd.length) + "%" : "") + "）"
+      + (sgd.length ? "<br>想定勝率の平均 " + Math.round(100 * sgd.reduce(function (a, x) { return a + x.win; }, 0) / sgd.length) + "%" : "") + "</small></div>" + tiles;
+    var cum4 = 0; series.push({ name: "シグナル配信", cls: "s4", pts: sgd.map(function (x) { cum4 += x.pips; return [Math.floor(Date.parse(x.out_at ? x.out_at.replace(" ", "T") + ":00+09:00" : x.sent_at) / 60000), cum4]; }) });
+    sgd.forEach(function (x) { rows.push([Math.floor(Date.parse(x.sent_at) / 60000), "★シグナル（" + x.tf + "）", x.side, Number(x.fill || x.entry).toFixed(S.dec) + " → " + Number(x.exit).toFixed(S.dec), x.why, x.pips]); });
     $("sc-stats").innerHTML = tiles;
+    scSigBox(C, S);
     var cum2 = 0; series.push({ name: "AIの案", cls: "s3", pts: done.slice().sort(function (a, b) { return (a[1].out || 0) - (b[1].out || 0); }).map(function (x) { cum2 += x[1].pips; return [x[1].out, cum2]; }) });
     done.forEach(function (x) { rows.push([x[1].in || Math.floor(Date.parse(x[0].at) / 60000), "AIの案", /買/.test(x[0].verdict) ? "買" : "売", Number(x[0].entry).toFixed(S.dec) + " → " + Number(x[1].x).toFixed(S.dec), x[1].why || (x[1].res === "勝ち" ? "利確" : "損切り"), x[1].pips]); });
     // 累計pipsの推移
@@ -1316,7 +1362,7 @@ ANALYSIS_JS = r"""
       var side = /買/.test(v) ? 1 : /売/.test(v) ? -1 : 0;
       var cls = side > 0 ? "buy" : side < 0 ? "sell" : "flat";
       var ref = doc.rate ? Number(doc.rate) : null;
-      var big = side > 0 ? "買いで入る（ロング）" : side < 0 ? "売りで入る（ショート）" : "今は入らない（見送り）";
+      var big = side > 0 ? "参考：今入るなら 買い（ロング）" : side < 0 ? "参考：今入るなら 売り（ショート）" : "参考：今は入らない";
       var sub = S.code + "・" + esc(r.headline || "") + (r.confidence ? "・自信 " + esc(r.confidence) : "")
         + (r.win_rate != null ? "・想定勝率 " + esc(r.win_rate) + "%" : "");
       h += "<div class='ticket " + cls + "'><div class='t-head'><div class='t-pair'>" + S.code + "</div>"
@@ -1363,7 +1409,8 @@ ANALYSIS_JS = r"""
         }
         h += "</div>";
       }
-      if (r.next_check) h += "<div class='t-foot'>次に見る時刻: <b>" + esc(r.next_check) + "</b></div>";
+      h += "<div class='t-foot'>これはボタンを押した時点の<b>参考</b>です。入る・入らないの正式な判断は、15分ごとの <b>★シグナル配信（メール）</b> で行います。"
+         + (r.next_check ? "　次に見る時刻: <b>" + esc(r.next_check) + "</b>" : "") + "</div>";
       h += "</div>";
       // 内部予想（コンパクト表示: 矢印＋確率）
       if (r.forecast && r.forecast.length) {
@@ -1430,7 +1477,7 @@ ANALYSIS_JS = r"""
       p.push("読む人は専門家ではありません。専門用語は避け、短い文で。これは本人のツール内の案であり投資助言ではない。");
       p.push("判断材料: テクニカル合議（15分足・1時間足）、ATR、直近の値動き・高値安値・節目（ファンダ研究欄の『次の焦点』にある節目）、ファンダメンタルズ（レジーム・材料バランス・翌日予測・ニュース総括・当局のけん制・指標イベント）。★5級イベントの前後30分は caution に必ず書く（案は出してよい。発注するかは本人が判断する）。");
       p.push("価格は『直近の値動き』の最終バー終値（あれば。無ければボードのヘッダのレート）を基準レートにし、エントリーは基準レートから" + S.zone + "以内、損切りは12pips前後（8〜16）、利確は損切りの1.2〜1.5倍で具体的な小数" + S.dec + "桁の数値を出す。数量は書かない（ページが口座資金とリスク率から計算する）。");
-      p.push("判断の決まり（2026-10-13 落合さん指示: スキャルは『想定勝率が50%を超えれば必ず案を出す。発注は本人が判断』。研究結論の『合わなければ見送り』よりこちらを優先）: ①いまの状況に最も近い研究の条件を選び、想定勝率を出す。想定勝率＝その時間足の上位条件の勝率を基準に、『同じ入り方の時間帯幅別』でいまの時刻（JST）を含む時間帯の勝率があればそれを優先し、RSI14／EMA20とEMA50の配列／EMA200の向きが条件と逆なら1つにつき5ポイント下げる。②買い・売りの両方向で想定勝率を出し、高い方を candidate に必ず入れる（見送りでも価格つきで）。③candidate の想定勝率が50%を超えたら、verdict は必ずその向き（買／売）。50%以下なら『見送り』。④自信は、RSI・EMA配列・EMA200の向き・時間帯の4つのうち条件と合う数で決める（4つ＝高、3つ＝中、2つ以下＝低）。⑤★5級イベントの前後30分や『避ける時間帯』は勝率を下げる材料にしつつ、caution に書く。④『これまでの案と結果』で負けが続いている型（同じ時間帯・同じ向き）は避ける。⑤案を出すときは reason に『時間足=◯・RSI=◯・EMA200の向き=◯・時間帯=◯時台（研究の勝率◯%）』と数字で根拠を書く。損切り/利確はその足の『損切りpips目安／利確pips目安』を使う。");
+      p.push("判断の決まり（2026-10-13 落合さん指示: スキャルは『想定勝率が50%を超えれば必ず案を出す。発注は本人が判断』。研究結論の『合わなければ見送り』よりこちらを優先）: ①いまの状況に最も近い研究の条件を選び、想定勝率を出す。想定勝率＝その時間足の上位条件の勝率を基準に、『同じ入り方の時間帯幅別』でいまの時刻（JST）を含む時間帯の勝率があればそれを優先し、RSI14／EMA20とEMA50の配列／EMA200の向きが条件と逆なら1つにつき5ポイント下げる。②買い・売りの両方向で想定勝率を出し、高い方を candidate に必ず入れる（見送りでも価格つきで）。③このボタンの分析は『いま入るとしたら』の参考（2026-10-13 落合さん指示。入る・入らないの正式な判断は15分ごとの★シグナル配信が行う）。verdict は見送りにせず、必ず candidate と同じ向き（買／売）にする。想定勝率が50%以下なら headline に『勝率50%以下・様子見が無難』と書き、自信は『低』。④自信は、RSI・EMA配列・EMA200の向き・時間帯の4つのうち条件と合う数で決める（4つ＝高、3つ＝中、2つ以下＝低）。⑤★5級イベントの前後30分や『避ける時間帯』は勝率を下げる材料にしつつ、caution に書く。④『これまでの案と結果』で負けが続いている型（同じ時間帯・同じ向き）は避ける。⑤案を出すときは reason に『時間足=◯・RSI=◯・EMA200の向き=◯・時間帯=◯時台（研究の勝率◯%）』と数字で根拠を書く。損切り/利確はその足の『損切りpips目安／利確pips目安』を使う。");
       p.push("内部予想（見送りでも必ず）: forecast に 15分・1時間・4時間・日足 の4行を入れ、各行で『方向（上／下／横ばい）・確率（%）・想定レンジ（円）・根拠（RSI・EMA配列・ATR・節目・ファンダを数字で）』を書く。確率は50%を中立とし、材料が無いときは50〜55%に留める。entry_triggers には『何が起きたら買い／売りの案に変わるか』を価格と時刻で2〜4個、next_check には次に見るべき時刻（JST）を書く。");
       if (sd && sd.研究) p.push("【スキャル研究（短い足から日足まで・時間帯幅1/2/3/6時間・JSON）】\n" + JSON.stringify(sd.研究).slice(0, 24000));
       if (sd && sd.値動き) p.push("【直近の値動き（15分・30分・1時間・4時間・日足の指標と直近バー。時刻はJST）】\n" + JSON.stringify(sd.値動き).slice(0, 16000));
@@ -1456,11 +1503,12 @@ ANALYSIS_JS = r"""
         // 2026-10-13: 想定勝率が50%を超えたら、AIが見送りと書いても候補の向きで案にする（発注は本人判断）
         try {
           var cd = result && result.candidate, wr = Number(cd && cd.win_rate);
-          if (cd && wr > 50 && /見送/.test(String(result.verdict || "見送り")) && cd.entry != null && cd.stop != null) {
+          // 2026-10-13: ボタンは『今入るとしたら』の参考。見送りと返っても候補の向きで必ず表示する
+          if (cd && /見送/.test(String(result.verdict || "見送り")) && cd.entry != null && cd.stop != null) {
             result.verdict = /売/.test(String(cd.side)) ? "売" : "買";
             result.entry = cd.entry; result.stop = cd.stop; result.take_profit = cd.take_profit;
             result.win_rate = wr; result.confidence = "低";
-            result.headline = "想定勝率" + wr + "%（50%超）のため案を表示 — " + (result.headline || "");
+            result.headline = (wr > 50 ? "想定勝率" + wr + "%" : "想定勝率" + wr + "%・様子見が無難") + " — " + (result.headline || "");
           }
           if (result && result.win_rate == null && cd) result.win_rate = cd.win_rate;
         } catch (e) {}
@@ -1973,6 +2021,17 @@ def _scalp_chart(pair="usdjpy", days=10):
         res = json.load(open(R("results", cfgp["out"]), encoding="utf-8"))
         end = m15.index[-1]
         out = {"tf": {}, "paper": [], "最終": f"{end:%m/%d %H:%M}"}
+        # 2026-10-13: 正式なシグナル配信（scalp_engine.py）の履歴
+        try:
+            book = json.load(open(R("results", "scalp_signals.json"), encoding="utf-8"))
+            code = "EUR/USD" if pair == "eurusd" else "USD/JPY"
+            out["signals"] = [{k: r.get(k) for k in ("sent_at", "tf", "side", "d", "entry", "stop", "tp", "win", "rule",
+                                                       "hold_min", "result", "pips", "fill", "exit", "why", "out_at",
+                                                       "sl_pips", "tp_pips", "band_win")}
+                              for r in book.get("signals", []) if r.get("code") == code][-60:]
+            out["sig_updated"] = book.get("updated")
+        except (OSError, ValueError):
+            out["signals"], out["sig_updated"] = [], None
         # 2026-10-13: 30分・4時間・8時間・12時間・24時間のスイッチを追加（落合さん指示）
         hsrc = rs._base_for("1時間", m15, h1)
         frames = {"15分": (m15, "15min", 320), "30分": (m15, "30min", 240), "1時間": (hsrc, "1h", 220),

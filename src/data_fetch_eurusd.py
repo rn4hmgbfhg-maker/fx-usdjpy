@@ -197,3 +197,13 @@ if __name__ == "__main__":
         backfill(datetime.strptime(sys.argv[sys.argv.index("--backfill") + 1], "%Y-%m-%d").date())
     else:
         print(update_all(full="--full" in sys.argv))
+        # 2026-10-13: スキャルのシグナル配信。signals.yml（15分ごと）でこのスクリプトは
+        # ドル円の15分足更新（デイトレ15分）の後に走るため、両通貨の最新データがそろうここで判定する
+        # （ワークフローの編集には workflow スコープが要るため、既存の手順に相乗りさせる）。
+        if "--no-scalp" not in sys.argv:
+            try:
+                sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+                import scalp_engine
+                scalp_engine.run()
+            except Exception as e:  # noqa: BLE001
+                print(f"スキャル判定失敗: {e}")
