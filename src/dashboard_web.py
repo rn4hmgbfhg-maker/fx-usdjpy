@@ -5,7 +5,11 @@
 results/dashboard_web.html を再生成する(エンジンが毎回呼ぶ)。
 速報段階は「速報配信中」バナーを表示し、正式判断は最終確定である旨を明示する。
 公開(アーティファクト更新)は朝のスケジュールタスク内のClaudeが行う。
-HTMLは自己完結(外部リソースなし)・ライト/ダーク両テーマ・モバイルファースト。
+HTMLは自己完結（外部は Google Fonts の数字用書体CSSだけ。読めなくても標準書体で表示）・
+ライト/ダーク両テーマ・モバイルファースト。
+2026-10-13 ビジュアル改修: 上から「今日の発注→指示書の原文→ポジションとリスク→分析・スキャル→
+ファンダ→成績→記録・研究」の順。カードはすべて .grid の直下（boardText＝AI分析の材料の約束）。
+二次的な長文は .clamp（高さ制限・innerText には残る）で畳み、<details> で新しく畳むのは #scalp 内だけ。
 """
 import html
 import json
@@ -29,82 +33,409 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 R = lambda *p: os.path.join(BASE_DIR, *p)  # noqa: E731
 OUT_HTML = R("results", "dashboard_web.html")
 
+# 2026-10-13 ユーザー指示「ボード全体のビジュアルも改善」: ページ全体のCSS。
+# 普通の文字列（f-string でも r 文字列でもない）なので波かっこは1重・バックスラッシュは書かない。
+# 色は4系統を混ぜない＝方向（買＝朱／売＝藍）・結果（益＝緑／損＝紅）・要対応（琥珀の塗り＋濃い文字）・
+# 構造（紺・灰）。白抜き文字は使わない（明暗どちらのテーマでも文字のコントラスト比4.5以上）。
+BOARD_CSS = """
+/* ===== トークン（明るい値は素の :root。暗い値は :not([data-theme="light"]) で守る） ===== */
+:root {
+  color-scheme: light;
+  --ground:#F2F5F8; --panel:#FFFFFF; --raised:#F6F8FA; --chipbg:#EBF0F5;
+  --line:#D5DDE6; --line-strong:#8393A6;
+  --ink:#13233A; --sub:#4A596B;
+  --navy:#1F4E79; --gold:#875E00;
+  --act:#F2B73A; --act-ink:#2A1D00; --act-bg:#FFF6DC;
+  --buy:#B53A0A; --buy-bg:#FDEEE6; --sell:#1D5FB0; --sell-bg:#E8F0FB;
+  --up:#12763A; --down:#B4173F;
+  --info-bg:#E6EFF8; --info-ink:#173E63;
+  --warn-bg:#FFF3D1; --warn-ink:#5E4200; --warn-line:#E0B23A;
+  --alert-bg:#FDEBEE; --alert-ink:#8F1630; --alert-line:#E79AAB;
+  --btn:#1F4E79; --btn-ink:#FFFFFF; --focus:#1D5FB0;
+  --pair-uj:#1F4E79; --pair-eu:#0E6B66;
+  --f-ui:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Hiragino Kaku Gothic ProN","BIZ UDPGothic","Yu Gothic UI","Yu Gothic",Meiryo,"Noto Sans JP",sans-serif;
+  --f-num:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,Consolas,"Hiragino Sans","BIZ UDGothic",monospace;
+  --f-slip:"BIZ UDGothic","Osaka-Mono","MS Gothic","Noto Sans Mono CJK JP",ui-monospace,"SF Mono",Menlo,monospace;
+  --fs-cap:.75rem; --fs-note:.8125rem; --fs-body:.9375rem; --fs-lead:1.0625rem;
+  --fs-h2:1.3125rem; --fs-xl:1.375rem; --fs-key:1.5rem; --fs-hero:2rem;
+  --lh-body:1.7; --lh-tight:1.3;
+  --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:32px; --s7:48px;
+  --r1:4px; --r2:8px; --r3:12px;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  color-scheme: dark;
+  --ground:#0B1420; --panel:#121E2E; --raised:#172536; --chipbg:#1B2A3E;
+  --line:#263A52; --line-strong:#5A7090;
+  --ink:#E6EDF5; --sub:#A3B3C6;
+  --navy:#8FB6DE; --gold:#E8C060;
+  --act:#E9B53E; --act-ink:#1E1500; --act-bg:#2D2410;
+  --buy:#FF9466; --buy-bg:#3A2117; --sell:#8AB2F4; --sell-bg:#172A4A;
+  --up:#5CC98A; --down:#F57D95;
+  --info-bg:#16304C; --info-ink:#C3DAF2;
+  --warn-bg:#33290F; --warn-ink:#F3D27B; --warn-line:#8A6A1E;
+  --alert-bg:#3A1A22; --alert-ink:#FFB3C0; --alert-line:#8C3A4A;
+  --btn:#8FB6DE; --btn-ink:#0B1420; --focus:#8FB6DE;
+  --pair-uj:#8FB6DE; --pair-eu:#5CC9BE;
+} }
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --ground:#0B1420; --panel:#121E2E; --raised:#172536; --chipbg:#1B2A3E;
+  --line:#263A52; --line-strong:#5A7090;
+  --ink:#E6EDF5; --sub:#A3B3C6;
+  --navy:#8FB6DE; --gold:#E8C060;
+  --act:#E9B53E; --act-ink:#1E1500; --act-bg:#2D2410;
+  --buy:#FF9466; --buy-bg:#3A2117; --sell:#8AB2F4; --sell-bg:#172A4A;
+  --up:#5CC98A; --down:#F57D95;
+  --info-bg:#16304C; --info-ink:#C3DAF2;
+  --warn-bg:#33290F; --warn-ink:#F3D27B; --warn-line:#8A6A1E;
+  --alert-bg:#3A1A22; --alert-ink:#FFB3C0; --alert-line:#8C3A4A;
+  --btn:#8FB6DE; --btn-ink:#0B1420; --focus:#8FB6DE;
+  --pair-uj:#8FB6DE; --pair-eu:#5CC9BE;
+}
+/* 計算済みのコントラスト比（文字/背景）
+   明: ink/panel 15.8・sub/chipbg 6.3・act-ink/act 9.1・buy/buy-bg 5.2・sell/sell-bg 5.5・up/chipbg 5.0・down/panel 6.7・gold/panel 5.8・info 9.5・warn 8.4・alert 7.9・btn 8.7
+   暗: ink/panel 14.2・sub/chipbg 6.8・act 9.6・buy/buy-bg 6.9・sell/sell-bg 6.7・up/chipbg 7.0・down/chipbg 5.7・gold 9.7・info 9.4・alert 9.2・btn 8.7（すべて4.5以上） */
+
+/* ===== 基本 ===== */
+*,*::before,*::after{box-sizing:border-box}
+[hidden]{display:none !important}
+body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--f-ui);font-size:var(--fs-body);line-height:var(--lh-body);-webkit-text-size-adjust:100%;text-size-adjust:100%}
+h1,h2,h3,h4{font-feature-settings:"palt" 1;letter-spacing:.02em}
+a{color:var(--navy)}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+@media (prefers-reduced-motion:no-preference){html{scroll-behavior:smooth}}
+[id]{scroll-margin-top:64px}
+.wrap{max-width:1040px;margin:0 auto;padding:var(--s4) var(--s4) var(--s7)}
+
+/* ===== ヘッダ（計器帯） ===== */
+header.top{display:grid;grid-template-columns:minmax(0,1fr);gap:var(--s2);padding:var(--s1) 0 var(--s3)}
+.top-id{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:var(--s1) var(--s3)}
+header.top h1{margin:0;font-size:var(--fs-lead);font-weight:800}
+header.top h1 small{margin-left:.5em;font-size:var(--fs-note);font-weight:400;color:var(--sub)}
+header.top .meta{font-size:var(--fs-note);color:var(--sub);font-variant-numeric:tabular-nums}
+header.top .meta .upd{color:var(--ink);font-weight:700}
+.inst-row{display:grid;gap:var(--s2);grid-template-columns:repeat(auto-fit,minmax(min(100%,9.5rem),1fr))}
+.inst{display:grid;align-content:start;gap:2px;min-width:0;padding:var(--s2) var(--s3);background:var(--panel);border:1px solid var(--line);border-radius:var(--r2)}
+.inst-l{font-size:var(--fs-cap);font-weight:700;letter-spacing:.06em;color:var(--sub)}
+header.top .rate{font-family:var(--f-num);font-weight:600;font-size:clamp(1.625rem,7vw,var(--fs-hero));line-height:1.15;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+header.top .rate small{margin-left:.15em;font-family:var(--f-ui);font-size:var(--fs-note);font-weight:400;color:var(--sub)}
+header.top .inst.sub .rate,header.top .inst.eq .eqv{font-family:var(--f-num);font-weight:600;font-size:clamp(1.25rem,5vw,var(--fs-key));line-height:1.2;font-variant-numeric:tabular-nums}
+.inst.eq .d{font-family:var(--f-num);font-size:var(--fs-note);font-weight:600}
+.inst-n{font-size:var(--fs-cap);color:var(--sub)}   /* レートの基準（日足終値）。ラベルを短く保って折り返さない */
+@media (max-width:559px){.inst.eq{grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:baseline;column-gap:var(--s3)} .inst.eq .inst-l{flex-basis:100%}}
+.dlv{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.dlv-l{font-size:var(--fs-note);font-weight:700;color:var(--sub)}
+.pill{display:inline-flex;align-items:center;gap:4px;padding:2px 10px;border:1px solid var(--line);border-radius:999px;background:var(--panel);color:var(--sub);font-size:var(--fs-note);font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+.pill.done{background:var(--info-bg);color:var(--info-ink);border-color:transparent}
+.pill.wait{border-style:dashed}
+.pill.late,.pill.miss{background:var(--alert-bg);color:var(--alert-ink);border-color:var(--alert-line)}
+.meta-s{margin:0;font-size:var(--fs-note);color:var(--sub)}
+
+/* ===== バナー（クラス banner は維持） ===== */
+.banner{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:start;gap:var(--s1) var(--s3);margin:var(--s2) 0;padding:var(--s3) var(--s4);border:1px solid transparent;border-radius:var(--r2);font-size:var(--fs-body);font-weight:700;line-height:1.5}
+.banner::before{content:"";width:10px;height:10px;margin-top:7px;background:currentColor}
+.banner.act{background:var(--act);color:var(--act-ink)}
+.banner.ok{background:var(--info-bg);color:var(--info-ink)}
+.banner.flash{background:var(--panel);color:var(--navy);border:1px dashed var(--line-strong)}
+.banner.warn{background:var(--alert-bg);color:var(--alert-ink);border-color:var(--alert-line)}
+.banner .go{grid-column:2;justify-self:end;display:inline-flex;align-items:center;min-height:32px;color:inherit;font-size:var(--fs-note);text-decoration:underline;text-underline-offset:3px}
+@media (min-width:720px){.banner{grid-template-columns:auto minmax(0,1fr) auto} .banner .go{grid-column:3;grid-row:1;align-self:center}}
+.banner .go::after{content:"今日の発注へ ↓"}
+
+/* ===== ページ内リンクの帯（.grid の外＝AIの材料外） ===== */
+nav.jump{position:sticky;top:0;z-index:5;display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin:var(--s2) calc(-1*var(--s4)) var(--s3);padding:var(--s2) var(--s4);background:var(--ground);border-bottom:1px solid var(--line)}
+nav.jump::-webkit-scrollbar{display:none}
+/* 右端のぼかし（横に動かせる合図）。帯の右端に貼り付き、最後まで送ると空白に重なって消える */
+nav.jump::after{content:"";position:sticky;right:calc(-1*var(--s4));flex:none;width:32px;margin-left:-6px;background:linear-gradient(90deg,transparent,var(--ground) 70%);pointer-events:none}
+nav.jump a{flex:none;display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:4px 12px;border:1px solid var(--line);border-radius:999px;background:var(--panel);color:var(--ink);font-size:var(--fs-note);font-weight:700;text-decoration:none}
+nav.jump a:hover{border-color:var(--navy)}
+nav.jump .cnt{display:inline-grid;place-items:center;min-width:1.5em;height:1.5em;padding:0 4px;border-radius:999px;background:var(--act);color:var(--act-ink);font-family:var(--f-num);font-size:var(--fs-cap)}
+
+/* ===== グリッドとカード ===== */
+.grid{display:grid;gap:var(--s3);grid-template-columns:minmax(0,1fr)}
+.grid > *{min-width:0}   /* 消さない（指示書の長い行でページ幅が7,000pxを超えた事故の対策） */
+@media (min-width:720px){.grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--s4)} .grid > .span2,.grid > .grp,.grid > .subgrp{grid-column:1/-1}}
+.grp{margin:var(--s5) 0 0;padding-bottom:var(--s2);border-bottom:2px solid var(--ink);display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--s1) var(--s3);font-size:var(--fs-h2);font-weight:800;line-height:var(--lh-tight)}
+.grp small{font-size:var(--fs-note);font-weight:400;letter-spacing:0;color:var(--sub)}
+.subgrp{display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--s1) var(--s3);padding-top:var(--s2)}
+.subgrp h3{margin:0;display:flex;flex-wrap:wrap;align-items:center;gap:var(--s2);font-size:var(--fs-lead);font-weight:800}
+.subgrp .note{flex-basis:100%}
+.card{display:flex;flex-direction:column;gap:var(--s3);background:var(--panel);border:1px solid var(--line);border-radius:var(--r3);padding:var(--s4)}
+.card > *{min-width:0;margin-top:0;margin-bottom:0}
+.card > :empty{display:none}
+.card-head{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:var(--s1) var(--s3)}
+.card h2,.card h3{margin:0;font-size:var(--fs-lead);font-weight:700;line-height:var(--lh-tight)}
+.card h3 .badge{margin-left:var(--s2);vertical-align:middle}
+.params{font-size:var(--fs-note);color:var(--sub);line-height:1.5}
+.card h4,h4.fh{margin:var(--s2) 0 0;padding-left:var(--s2);border-left:3px solid var(--navy);font-size:var(--fs-body);font-weight:700;line-height:1.4;color:var(--ink)}
+.card h4 small,h4.fh small{margin-left:.5em;font-size:var(--fs-cap);font-weight:400;color:var(--sub)}
+.note{margin:0;font-size:var(--fs-note);line-height:1.65;color:var(--sub)}
+.note b{color:var(--ink)}
+.hedge{margin:0;font-size:var(--fs-note);color:var(--ink)}
+.callout{margin:0;padding:var(--s2) var(--s3);border:1px solid;border-radius:var(--r2);font-size:var(--fs-body);font-weight:700;line-height:1.55}
+.callout.alert{background:var(--alert-bg);color:var(--alert-ink);border-color:var(--alert-line)}
+.callout.warn{background:var(--warn-bg);color:var(--warn-ink);border-color:var(--warn-line)}
+.callout.info{background:var(--info-bg);color:var(--info-ink);border-color:transparent}
+.mult-flag{display:none}
+.wrap:has(#a-risk option:checked:not([value="1"])) .mult-flag{display:block}
+
+/* ===== 札・状態 ===== */
+.badges{display:flex;flex-wrap:wrap;gap:4px}
+.badge{display:inline-flex;align-items:center;padding:1px 8px;border:1px solid var(--line-strong);border-radius:var(--r1);color:var(--sub);font-size:var(--fs-cap);font-weight:700;letter-spacing:.04em;line-height:1.6;white-space:nowrap}
+.badge.pair{font-family:var(--f-num);color:var(--pair-uj);border-color:currentColor}
+.badge.pair.eu{color:var(--pair-eu)}
+.badge.trial{border-style:dashed}
+.badge.risk{background:var(--alert-bg);color:var(--alert-ink);border-color:var(--alert-line)}
+.badge.new{background:var(--info-bg);color:var(--info-ink);border-color:transparent}
+.action{display:flex;align-items:center;gap:var(--s2);margin:0;font-size:var(--fs-key);font-weight:800;line-height:1.25}
+.action::before{content:"";flex:none;width:.45em;height:.45em;background:var(--line-strong)}
+.action.buy{color:var(--buy)} .action.buy::before{background:var(--buy)}
+.action.sell{color:var(--sell)} .action.sell::before{background:var(--sell)}
+.action.gold{color:var(--ink)} .action.gold::before{background:var(--act)}
+.action.flat{color:var(--sub);font-size:var(--fs-lead)} .action.flat::before{background:transparent;border:1.5px solid var(--line-strong)}
+@media (max-width:559px){.action{font-size:1.25rem}}
+.pos{display:inline-flex;align-items:center;padding:2px 10px;border-radius:var(--r1);font-size:var(--fs-body);font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+.pos.buy{background:var(--buy-bg);color:var(--buy)}
+.pos.sell{background:var(--sell-bg);color:var(--sell)}
+.pos.flat{background:var(--chipbg);color:var(--sub)}
+.up{color:var(--up)} .down{color:var(--down)}
+.posline{display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--s1) var(--s3);font-size:var(--fs-body)}
+.stop{color:var(--sub);font-variant-numeric:tabular-nums}
+.stop b{font-family:var(--f-num);font-weight:600;color:var(--ink)}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{display:inline-flex;align-items:baseline;gap:4px;padding:2px 8px;border:1px solid var(--line);border-radius:var(--r1);background:transparent;color:var(--sub);font-size:var(--fs-note);font-variant-numeric:tabular-nums;white-space:nowrap}
+.chip small{font-size:var(--fs-cap)}
+.chip.fav{color:var(--up);border-color:currentColor}
+.chip.adv{color:var(--down);border-color:currentColor}
+
+/* ===== 今日の発注 ===== */
+.today.has-act{border-color:var(--warn-line);box-shadow:inset 0 4px 0 var(--act)}
+.todo{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:minmax(0,1fr)}
+.todo-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;grid-template-areas:"pair sys st" "what what what" "px px px";align-items:center;gap:var(--s1) var(--s2);padding:var(--s3) 0;border-top:1px solid var(--line)}
+.todo-row:first-child{border-top:0;padding-top:0}
+.todo-row > .badge{grid-area:pair;justify-self:start}
+.todo-sys{grid-area:sys;font-weight:700}
+.state{grid-area:st;justify-self:end;padding:2px 10px;border-radius:999px;font-size:var(--fs-note);font-weight:700;white-space:nowrap}
+.state.act{background:var(--act);color:var(--act-ink)}
+.state.done{background:var(--info-bg);color:var(--info-ink)}
+.state.none{background:var(--chipbg);color:var(--sub)}
+.state.wait{border:1px dashed var(--line-strong);color:var(--sub)}
+.todo-what{grid-area:what;font-size:var(--fs-note);line-height:1.6;color:var(--sub)}
+.todo-row.act .todo-what{font-size:var(--fs-body);color:var(--ink)}
+.todo-px{grid-area:px;display:flex;flex-wrap:wrap;align-items:baseline;gap:2px var(--s3);font-family:var(--f-num);font-variant-numeric:tabular-nums}
+.todo-px .v{font-size:var(--fs-key);font-weight:600;color:var(--ink)}
+.todo-px .old{font-size:var(--fs-lead);color:var(--sub);text-decoration:line-through}
+.todo-px .arr{color:var(--sub)}
+.todo-px .k,.todo-px .dir{font-family:var(--f-ui);font-size:var(--fs-note);font-weight:700;color:var(--sub)}
+/* 横並びの列にするのは幅1024px以上だけ。価格は作業内容の下の段に置く（5列にすると幅720〜850pxで
+   内容欄が押しつぶれた。720〜1023pxはスマホと同じ縦積みのほうが内容欄を広く取れる） */
+@media (min-width:1024px){.todo-row{grid-template-columns:5.5rem 11rem 8rem minmax(0,1fr);grid-template-areas:"pair sys st what" ". . . px"} .state{justify-self:start}}
+
+/* ===== 指示書の原文と高さ制限 ===== */
+pre.order{margin:0;padding:var(--s3) var(--s4);background:var(--raised);border:1px solid var(--line);border-left:4px solid var(--line-strong);border-radius:var(--r2);color:var(--ink);font-family:var(--f-slip);font-size:.8125rem;line-height:1.7;white-space:pre;overflow-x:auto;tab-size:4}
+@media (max-width:719px){pre.order{white-space:pre-wrap;overflow-wrap:anywhere;font-size:.78rem}}
+.clamp{position:relative;display:grid;grid-template-columns:minmax(0,1fr);gap:var(--s2)}
+.clamp > *{min-width:0}
+.clamp-t{position:absolute;width:1px;height:1px;margin:0;opacity:0;pointer-events:none}
+.clamp-b{max-height:var(--clamp-h,15rem);overflow:hidden;-webkit-mask-image:linear-gradient(#000 calc(100% - 3rem),transparent);mask-image:linear-gradient(#000 calc(100% - 3rem),transparent)}
+.clamp.c-xs{--clamp-h:5.5rem} .clamp.c-s{--clamp-h:10rem} .clamp.c-m{--clamp-h:16rem} .clamp.c-l{--clamp-h:28rem}
+.clamp-t:checked ~ .clamp-b{max-height:none;-webkit-mask-image:none;mask-image:none}
+.clamp-btn{justify-self:start;display:inline-flex;align-items:center;min-height:36px;padding:4px 14px;border:1px solid var(--line-strong);border-radius:999px;background:var(--panel);color:var(--navy);font-size:var(--fs-note);font-weight:700;cursor:pointer}
+.clamp-btn::after{content:"続きを表示 ▾"}
+.clamp-t:checked ~ .clamp-btn::after{content:"たたむ ▴"}
+#cl-order ~ .clamp-btn::after,#cl-order-eu ~ .clamp-btn::after{content:"発注カードまで全文を表示 ▾"}
+#cl-order:checked ~ .clamp-btn::after,#cl-order-eu:checked ~ .clamp-btn::after{content:"たたむ ▴"}
+.clamp-t:focus-visible ~ .clamp-btn{outline:2px solid var(--focus);outline-offset:2px}
+
+/* ===== システムのタイル ===== */
+.tile-h{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:var(--s1) var(--s2)}
+.tile-h .params{flex-basis:100%}
+.tile.need{border-color:var(--warn-line);box-shadow:inset 0 4px 0 var(--act)}
+.tile.side-buy{border-left:4px solid var(--buy)} .tile.side-sell{border-left:4px solid var(--sell)}
+.tile-s{display:flex;flex-wrap:wrap;align-items:center;gap:var(--s2) var(--s3)}
+.kvs{display:grid;grid-template-columns:repeat(auto-fill,minmax(8.5rem,1fr));gap:var(--s2)}
+.kv{display:grid;align-content:start;gap:1px;min-width:0;padding:6px 10px;border-radius:var(--r2);background:var(--chipbg)}
+.kv .k{font-size:var(--fs-cap);font-weight:700;color:var(--sub)}
+.kv b{font-family:var(--f-num);font-size:var(--fs-lead);font-weight:600;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.kv b i{margin-left:2px;font-family:var(--f-ui);font-style:normal;font-size:var(--fs-cap);font-weight:400;color:var(--sub)}
+.kv small{font-size:var(--fs-cap);color:var(--sub)}
+.kv.alert{background:var(--alert-bg)} .kv.alert b{color:var(--alert-ink)}
+.exit{display:grid;gap:4px;padding:var(--s2) var(--s3);border-left:4px solid var(--line-strong);border-radius:0 var(--r2) var(--r2) 0;background:var(--raised);font-size:var(--fs-note);line-height:1.6}
+.exit .exit-h{font-size:var(--fs-body)}
+.exit .exit-h b{font-family:var(--f-num);font-size:var(--fs-lead);font-weight:600}
+.exit .k{margin-right:6px;font-size:var(--fs-cap);font-weight:700;color:var(--sub)}
+.exit .first{display:inline-block;margin-left:6px;padding:0 6px;border-radius:var(--r1);background:var(--act);color:var(--act-ink);font-size:var(--fs-cap);font-weight:700}
+.exit .nxt{color:var(--sub)}
+.exit.near{background:var(--alert-bg);border-left-color:var(--down)}
+.exit .alert{color:var(--alert-ink);font-weight:700}
+.tile-meta{display:flex;flex-wrap:wrap;gap:var(--s1) var(--s3);font-size:var(--fs-note);color:var(--sub)}
+.tile .chips{margin-top:auto;padding-top:var(--s2);border-top:1px dashed var(--line)}
+
+/* ===== 数字カード・表 ===== */
+.kpis{display:grid;gap:var(--s2);grid-template-columns:repeat(auto-fit,minmax(min(100%,9rem),1fr))}
+.kpi{display:grid;align-content:start;gap:2px;min-width:0;padding:var(--s2) var(--s3);border-radius:var(--r2);background:var(--chipbg)}
+.kpi .l{font-size:var(--fs-cap);font-weight:700;line-height:1.45;color:var(--sub)}
+.kpi .l small,.kpi small{font-weight:400}
+.kpi .v{font-family:var(--f-num);font-size:var(--fs-xl);font-weight:600;line-height:1.2;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.kpi .v small{display:block;margin-top:2px;font-family:var(--f-ui);font-size:var(--fs-cap);font-weight:400;color:var(--sub)}
+.kpi .v .v{font-size:var(--fs-lead)}
+.tablewrap{overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--line);border-radius:var(--r2)}
+table{width:100%;border-collapse:collapse;font-size:var(--fs-note);font-variant-numeric:tabular-nums}
+th,td{padding:7px 10px;text-align:left;vertical-align:top;border-bottom:1px solid var(--line);white-space:nowrap}
+tr:last-child td{border-bottom:0}
+th{background:var(--raised);color:var(--sub);font-size:var(--fs-cap);font-weight:700}
+td.n,th.n{text-align:right;font-family:var(--f-num)}
+td.w{white-space:normal;min-width:16em}
+@media (max-width:719px){.rr td.w{min-width:24em}}   /* スマホで評価の列が3〜4行に折れて行が間延びしないように */
+@media (max-width:559px){th,td{padding:6px 8px}}
+.tablewrap.sticky1 th:first-child,.tablewrap.sticky1 td:first-child{position:sticky;left:0;z-index:1;background:var(--panel);box-shadow:1px 0 0 var(--line)}
+.tablewrap.sticky1 th:first-child{background:var(--raised)}
+
+/* ===== 成績・資産推移 ===== */
+.perf-hero{display:grid;grid-template-columns:minmax(0,1fr);gap:var(--s3)}
+@media (min-width:720px){.perf-hero{grid-template-columns:minmax(0,1fr) minmax(0,1.7fr);align-items:center}}
+.hero-l{display:block;font-size:var(--fs-cap);font-weight:700;color:var(--sub)}
+.hero-v{display:block;font-family:var(--f-num);font-size:clamp(1.75rem,7vw,2.25rem);font-weight:600;line-height:1.1;font-variant-numeric:tabular-nums}
+.hero-d{font-family:var(--f-num);font-size:var(--fs-body);font-weight:600}
+svg{width:100%;height:auto;display:block}   /* 全体の指定は残す（スキャルのはしご図が依存） */
+svg.spark{height:clamp(130px,28vw,200px)}
+svg .gl{stroke:var(--line);stroke-width:1;vector-effect:non-scaling-stroke}
+svg .base{stroke:var(--sub);stroke-width:1;stroke-dasharray:4 4;vector-effect:non-scaling-stroke}
+svg .line{fill:none;stroke:var(--navy);stroke-width:2.2;vector-effect:non-scaling-stroke}
+svg .area{fill:var(--navy);opacity:.12;stroke:none}
+svg .dot{stroke:var(--act);stroke-width:9;stroke-linecap:round;vector-effect:non-scaling-stroke}
+.spark-lab{display:flex;flex-wrap:wrap;justify-content:space-between;gap:var(--s1) var(--s3);font-size:var(--fs-note);color:var(--sub);font-variant-numeric:tabular-nums}
+.spark-lab b{font-family:var(--f-num);font-weight:600;color:var(--ink)}
+.sysbar{list-style:none;margin:0;padding:0;display:grid;gap:var(--s2)}
+.sysbar li{display:grid;grid-template-columns:4.5rem minmax(0,1fr) auto;align-items:center;gap:var(--s2);font-size:var(--fs-note)}
+.sysbar .nm{font-weight:700}
+.sysbar .val{font-family:var(--f-num);font-weight:600;text-align:right}
+.sysbar .val small{display:block;font-family:var(--f-ui);font-size:var(--fs-cap);font-weight:400;color:var(--sub)}
+.bar{position:relative;height:10px;border-radius:999px;background:var(--chipbg)}
+.bar::after{content:"";position:absolute;left:50%;top:-3px;bottom:-3px;width:1px;background:var(--line-strong)}
+.bar i{position:absolute;top:0;bottom:0}
+.bar i.up{left:50%;background:var(--up);border-radius:0 999px 999px 0}
+.bar i.down{right:50%;background:var(--down);border-radius:999px 0 0 999px}
+
+/* ===== ファンダ ===== */
+.regime{margin:0;font-size:var(--fs-lead);font-weight:800;line-height:1.4}
+.fbox{padding:var(--s3);border-radius:var(--r2);background:var(--chipbg);font-size:var(--fs-note);line-height:1.65}
+.fbox .l{margin-bottom:var(--s1);font-size:var(--fs-cap);font-weight:700;letter-spacing:.04em;color:var(--sub)}
+.fbox.key{background:var(--info-bg);color:var(--info-ink);border-left:4px solid var(--navy);font-size:var(--fs-body)}
+.fbox.key .l{color:var(--info-ink)}
+.fbox.guide{background:var(--panel);border:1px dashed var(--line-strong)}
+.fbox.guide.uj{border-left:4px solid var(--pair-uj)} .fbox.guide.eu{border-left:4px solid var(--pair-eu)}
+.guide-row{display:grid;grid-template-columns:minmax(0,1fr);gap:var(--s2)}
+@media (min-width:720px){.guide-row{grid-template-columns:repeat(2,minmax(0,1fr))}}
+ul.focus{margin:0;padding-left:1.2em;font-size:var(--fs-body);line-height:1.65}
+ul.focus li{margin:2px 0}
+.fbal{display:grid;gap:4px}
+.fbar-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--s1) var(--s3);font-size:var(--fs-body)}
+.fbar{display:flex;height:12px;gap:2px;border-radius:999px;overflow:hidden}
+.fbar-legend{display:flex;justify-content:space-between;font-size:var(--fs-cap);color:var(--sub)}
+.themes{display:grid;grid-template-columns:minmax(0,1fr)}
+.theme{padding:var(--s2) 0;border-bottom:1px solid var(--line)}
+.theme-meta{display:flex;flex-wrap:wrap;align-items:center;gap:var(--s2);font-size:var(--fs-note)}
+.theme-meta .gold{color:var(--gold);letter-spacing:.06em}
+.theme-h{margin-top:2px;font-size:var(--fs-body);font-weight:600;line-height:1.55}
+.fc-line{display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--s1) var(--s3);font-size:var(--fs-body)}
+.fc-line .k{font-size:var(--fs-cap);font-weight:700;color:var(--sub)}
+
+/* ===== 折りたたみ・記録・フッター ===== */
+details{font-size:var(--fs-note);color:var(--sub)}
+details > summary{min-height:32px;padding:4px 0;font-weight:700;color:var(--navy);cursor:pointer}
+details.fold{padding-top:var(--s2);border-top:1px solid var(--line);font-size:var(--fs-body);color:var(--ink)}
+details.fold > summary{display:flex;align-items:center;min-height:44px;font-size:var(--fs-body);list-style:none}
+details.fold > summary::-webkit-details-marker{display:none}
+details.fold > summary::before{content:"▸";flex:none;margin-right:8px}
+details.fold[open] > summary::before{content:"▾"}
+details.fold[open] > summary{margin-bottom:var(--s2)}
+details.fold > .tablewrap,details.fold > .note,details.fold > h4{margin-top:var(--s2)}
+.kv-list{margin:0;display:grid;gap:var(--s2)}
+.kv-list dt{font-size:var(--fs-cap);font-weight:700;color:var(--sub)}
+.kv-list dd{margin:0;font-size:var(--fs-note);line-height:1.6;color:var(--ink)}
+footer{max-width:72ch;margin-top:var(--s6);padding-top:var(--s4);border-top:1px solid var(--line);font-size:var(--fs-note);line-height:1.7;color:var(--sub)}
+"""
+
 # 2026-10-12 ユーザー指示: ボードに「更新」「今すぐ分析」ボタンと分析結果欄を設置。
 # 分析はアーティファクトの実行時機能（sample＝閲覧者のClaudeに問い合わせ／db＝結果を
 # 保存して全端末で共有）で行う。claude.ai の閲覧画面以外では「更新」だけが動く。
 # 結果は db の analysis/latest に保存され、ボードを再公開しても消えない。
 ANALYSIS_CSS = """
-.abar { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:8px; }
-.abtn { border:0; border-radius:999px; padding:8px 16px; font-weight:700;
-  font-size:.9rem; cursor:pointer; color:#fff; background:var(--navy); }
-.abtn.gold { background:var(--gold); }
-.abtn.ghost { background:var(--chipbg); color:var(--ink); }
-.abtn:disabled { opacity:.5; cursor:default; }
-.abar select { border:1px solid var(--line); border-radius:8px; padding:6px 8px;
-  background:var(--panel); color:var(--ink); font-size:.85rem; }
-.astatus { color:var(--sub); font-size:.78rem; margin-top:6px; }
-.aout { margin-top:10px; font-size:.9rem; }
-.aout h4 { margin:14px 0 4px; font-size:.9rem; color:var(--navy);
-  border-left:3px solid var(--gold); padding-left:8px; }
-.aout p { margin:4px 0; }
-.aout ul { margin:4px 0; padding-left:1.2em; }
-.aout li { margin:3px 0; }
-.aout .lead { font-size:1rem; font-weight:700; padding:10px 12px;
-  background:var(--chipbg); border-radius:10px; }
-.aout table td, .aout table th { white-space:normal; vertical-align:top; }
+/* 2026-10-13 ビジュアル改修: クラス名はすべて維持（JS が書き出すHTMLが使う）。白抜き文字は全廃。
+   .abtn と .abar select には display を書かない（hidden 属性での表示切替を守る） */
+.abar{display:flex;flex-wrap:wrap;align-items:center;gap:var(--s2)}
+.abar label{font-size:var(--fs-note);font-weight:700;color:var(--sub)}
+.abtn{min-height:40px;padding:8px 16px;border:1px solid transparent;border-radius:999px;background:var(--btn);color:var(--btn-ink);font-family:var(--f-ui);font-size:var(--fs-body);font-weight:700;line-height:1.2;cursor:pointer;touch-action:manipulation}
+.abtn.gold{background:var(--act);color:var(--act-ink)}
+.abtn.ghost{background:var(--panel);color:var(--ink);border-color:var(--line-strong)}
+.abtn:disabled{opacity:.5;cursor:default}
+.abar select{min-height:40px;padding:6px 10px;border:1px solid var(--line-strong);border-radius:var(--r2);background:var(--panel);color:var(--ink);font-family:var(--f-ui);font-size:1rem}
+.hint{flex-basis:100%;margin:0;font-size:var(--fs-note);color:var(--sub)}
+.astatus{font-size:var(--fs-note);color:var(--sub)}
+.aout{font-size:var(--fs-body)}
+.aout h4{margin:var(--s4) 0 var(--s1);padding:0 0 4px;border:0;border-bottom:1px solid var(--line);font-size:var(--fs-body);font-weight:700;color:var(--navy)}
+.aout p{margin:4px 0}
+.aout ul{margin:4px 0;padding-left:1.2em}
+.aout li{margin:3px 0}
+.aout .lead{padding:var(--s3);border-radius:var(--r2);background:var(--info-bg);color:var(--info-ink);font-size:var(--fs-lead);font-weight:700}
+.aout table td,.aout table th{white-space:normal;vertical-align:top}
 /* 2026-10-12: パターン表の倍率・金額が途中で折り返されて読みにくかった（ユーザー指摘）。
    数字の列は折り返さず、長い説明の列だけ折り返す */
-.aout table td:not(:last-child), .aout table th { white-space:nowrap; }
-.aout table td:last-child { white-space:normal; min-width:14em; }
-.aout .tag { white-space:nowrap; }
+.aout table td:not(:last-child),.aout table th{white-space:nowrap}
+.aout table td:last-child{white-space:normal;min-width:14em}
+.aout .tag{display:inline-block;padding:1px 8px;border:1px solid var(--line-strong);border-radius:999px;background:var(--raised);color:var(--ink);font-size:var(--fs-cap);font-weight:700;white-space:nowrap}
+.aout .tag.now{background:var(--info-bg);color:var(--info-ink);border-color:transparent}
+.aout .tag.more{background:var(--act);color:var(--act-ink);border-color:transparent}
+.aout .tag.warn{background:var(--alert-bg);color:var(--alert-ink);border-color:var(--alert-line)}
 /* スキャル発注チケット（2026-10-12）: 側（買/売/見送り）を色帯と大見出しで、価格ははしご図で */
-.ticket { margin-top:12px; border:1px solid var(--line); border-radius:12px; overflow:hidden;
-  background:var(--panel); }
-.ticket .t-head { padding:12px 16px; border-left:6px solid var(--sub); background:var(--chipbg); }
-.ticket.buy .t-head { border-left-color:var(--buy); }
-.ticket.sell .t-head { border-left-color:var(--sell); }
-.t-pair { font-size:.75rem; letter-spacing:.08em; color:var(--sub); font-weight:700; }
-.t-do { font-size:1.5rem; font-weight:800; line-height:1.3; }
-.ticket.buy .t-do { color:var(--buy); } .ticket.sell .t-do { color:var(--sell); }
-.ticket.flat .t-do { color:var(--ink); }
-.t-sub { font-size:.82rem; color:var(--sub); margin-top:2px; }
-.t-body { padding:12px 16px; display:grid; gap:12px; }
-.ladder { max-width:640px; }
-.ladder .lv { stroke-width:2; } .ladder .lv.up { stroke:var(--up); } .ladder .lv.down { stroke:var(--down); }
-.ladder .lv.ent { stroke:var(--ink); stroke-width:2.5; } .ladder .lv.now { stroke:var(--sub); stroke-dasharray:5 4; }
-.ladder .lt { font-size:13px; font-weight:700; fill:var(--sub); }
-.ladder .lt.up { fill:var(--up); } .ladder .lt.down { fill:var(--down); } .ladder .lt.ent { fill:var(--ink); }
-.ladder .lp { font-size:13px; fill:var(--ink); font-family:ui-monospace,"SF Mono",Menlo,monospace; }
-.ladder .zone-up { fill:var(--up); opacity:.10; } .ladder .zone-down { fill:var(--down); opacity:.10; }
-.t-kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:8px; }
-.t-kpis > div { background:var(--chipbg); border-radius:10px; padding:8px 10px; display:grid; gap:2px; }
-.t-kpis span { font-size:.72rem; color:var(--sub); }
-.t-kpis b { font-size:1.2rem; font-variant-numeric:tabular-nums; }
-.t-kpis small { font-size:.72rem; color:var(--sub); }
-.t-steps { margin:0; padding-left:1.4em; display:grid; gap:6px; font-size:.9rem; }
-.t-steps li::marker { font-weight:800; color:var(--gold); }
-.mono { font-family:ui-monospace,"SF Mono",Menlo,monospace; }
-.t-warn { margin:0; padding:8px 12px; border-radius:8px; background:var(--chipbg); color:var(--down); font-weight:700; }
-.t-lead { margin:0; font-weight:600; }
-.t-trig { margin:0; padding:0; list-style:none; display:grid; gap:6px; }
-.t-trig li { padding:8px 12px; border:1px dashed var(--line); border-radius:8px; font-size:.88rem; }
-.t-trig li::before { content:"□ "; color:var(--gold); font-weight:800; }
-.t-foot { padding:8px 16px; border-top:1px solid var(--line); font-size:.85rem; color:var(--sub); }
-.fc-row { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:8px; margin-top:10px; }
-.fc { border:1px solid var(--line); border-radius:10px; padding:8px 10px; display:grid; gap:2px; }
-.fc span { font-size:.72rem; color:var(--sub); } .fc b { font-size:1rem; }
-.fc.buy b { color:var(--buy); } .fc.sell b { color:var(--sell); } .fc small { font-size:.72rem; color:var(--sub); }
-.t-more { margin-top:10px; } .t-more summary { font-weight:700; color:var(--ink); }
-.aout .tag { display:inline-block; border-radius:999px; padding:1px 8px;
-  font-size:.72rem; font-weight:700; color:#fff; background:var(--sub); }
-.aout .tag.now { background:var(--navy); } .aout .tag.more { background:var(--gold); }
-.aout .tag.warn { background:var(--down); }
+.ticket{margin-top:var(--s2);border:1px solid var(--line-strong);border-radius:var(--r3);overflow:hidden;background:var(--panel)}
+.ticket .t-head{padding:var(--s3) var(--s4);border-left:6px solid var(--line-strong);background:var(--raised)}
+.ticket.buy .t-head{border-left-color:var(--buy)}
+.ticket.sell .t-head{border-left-color:var(--sell)}
+.t-pair{font-family:var(--f-num);font-size:var(--fs-cap);font-weight:600;letter-spacing:.08em;color:var(--sub)}
+.t-do{font-size:var(--fs-key);font-weight:800;line-height:1.3}
+.ticket.buy .t-do{color:var(--buy)} .ticket.sell .t-do{color:var(--sell)} .ticket.flat .t-do{color:var(--ink)}
+.t-sub{margin-top:2px;font-size:var(--fs-note);color:var(--sub)}
+.t-body{display:grid;grid-template-columns:minmax(0,1fr);gap:var(--s3);padding:var(--s3) var(--s4)}
+.ladder{max-width:640px}
+.ladder .lv{stroke-width:2} .ladder .lv.up{stroke:var(--up)} .ladder .lv.down{stroke:var(--down)}
+.ladder .lv.ent{stroke:var(--ink);stroke-width:2.5} .ladder .lv.now{stroke:var(--sub);stroke-dasharray:5 4}
+.ladder .lt{font-size:13px;font-weight:700;fill:var(--sub)}
+.ladder .lt.up{fill:var(--up)} .ladder .lt.down{fill:var(--down)} .ladder .lt.ent{fill:var(--ink)}
+.ladder .lp{font-size:13px;fill:var(--ink);font-family:var(--f-num)}
+.ladder .zone-up{fill:var(--up);opacity:.10} .ladder .zone-down{fill:var(--down);opacity:.10}
+/* 分析時の値（入る値とほぼ同じ高さに来る）の文字と価格は、線の中央の空いた所へずらして重なりを避ける
+   （JS の ladder() は変えない。分析時の値の線は最後に描かれ、その価格は .lt.now の直後の .lp） */
+.ladder .lt.now{text-anchor:start;transform:translateX(24px);font-weight:400}
+.ladder .lt.now + .lp{text-anchor:end;transform:translateX(-24px);fill:var(--sub)}
+.ladder .lt.now,.ladder .lt.now + .lp{paint-order:stroke;stroke:var(--panel);stroke-width:5px;stroke-linejoin:round}
+@media (max-width:559px){.t-body{padding:var(--s3)} .ladder .lt,.ladder .lp{font-size:18px}}
+.t-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,8rem),1fr));gap:var(--s2)}
+.t-kpis > div{display:grid;gap:2px;padding:var(--s2) 10px;border-radius:var(--r2);background:var(--chipbg)}
+.t-kpis span,.t-kpis small{font-size:var(--fs-cap);color:var(--sub)}
+.t-kpis b{font-family:var(--f-num);font-size:1.25rem;font-weight:600;font-variant-numeric:tabular-nums}
+.t-steps{margin:0;padding-left:1.4em;display:grid;gap:6px;font-size:var(--fs-body)}
+.t-steps li::marker{font-weight:800;color:var(--gold)}
+.mono{font-family:var(--f-num)}
+.t-warn{margin:0;padding:var(--s2) var(--s3);border-radius:var(--r2);background:var(--alert-bg);color:var(--alert-ink);font-weight:700}
+.t-lead{margin:0;font-weight:600}
+.t-trig{margin:0;padding:0;list-style:none;display:grid;gap:6px}
+.t-trig li{padding:var(--s2) var(--s3);border:1px dashed var(--line-strong);border-radius:var(--r2);font-size:var(--fs-note)}
+.t-trig li::before{content:"□ ";color:var(--gold);font-weight:800}
+.t-foot{padding:var(--s2) var(--s4);border-top:1px solid var(--line);font-size:var(--fs-note);color:var(--sub)}
+.fc-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,8rem),1fr));gap:var(--s2);margin-top:10px}
+.fc{display:grid;gap:2px;padding:var(--s2) 10px;border:1px solid var(--line);border-radius:var(--r2)}
+.fc span,.fc small{font-size:var(--fs-cap);color:var(--sub)}
+.fc b{font-size:var(--fs-body)}
+.fc.buy b{color:var(--buy)} .fc.sell b{color:var(--sell)}
+.t-more{margin-top:10px} .t-more summary{font-weight:700;color:var(--navy)}
 """
 
 ANALYSIS_CARD = """
 <section class="card span2" id="analysis">
-  <div class="card-head"><h3>総合分析（Claude・ボタンを押すたびに最新の状況で分析し直す）</h3>
-    <span class="params">結果はこのボードに保存され、次に開いたときも表示</span></div>
+  <div class="card-head"><h3>Claude 総合分析</h3>
+    <span class="params">押すたびに最新の状況で分析し直す・結果は保存され次回も表示</span></div>
   <div class="abar">
     <label class="params" for="a-risk">リスク倍率</label>
     <select id="a-risk">
@@ -124,26 +455,27 @@ ANALYSIS_CARD = """
       <option value="9">9倍</option>
       <option value="10">10倍（最大）</option>
     </select>
-    <button class="abtn ghost" id="a-reload" type="button">更新（最新のボードを読み込み、発注の数字を倍率で調整）</button>
+    <button class="abtn ghost" id="a-reload" type="button">更新</button>
     <button class="abtn gold" id="a-run" type="button" hidden>今すぐ分析</button>
     <button class="abtn ghost" id="a-stop" type="button" hidden>停止</button>
     <select id="a-depth" hidden>
       <option value="default">標準（1分前後）</option>
       <option value="complex">詳細（数分かかる・より深く考える）</option>
     </select>
+    <p class="hint">「更新」＝最新のボードを読み込み、発注の数字を倍率で調整します</p>
   </div>
   <div class="aout" id="a-adj"></div>
   <div class="astatus" id="a-status">読み込み中…</div>
   <div class="aout" id="a-out"></div>
-  <div class="note">※分析は「このボードに表示されている数字」だけを材料にした読み物で、
-    投資助言ではありません。リスクを増やすパターンは概算の比較であり、変更する・しないは
-    ご本人の判断です（変更するときは config.json の調整＝別途依頼）。発注は従来どおり手動。</div>
+  <div class="note">※分析は「このボードに表示されている数字」だけを材料にした読み物です。
+    リスクを増やすパターンは概算の比較で、変更する・しないはご本人の判断です
+    （設定を恒久的に変えるときは Claude に依頼）。</div>
 </section>
 """
 
 SCALP_CARD = """
 <section class="card span2" id="scalp">
-  <div class="card-head"><h3>スキャルピング専用（高リスク発注欄・ファンダ連動）</h3>
+  <div class="card-head"><h3>スキャルピング<span class="badge risk">高リスク・別枠</span><span class="badge">ファンダ連動</span></h3>
     <span class="params">短時間で小さな値幅を取る超短期売買の案。日足4システムとは別枠・別管理</span></div>
   <div class="abar">
     <label class="params" for="s-pair">通貨ペア</label>
@@ -159,11 +491,13 @@ SCALP_CARD = """
   <div class="astatus" id="s-status">読み込み中…</div>
   <div class="aout" id="s-out"></div>
   <div class="aout" id="s-log"></div>
+  <details class="fold"><summary>スキャル研究の詳しい表（ドル円・ユーロドル／時間足別の検証）</summary>
   __SCALP_RESEARCH__
+  </details>
   <div class="note">※ボードの時点のレート・ファンダ・テクニカル合議を材料にした<b>案</b>です。
     実際の発注前に必ず現在値を確認し、案の価格帯から離れていたら見送ってください。
     高リスク設定のため、損失額は日足系の数倍になります。発注・決済はすべてご本人が手動で行い、
-    結果はモデル成績には含まれません（別管理）。投資助言ではありません。</div>
+    結果はモデル成績には含まれません（別管理）。</div>
 </section>
 """
 
@@ -839,7 +1173,9 @@ ANALYSIS_JS = r"""
 
 ACT_STYLE = {  # アクション → (表示, クラス)
     "新規買(ロング)": ("新規 買", "buy"), "新規売(ショート)": ("新規 売", "sell"),
-    "ストップ変更": ("ストップ切上げ", "gold"), "決済": ("全決済", "gold"),
+    # 2026-10-13: 売り玉では逆指値を「下げる」のに「切上げ」と出ていたため中立の表示にした。
+    # 向き（引き下げ／引き上げ）は各カードで建玉の向きから足す（表示だけ・クラス gold は不変）。
+    "ストップ変更": ("ストップ変更", "gold"), "決済": ("全決済", "gold"),
     "継続": ("保有継続", "flat"), "待機": ("待機", "flat"),
     "イベント見送り": ("イベント見送り", "flat"),
     "ファンダ見送り": ("ファンダ見送り", "flat"),
@@ -909,12 +1245,20 @@ def _fund_chip(pos, bal):
     if not pos or not bal:
         return ""
     if abs(bal["net"]) < 0.2:
-        txt = "ファンダ 中立（材料拮抗）"
+        txt, cls = "ファンダ 中立（材料拮抗）", "chip"
     elif (pos > 0) == (bal["net"] > 0):
-        txt = "ファンダ 追い風"
+        txt, cls = "ファンダ 追い風", "chip fav"
     else:
-        txt = "ファンダ 向かい風"
-    return f'<span class="chip">{txt}<small>・参考</small></span>'
+        txt, cls = "ファンダ 向かい風", "chip adv"
+    return f'<span class="{cls}">{txt}<small>・参考</small></span>'
+
+
+def _act_disp(act, pos):
+    """「ストップ変更」に向きを足す（表示だけ）。売り玉＝引き下げ／買い玉＝引き上げ。
+    トレール逆指値は有利側にしか動かないため、建玉の向きで決まる。"""
+    if act == "ストップ変更" and pos:
+        return "ストップ変更（引き下げ）" if pos < 0 else "ストップ変更（引き上げ）"
+    return act
 
 
 def _intraday_block(latest_path, state_path, name, label, stale_hours=3):
@@ -957,7 +1301,7 @@ def _parse_order_actions(order_text, names):
     """
     label_map = {
         "確認": ("ストップ決済済", "gold"), "決済": ("全決済", "gold"),
-        "見送り": ("イベント見送り", "flat"), "変更": ("ストップ切上げ", "gold"),
+        "見送り": ("イベント見送り", "flat"), "変更": ("ストップ変更", "gold"),
         "継続": ("保有継続", "flat"), "待機": ("待機", "flat"),
     }
     out = {}
@@ -1002,7 +1346,7 @@ def _read_csv(path, cols):
     return pd.DataFrame(columns=cols)
 
 
-def _width_html(pos, entry, mark, stop, tp):
+def _width_html(pos, entry, mark, stop, tp, basis="現値"):
     """保有玉の「利確幅・損切り幅 pips」をボードにも出す（2026-08-18ユーザー指示）。
 
     幅は発注カード（order_card.enrich）と同じ建値基準で、計算は
@@ -1010,6 +1354,9 @@ def _width_html(pos, entry, mark, stop, tp):
     2箇所で計算して片方だけ直し残る事故になる（memory
     feedback_fix_all_output_targets）。現値からの距離も併記する
     （転記直後に効くのは建値基準の幅ではなくこちらの距離のため）。
+    2026-10-13: 文中に埋もれていたため、ラベルと値の小さな箱（_kv）の並びで返す。
+    basis は mark が何の値か（日足終値／2時間足終値／1時間足終値）の表示名。系統ごとに
+    基準の足が違うのに「現値」とだけ出ていて、ヘッダのレートと同じ値に読めたため（表示のみ）。
     """
     if not pos or entry in (None, ""):
         return ""
@@ -1017,22 +1364,29 @@ def _width_html(pos, entry, mark, stop, tp):
     now = risk.order_widths(pos, mark, stop=stop, tp=tp)
     bits = []
     if w["利確幅pips"] is not None:
-        bits.append(f'利確幅 <b>{w["利確幅pips"]:.0f}</b> pips')
+        bits.append(_kv("利確幅（建値から）", f'{w["利確幅pips"]:.0f}', "pips"))
     if w["損切り幅pips"] is not None:
         over = (float(stop) - float(entry)) * pos > 0   # 建値より有利側
-        bits.append(f'損切り幅 <b>{w["損切り幅pips"]:.0f}</b> pips'
-                    + ("（建値超え＝到達しても利益）" if over else ""))
+        bits.append(_kv("損切り幅（建値から）", f'{w["損切り幅pips"]:.0f}', "pips",
+                        small="建値超え＝到達しても利益" if over else ""))
     if not bits:
         return ""
-    near = []
     if now["損切り幅pips"] is not None:
-        near.append(f'逆指値まで {now["損切り幅pips"]:.0f}'
-                    + ("（★超過）" if now["損切り逆行"] else ""))
+        bits.append(_kv(f"逆指値まで（{basis}から）", f'{now["損切り幅pips"]:.0f}', "pips",
+                        small="★超過" if now["損切り逆行"] else "",
+                        alert=bool(now["損切り逆行"])))
     if now["利確幅pips"] is not None:
-        near.append(f'利確まで {now["利確幅pips"]:.0f}')
-    tail = (f'　<span class="stop">現値から '
-            + "／".join(near) + " pips</span>") if near else ""
-    return '　' + "／".join(bits) + tail
+        bits.append(_kv(f"利確まで（{basis}から）", f'{now["利確幅pips"]:.0f}', "pips"))
+    return "".join(bits)
+
+
+def _kv(label, value, unit="", small="", cls="", alert=False):
+    """ラベルと値の小さな箱（システムのタイル用）。label/small は呼び出し側で安全な文字列。"""
+    unit_html = f"<i>{unit}</i>" if unit else ""
+    small_html = f"<small>{small}</small>" if small else ""
+    box = "kv alert" if alert else "kv"
+    return (f'<span class="{box}"><span class="k">{label}</span>'
+            f'<b class="{cls}">{value}{unit_html}</b>{small_html}</span>')
 
 
 def _bar_html(status):
@@ -1045,7 +1399,7 @@ def _bar_html(status):
     bar = str(status.get("確定バー") or "")
     if not bar:
         return ""
-    return f'<span class="stop">判定バー {html.escape(bar)}</span>'
+    return f'<span class="stop">判定に使った足 {html.escape(bar)}</span>'
 
 
 def _stale_note(status, tf_name):
@@ -1060,8 +1414,14 @@ def _stale_note(status, tf_name):
             f'新規の建て玉は足が更新されるまで見送る。</div>')
 
 
-def _spark_svg(values, w=640, h=180):
-    """資産カーブのSVG(エリア+終点強調)。valuesは数値list。"""
+def _spark_svg(values, w=640, h=180, base=None):
+    """資産カーブのSVG(エリア+終点強調)。valuesは数値list。
+
+    2026-10-13: base（開始資金）を渡すと破線の基準線を描き、増えたのか減ったのかを
+    図だけで読めるようにする（表示の縮尺を変えるだけでデータは不変）。罫線のクラスは
+    カード配置の .grid と衝突しないよう gl に改名。終点は長さ0の線に丸い端を付けた点
+    （preserveAspectRatio="none" で伸ばしても楕円にならない）。
+    """
     if len(values) < 2:
         return ""
     n = max(1, len(values) // 200)
@@ -1069,6 +1429,8 @@ def _spark_svg(values, w=640, h=180):
     if vs[-1] != values[-1]:
         vs.append(values[-1])
     lo, hi = min(vs), max(vs)
+    if base is not None:
+        lo, hi = min(lo, base), max(hi, base)
     rng = (hi - lo) or 1.0
     pad = 12
     pts = []
@@ -1080,12 +1442,180 @@ def _spark_svg(values, w=640, h=180):
     area = f"{pad},{h-pad} " + line + f" {w-pad},{h-pad}"
     grid = "".join(
         f'<line x1="{pad}" y1="{pad + (h-2*pad)*i/3:.1f}" x2="{w-pad}" '
-        f'y2="{pad + (h-2*pad)*i/3:.1f}" class="grid"/>' for i in range(4))
+        f'y2="{pad + (h-2*pad)*i/3:.1f}" class="gl"/>' for i in range(4))
+    base_ln = ""
+    if base is not None:
+        yb = pad + (h - 2 * pad) * (1 - (base - lo) / rng)
+        base_ln = (f'<line x1="{pad}" y1="{yb:.1f}" x2="{w-pad}" y2="{yb:.1f}" '
+                   f'class="base"/>')
     ex, ey = pts[-1].split(",")
-    return (f'<svg viewBox="0 0 {w} {h}" role="img" aria-label="資産推移">'
-            f'{grid}<polygon points="{area}" class="area"/>'
+    return (f'<svg class="spark" viewBox="0 0 {w} {h}" preserveAspectRatio="none" '
+            f'role="img" aria-label="資産推移（破線＝開始資金）">'
+            f'{grid}{base_ln}<polygon points="{area}" class="area"/>'
             f'<polyline points="{line}" class="line"/>'
-            f'<circle cx="{ex}" cy="{ey}" r="4" class="dot"/></svg>')
+            f'<line x1="{ex}" y1="{ey}" x2="{ex}" y2="{ey}" class="dot"/></svg>')
+
+
+def _clamp(cid, size, inner, label="全文を表示"):
+    """二次的な長文を「高さ制限＋続きを表示」で畳む（2026-10-13）。
+
+    <details> と違い overflow で隠すだけなので innerText（AI分析の材料＝boardText）には
+    残る。開閉は CSS だけ（チェックボックス＋label）で、JS は使わない。
+    """
+    return (f'<div class="clamp {size}"><input type="checkbox" id="{cid}" class="clamp-t" '
+            f'aria-label="{label}"><div class="clamp-b">{inner}</div>'
+            f'<label for="{cid}" class="clamp-btn"></label></div>')
+
+
+def _op_todo(op):
+    """order_json["操作"] の1件を「今日の発注」欄の表示用 (what_html, px_html) に変える。
+
+    値はファイルのまま使う（計算しない）。下げる／上げるは変更前後の大小を比べるだけ。
+    """
+    def num(v):
+        try:
+            return f"{float(v):.3f}"
+        except (TypeError, ValueError):
+            return None
+
+    kind = str(op.get("種別") or "")
+    try:
+        units = f'{int(float(op.get("数量") or 0)):,}'
+    except (TypeError, ValueError):
+        units = str(op.get("数量") or "")
+    px = ""
+    if kind == "決済逆指値の変更":
+        what = f'{kind}・{op.get("対象", "")} {units}通貨・{op.get("手順", "")}'
+        old, new = num(op.get("変更前")), num(op.get("変更後"))
+        if new is not None:
+            if old is not None:
+                d = ("下げる" if float(new) < float(old) else
+                     "上げる" if float(new) > float(old) else "")
+                px = f'<span class="old">{old}</span><span class="arr">→</span>'
+            else:
+                d = ""
+            px += f'<span class="v">{new}</span>'
+            if d:
+                px += f'<span class="dir">{d}</span>'
+    elif kind == "新規建て":
+        what = (f'新規 {op.get("売買", "")} {units}通貨（リスク倍率1倍の数量）・'
+                f'{op.get("注文方法", "")}')
+        for k, key in (("入る値", "レート"), ("逆指値", "決済逆指値"),
+                       ("利確", "決済指値(利確)")):
+            v = num(op.get(key))
+            if v:
+                px += f'<span class="k">{k}</span><span class="v">{v}</span>'
+    elif kind == "決済":
+        what = f'全決済 {op.get("売買", "")} {units}通貨・{op.get("手順", "")}'
+    else:
+        what = str(op.get("内容") or kind)
+    return html.escape(what), px
+
+
+def _intraday_todo(name, status, st, pos, act_disp, cls):
+    """デイトレ系の「今日の発注」欄の1行（表示専用）。
+
+    状態は件数の数え方（未通知＝要作業）と同じ条件で決め、数量・水準は状態ファイルの値を
+    そのまま並べる。"""
+    upd = str(status.get("更新", ""))[:16].replace("T", " ")
+    upd_s = upd[5:].replace("-", "/")   # 「10/12 20:34」（直近の記録と同じ短い形・表示のみ）
+    stop, tp = st.get("stop"), st.get("tp")
+    label = ""
+    if status.get("未通知"):
+        state = "act"
+        what = f'{act_disp}・通知の発注カードどおりに（下の原文の末尾）'
+    elif cls in ("buy", "sell", "gold"):
+        state = "done"
+        what = f'{act_disp}（通知済み・最終判定 {upd_s}）— MATRIX TRADERで実施済みか確認'
+    else:
+        state = "none"
+        if pos:
+            label = "確認のみ"   # 札と文（置かれているか確認）を食い違わせない。クラスは none のまま
+            s_txt = f"{float(stop):.3f}" if stop else "—"
+            t_txt = f"{float(tp):.3f}" if tp else "—"
+            side = "買" if pos > 0 else "売"
+            what = (f'{act_disp}・{side} {int(st.get("units", 0) or 0):,}通貨・'
+                    f'逆指値 {s_txt}／利確 {t_txt} が置かれているか確認（最終判定 {upd_s}）')
+        else:
+            what = f'{act_disp}（ポジションなし・最終判定 {upd_s}）'
+    px = ""
+    if state in ("act", "done"):
+        if stop:
+            px += f'<span class="k">逆指値</span><span class="v">{float(stop):.3f}</span>'
+        if tp:
+            px += f'<span class="k">利確</span><span class="v">{float(tp):.3f}</span>'
+    return (state, "uj", name, html.escape(what), px, label)
+
+
+_TODO_ORDER = {"act": 0, "done": 1, "none": 2, "wait": 3}
+_TODO_LABEL = {"act": "要作業", "done": "通知済み", "none": "作業なし", "wait": "指示書待ち"}
+
+
+def _today_html(rows, order_json, is_flash, action_count, near_exit, stale_day="",
+                basis_close=None):
+    """最上段の「今日の発注」欄（2026-10-13 新設）。
+
+    rows: [(状態 act/done/none/wait, "uj"|"eu", システム名, what_html, px_html[, 札の文字])]
+    件数（action_count）はバナーと同じ数え方の値を受け取るだけで、ここでは数え直さない。
+    stale_day: 指示書が今日より前の日のものなら、その日付（例 "10/12"）。見出しを
+    「直近の発注」に替える（表示のみ。件数・要作業の判定は変えない）。
+    near_exit: [(システム名, 決済ライン, 日足終値からのpips)]。同じ水準は1回にまとめる。
+    """
+    lis = ""
+    for r in sorted(rows, key=lambda r: _TODO_ORDER.get(r[0], 9)):
+        st, pair, name, what, px = r[:5]
+        label = (r[5] if len(r) > 5 else "") or _TODO_LABEL.get(st, st)
+        eu = pair == "eu"
+        badge = ('<span class="badge pair eu">EUR/USD</span>' if eu
+                 else '<span class="badge pair">USD/JPY</span>')
+        px_html = f'<span class="todo-px">{px}</span>' if px else ""
+        lis += (f'<li class="todo-row {st}">{badge}'
+                f'<span class="todo-sys">{html.escape(name)}</span>'
+                f'<span class="state {st}">{html.escape(label)}</span>'
+                f'<span class="todo-what">{what}</span>{px_html}</li>')
+    nsys = len({r[2] for r in rows})
+    stage = html.escape(str((order_json or {}).get("段階", "")))
+    if order_json:
+        d = str(order_json.get("日付", ""))[5:].replace("-", "/")
+        params = (f'{html.escape(d)} {stage}の指示書'
+                  f'・作業 {action_count}件／{nsys}システム')
+    else:
+        params = "発注データなし（原文を参照）"
+    if stale_day:
+        title = f'直近の発注（{html.escape(stale_day)} {stage}の指示書）'
+        params += '・日足の欄は実施済みなら対応不要（次の指示書は朝6時台から）'
+    else:
+        title = "今日の発注"
+    flash = ('<p class="callout info">速報（参考）— 正式な発注判断は8時すぎの'
+             '【最終確定】で</p>' if is_flash else "")
+    ne_html = ""
+    if near_exit:
+        groups = []   # 同じ水準・同じ距離のシステムは1回にまとめる（表示のみ）
+        for n, lv, p in near_exit:
+            key = (f"{lv:.3f}", None if p is None else f"{p:.0f}")
+            for g in groups:
+                if g[0] == key:
+                    g[1].append(n)
+                    break
+            else:
+                groups.append((key, [n]))
+        parts = []
+        for (lv_s, p_s), names in groups:
+            s = f'{html.escape("・".join(names))} {lv_s}円'
+            if p_s is not None:
+                base = f'日足終値{basis_close:.3f}円' if basis_close else "日足終値"
+                s += f'（{base}からあと約{p_s}pips）'
+            parts.append(s)
+        ne_html = (f'<p class="callout alert">⚠ 決済ライン接近：{"／".join(parts)}'
+                   ' — 次の引けの終値で決済判定が入りうる（注文は置かない・翌朝の指示書を待つ）</p>')
+    cls = "card span2 today has-act" if action_count else "card span2 today"
+    # 決済ライン接近の注意は行の一覧より前（スマホで2画面下に埋もれていた）
+    return (f'<section class="{cls}" id="today">'
+            f'<div class="card-head"><h3>{title}</h3><span class="params">{params}</span></div>'
+            f'{flash}{ne_html}'
+            '<p class="callout warn mult-flag">リスク倍率が1倍以外に設定されています。'
+            '新規建ての数量は下の「注文指示書（原文）」の値（倍率を反映済み）を使ってください。</p>'
+            f'<ul class="todo">{lis}</ul></section>')
 
 
 def _scalp_snapshot(pair="usdjpy"):
@@ -1168,10 +1698,12 @@ def _scalp_research_html(sr, pair_name="ドル円"):
         x = top[0]
         good = "／".join(rep.get("狙い目の時間帯") or []) or "差なし"
         bad = "／".join(rep.get("避ける時間帯") or []) or "差なし"
-        rows += (f'<tr><td><b>{html.escape(tf)}</b></td><td>{html.escape(str(x["条件"]))}</td>'
+        # 長い文の2列（入り方・時間帯）だけ折り返す（td.w）。2026-10-13: nowrap のままだと
+        # 表の幅がスマホで約2,700pxになり、横に何画面も動かさないと読めなかった。
+        rows += (f'<tr><td><b>{html.escape(tf)}</b></td><td class="w">{html.escape(str(x["条件"]))}</td>'
                  f'<td>{x["勝率"]:.0%}</td><td>{x["PF"]}（{x["PF前"]}/{x["PF後"]}）</td>'
                  f'<td>{x["取引数"]}</td><td>{x["損切りpips目安"] or "—"}／{x["利確pips目安"] or "—"}</td>'
-                 f'<td>狙い目: {html.escape(good)}<br>避ける: {html.escape(bad)}</td></tr>')
+                 f'<td class="w">狙い目: {html.escape(good)}<br>避ける: {html.escape(bad)}</td></tr>')
     return (
         f'<h4>{pair_name}のスキャル研究（短い足から日足まで×時間帯幅1/2/3/6時間で検証・'
         f'{html.escape(str(sr.get("更新", ""))[:10])}）</h4>'
@@ -1189,10 +1721,13 @@ def _scalp_research_html(sr, pair_name="ドル円"):
 
 def _eurusd_section(cfg):
     """ユーロドル（2通貨目・2026-10-12〜）の表示一式。
-    戻り値: (ヘッダ用レート文字列, 運用カードHTML, 研究カードHTML, 指示書テキスト, 指示書ファイル名)"""
+    戻り値: (ヘッダ用レート文字列, 運用カードHTML, 研究カードHTML, 指示書テキスト, 指示書ファイル名,
+             今日の発注欄用の項目リスト)
+    2026-10-13: 運用カードは「見出し(div.subgrp)＋タイル2枚」を .grid の直下へ並べる形にした
+    （カードの中の .grid＝入れ子をやめ、AI分析の材料に2回入る問題を解消）。"""
     ecfg = cfg.get("ユーロドル") or {}
     if not ecfg.get("有効"):
-        return "", "", "", "", ""
+        return "", "", "", "", "", []
     try:
         import data_fetch_eurusd as dfe                      # noqa: PLC0415
         import eurusd_engine as eng                          # noqa: PLC0415
@@ -1203,7 +1738,7 @@ def _eurusd_section(cfg):
         sw = eng.swap_cfg(cfg)
     except Exception as e:                                   # noqa: BLE001
         return "", (f'<section class="card span2"><h3>ユーロドル</h3><p class="note">'
-                    f'データを読めません（{html.escape(str(e)[:120])}）</p></section>'), "", "", ""
+                    f'データを読めません（{html.escape(str(e)[:120])}）</p></section>'), "", "", "", []
     state = {}
     if os.path.exists(R("state_eurusd.json")):
         state = json.load(open(R("state_eurusd.json"), encoding="utf-8"))
@@ -1223,36 +1758,49 @@ def _eurusd_section(cfg):
         text, [f"ユーロドル {n}" for n in (ecfg.get("システム") or {})]).items()} if text else {}
     a_pips = float(atr(px).iloc[-1]) / eng.PIP
     cards, tot_risk, tot_pnl = [], 0.0, 0.0
+    eu_items = []   # 今日の発注欄の行の材料（表示専用・件数には足さない）
     for name, scfg in (ecfg.get("システム") or {}).items():
         if not scfg.get("有効", True):
             continue
         st = state.get(name, {})
         pos = int(st.get("position", 0) or 0)
         act, cls = acts.get(name, ("指示書待ち" if not text else "待機", "flat"))
+        act_disp = _act_disp(act, pos)
         units = float(st.get("units") or 0)
         pos_html = ('<span class="pos flat">ポジションなし</span>' if not pos else
                     f'<span class="pos {"buy" if pos > 0 else "sell"}">{"買" if pos > 0 else "売"} {units:,.0f}通貨</span>')
-        stop_html = "ストップ設定なし"
+        kvs = _kv("ストップ", "設定なし") if pos else ""
+        stop_v = None
         if pos and st.get("stop"):
             stop, entry = float(st["stop"]), float(st.get("entry") or close)
+            stop_v = stop
             w = risk.order_widths(pos, close, stop=stop, units=units, entry=entry, pip=eng.PIP, jpy=jpy)
             ppl = units * (close - entry) * pos * jpy
             sy, sd = swap.accrued(pos, units, st.get("entry_date"), sw=sw)
             tot_pnl += ppl + sy
             tot_risk += (w["損切り到達額円"] or 0) + sy
-            stop_html = (f'ストップ <b>{stop:.5f}</b>　現値から逆指値まで {w["損切り幅pips"]:.0f} pips'
-                         f'　到達なら {w["損切り到達額円"] + sy:+,.0f}円'
-                         f'　含み {ppl + sy:+,.0f}円（スワップ {sy:+,.0f}円・{sd}日）')
+            _hit = w["損切り到達額円"] + sy
+            kvs = (_kv("ストップ", f'{stop:.5f}')
+                   + _kv("逆指値まで（日足終値から）", f'{w["損切り幅pips"]:.0f}', "pips")
+                   + _kv("到達なら", f'{_hit:+,.0f}', "円", cls="up" if _hit >= 0 else "down")
+                   + _kv("含み", f'{ppl + sy:+,.0f}', "円", small=f'スワップ {sy:+,.0f}円・{sd}日',
+                         cls="up" if ppl + sy >= 0 else "down"))
         exit_txt = html.escape(eng.exit_line_text(scfg, px, pos).strip()) if pos else ""
         v = (scfg.get("検証") or {})
+        _need = " need" if cls in ("buy", "sell", "gold") else ""
+        _side = " side-buy" if pos > 0 else " side-sell" if pos < 0 else ""
+        kvs_html = f'<div class="kvs">{kvs}</div>' if kvs else ""
+        exit_html = (f'<div class="exit"><span class="k">決済ライン</span>{exit_txt}</div>'
+                     if exit_txt else "")
         cards.append(
-            f'<article class="card"><div class="card-head"><h2>ユーロドル {html.escape(name)}</h2>'
+            f'<article class="card tile eu{_need}{_side}"><div class="tile-h">'
+            f'<h3>ユーロドル {html.escape(name)}</h3>'
+            '<span class="badges"><span class="badge pair eu">EUR/USD</span><span class="badge">日足</span></span>'
             f'<span class="params">{html.escape(eng.describe(scfg))}・リスク{float(scfg["リスク率"]):.1%}</span></div>'
-            f'<div class="action {cls}">{html.escape(act)}</div>'
-            f'<div class="posline">{pos_html}<span class="stop">{stop_html}</span></div>'
-            + (f'<div class="posline"><span class="stop">{exit_txt}</span></div>' if exit_txt else "")
-            + f'<div class="note">※損益はドル建てをドル円{jpy:.2f}円で円換算。発注は MATRIX TRADER で'
-              f'<b>通貨ペアを EUR/USD に切り替えて</b>手動で。</div></article>')
+            f'<div class="tile-s"><div class="action {cls}">{html.escape(act_disp)}</div>{pos_html}</div>'
+            f'{kvs_html}{exit_html}</article>')
+        eu_items.append({"name": f"ユーロドル {name}", "act": act_disp, "cls": cls,
+                         "pos": pos, "units": units, "stop": stop_v})
     sr = {}
     if os.path.exists(R("results", "research_eurusd_latest.json")):
         try:
@@ -1260,10 +1808,15 @@ def _eurusd_section(cfg):
         except (OSError, ValueError):
             sr = {}
     risk_line = (f'<p class="note">ユーロドル建玉の合計: 含み {tot_pnl:+,.0f}円／全ストップ到達で {tot_risk:+,.0f}円'
-                 f'（ドル円の「リスクリワード管理」とは別計上）</p>') if state else ""
-    op_html = (f'<section class="card span2"><div class="card-head"><h3>ユーロドル（2通貨目・2026-10-13 稼働）</h3>'
-               f'<span class="params">終値 {close:.5f}ドル・ATR {a_pips:.0f}pips・ドル円 {jpy:.2f}円</span></div>'
-               f'<div class="grid" style="margin-top:8px">{"".join(cards)}</div>{risk_line}</section>')
+                 f'（ドル円の「リスクと損益」とは別計上）</p>') if state else ""
+    # 2枚のタイルに同じ文で入っていた円換算・手動発注の注記は、見出しに1回だけ置く
+    op_html = ('<div class="subgrp span2"><h3>ユーロドル <span class="badge pair eu">EUR/USD</span>'
+               '<span class="badge new">2通貨目・2026-10-13 稼働</span></h3>'
+               f'<span class="params">終値 {close:.5f}ドル・ATR {a_pips:.0f}pips・ドル円 {jpy:.2f}円</span>'
+               f'{risk_line}'
+               f'<p class="note">※損益はドル建てをドル円{jpy:.2f}円で円換算。発注は MATRIX TRADER で'
+               '<b>通貨ペアを EUR/USD に切り替えて</b>手動で。</p></div>'
+               + "".join(cards))
     # 研究カード
     res_html = ""
     if sr:
@@ -1289,9 +1842,8 @@ def _eurusd_section(cfg):
                          f' → ユーロドルで確認 最良 スコア{best.get("スコア")}（PF{best.get("PF全")}・{best.get("取引数")}回）'
                          f'＝{html.escape(v.get("判定", ""))}</li>')
         dj = (sr.get("ドンチャン(ドル円と同じ型)の上位") or {}).get("長期") or [{}]
-        res_html = (
-            f'<section class="card span2"><div class="card-head"><h3>ユーロドル研究（日足15年・ドル円との関係）</h3>'
-            f'<span class="params">{html.escape(str(sr.get("更新", ""))[:16])}・{html.escape(str(sr.get("期間", "")))}</span></div>'
+        _res_upd = str(sr.get("更新", ""))[:16].replace("T", " ")
+        res_body = (
             f'<h4 class="fh">採用中の売買ルール（落合さん承認 2026-10-12）</h4><ul class="focus">{cfg_rows}</ul>'
             f'<div class="tablewrap"><table><tr><th>システム</th><th>勝率</th><th>PF</th><th>PF前半/後半</th>'
             f'<th>最大下落</th><th>回数</th></tr>{rows}</table></div>'
@@ -1306,9 +1858,15 @@ def _eurusd_section(cfg):
             f'（ほぼ0＝どちらかが先に動いて他方を予告する関係は無い。同時に動く）</li></ul>'
             f'<h4 class="fh">相乗効果の検証（ドル円の日足売買をユーロドルの向きで確認したら）</h4><ul class="focus">{syn_rows}</ul>'
             f'<p class="note">※採用基準（スコア1.05倍以上）に届かないため現行のまま。毎朝の研究で監視を続ける。'
-            f'スキャルでの相乗効果はスキャルピング欄の「相手通貨で確認した場合」を参照。</p></section>')
-    head = f'<span class="rate" style="font-size:1.1rem">EUR/USD {close:.5f}</span>'
-    return head, op_html, res_html, text, fname
+            f'スキャルでの相乗効果はスキャルピング欄の「相手通貨で確認した場合」を参照。</p>')
+        res_html = (
+            f'<section class="card span2"><div class="card-head"><h3>ユーロドル研究（日足15年・ドル円との関係）</h3>'
+            f'<span class="params">{html.escape(_res_upd)}・{html.escape(str(sr.get("期間", "")))}</span></div>'
+            + _clamp("cl-eures", "c-m", res_body, "ユーロドル研究の全文を表示") + '</section>')
+    # ヘッダ用。.rate の中は数字だけ（JS は最初の .rate＝ドル円を読む。ラベルは外側の span）
+    head = (f'<div class="inst sub"><span class="inst-l">ユーロドル EUR/USD</span>'
+            f'<span class="rate">{close:.5f}</span><span class="inst-n">日足終値</span></div>')
+    return head, op_html, res_html, text, fname, eu_items
 
 
 def build():
@@ -1335,12 +1893,14 @@ def build():
     order_text = "本日の指示書はまだ生成されていません。"
     order_json = None
     is_flash = False   # 速報段階の表示か
+    order_day = ""     # 表示している指示書の日付（YYYY-MM-DD）
     odir = R("results", "orders")
     if os.path.isdir(odir):
         files = [f for f in os.listdir(odir)
                  if f.endswith(".txt") and "_指示_" in f]
         if files:
             latest_date = max(f.split("_")[0] for f in files)
+            order_day = latest_date
             todays = [f for f in files if f.startswith(latest_date)]
             rank = {"速報1": 1, "速報2": 2, "確定": 3}
             todays.sort(key=lambda f: rank.get(
@@ -1358,6 +1918,11 @@ def build():
                     order_json = json.load(open(oj, encoding="utf-8"))
                 except (OSError, ValueError):
                     order_json = None
+    # 2026-10-13: 指示書が今日（配信の札と同じ暦の日付）より前の日のものなら、その日付。
+    # 夜中や土日に前日分の作業が「本日の作業」に見えないよう、バナーと「今日の発注」の
+    # 見出し・札の文言だけを替える（件数・needs_action・要作業の判定は変えない）。
+    _stale_day = (order_day[5:].replace("-", "/")
+                  if order_day and order_day < date.today().isoformat() else "")
     if order_json is not None:
         order_json["リスク率"] = {k: float(v.get("リスク率", 0))
                                   for k, v in systems.items()}
@@ -1379,10 +1944,16 @@ def build():
             return None
     scalp_research = _rj("research_scalp_latest.json")
     scalp_research_eu = _rj("research_scalp_eurusd_latest.json")
-    eu_head, eu_op_html, eu_res_html, eu_text, eu_fname = _eurusd_section(cfg)
-    eu_order_html = (f'<section class="card span2"><h3>本日のユーロドル注文指示書'
-                     f'（{"最終確定" if "確定" in eu_fname else "速報・参考"}）</h3>'
-                     f'<pre class="order">{html.escape(eu_text)}</pre></section>') if eu_text else ""
+    eu_head, eu_op_html, eu_res_html, eu_text, eu_fname, eu_items = _eurusd_section(cfg)
+    # pre.order の要素・クラス・本文はそのまま（JS が倍率で書き換え、Drive へ書き出す）。
+    # 並びはドル円の指示書の直後（Drive 調整版の連結順＝ドル円→ユーロドルを保つ）。
+    eu_order_html = ('<section class="card span2 orderbox" id="order-eu"><div class="card-head">'
+                     '<h3>本日のユーロドル注文指示書'
+                     f'（{"最終確定" if "確定" in eu_fname else "速報・参考"}）</h3></div>'
+                     + _clamp("cl-order-eu", "c-l",
+                              f'<pre class="order">{html.escape(eu_text)}</pre>',
+                              "ユーロドル指示書の全文を表示")
+                     + '</section>') if eu_text else ""
     scalp_card = SCALP_CARD.replace("__SCALP_RESEARCH__",
                                     _scalp_research_html(scalp_research, "ドル円")
                                     + _scalp_research_html(scalp_research_eu, "ユーロドル"))
@@ -1427,11 +1998,16 @@ def build():
                     os.path.getmtime(p))
                 late = (t.hour, t.minute) >= (sched_h, 20)
                 warn = warn or late
-                parts.append(f"{label} {t:%H:%M}" + ("⚠遅延" if late else ""))
+                # 2026-10-13: 段階ごとに小さな札（ピル）で出す。判定と文言は従来どおり
+                p_cls = "late" if late else "done"
+                p_late = "⚠遅延" if late else ""
+                parts.append(f'<span class="pill {p_cls}">{label} {t:%H:%M}{p_late}</span>')
             else:
-                parts.append(f"{label} 未")
                 # 未到来のステージ（6時台に見る最終確定など）は警告対象にしない
-                warn = warn or datetime.now().hour >= sched_h
+                due = datetime.now().hour >= sched_h
+                warn = warn or due
+                p_cls = "miss" if due else "wait"
+                parts.append(f'<span class="pill {p_cls}">{label} 未</span>')
         days = sorted({f.split("_")[0] for f in os.listdir(odir)
                        if f.endswith(".txt") and "_指示_" in f})[-10:]
         # 分母は「配信時刻を過ぎたステージ」だけ（当日の未到来分は欠落ではない）。
@@ -1460,10 +2036,11 @@ def build():
         # 2026-08-14: 警告印を完成率の直後にまとめて出していたため、
         # 完成率 29/29（100%）でも遅延だけで「⚠要点検」が付き、
         # 欠落があるように読めた。遅延と欠落は別々の位置に出す。
-        delivery = ("<br>本日の配信 " + " ／ ".join(parts)
-                    + ("　⚠配信遅延あり" if warn else "")
-                    + f"　｜ 完成率(直近{len(days)}営業日) {got}/{exp}"
-                    + ("　⚠欠落あり" if got < exp else ""))
+        c_cls = "miss" if got < exp else "done"
+        delivery = ('<div class="dlv"><span class="dlv-l">本日の配信</span>' + "".join(parts)
+                    + ('<span class="pill miss">⚠配信遅延あり</span>' if warn else "")
+                    + f'<span class="pill {c_cls}">完成率(直近{len(days)}営業日) {got}/{exp}'
+                    + ("　⚠欠落あり" if got < exp else "") + '</span></div>')
 
     # デイトレの最新指示を同じ指示書欄に併記（4システムを1枚で確認できるように）。
     # 2026-10-13: *_latest.txt は通知があった回だけ書き換わるため、何日も前の
@@ -1514,6 +2091,15 @@ def build():
     rr_rows = []
     eq_ref_curves = []
     atr_series = atr(px)
+    # 2026-10-13: 最上段「今日の発注」欄の行と、決済ライン接近の警告（表示専用）。
+    # 件数は action_count（バナーと同じ数え方）をそのまま使い、ここでは数えない。
+    today_rows, near_exit = [], []
+    # 日足2枚のタイルに同じ文で入っていた決済ラインの説明は、RR欄の「見方」に1回だけ置く
+    exit_help = ('<p class="note">※決済ラインは<b>終値での判定</b>。指値注文としては置かない'
+                 '（日中に触れただけでは決済せず、終値で超えた翌朝の指示書が決済指示になる）。'
+                 'MATRIX TRADERに実際に置く注文は各カードの「ストップ」のみ。</p>'
+                 '<p class="note">※この線は<b>利確ではなくトレンド転換の撤退線</b>。含み損のまま到達すれば'
+                 '損切りとして働く（利益が出る保証はない）。</p>')
     for name, s in systems.items():
         n_e, n_x = int(s["エントリー期間"]), int(s["イグジット期間"])
         atr_k = float(s["ATRストップ係数"])
@@ -1528,30 +2114,26 @@ def build():
         if cls in ("buy", "sell", "gold"):
             needs_action, action_count = True, action_count + 1
         _new_today = pos != 0 and st.get("entry_date") == date.today().isoformat()
-        _new_tag = '<span class="chip" style="margin-left:2px">本日新規</span>' if _new_today else ''
-        pos_html = (f'<span class="pos buy">買 {int(st.get("units", 0)):,}通貨</span>{_new_tag}'
+        # 「本日新規」は建玉の札から外し、タイル見出しの札へ移した（2026-10-13）
+        pos_html = (f'<span class="pos buy">買 {int(st.get("units", 0)):,}通貨</span>'
                     if pos > 0 else
-                    f'<span class="pos sell">売 {int(st.get("units", 0)):,}通貨</span>{_new_tag}'
+                    f'<span class="pos sell">売 {int(st.get("units", 0)):,}通貨</span>'
                     if pos < 0 else '<span class="pos flat">ポジションなし</span>')
-        stop_html = (f'ストップ <b>{float(st["stop"]):.3f}</b>円'
-                     if st.get("stop") else "ストップ設定なし")
-        if pos and st.get("stop"):
-            stop_html += _width_html(pos, st.get("entry"), close,
-                                     st.get("stop"), None)
-        _sy = 0.0
+        _sy, _sd = 0.0, 0
         if pos:
             _sy, _sd = swap.accrued(pos, float(st.get("units") or 0),
                                     st.get("entry_date"),
                                     sw=swap.load(cfg))
-            stop_html += f'　スワップ <b>{_sy:+,.0f}</b>円（{_sd}日分）'
         # 利確（手仕舞い）ライン: ドンチャンの逆側チャネル。2026-08-14 ユーザー
         # 指示で常時表示にした。それまで日足2システムはATRトレール逆指値しか
         # 出しておらず、実際にはその手前で効くことが多いこの線が見えなかった。
-        tp_html = ""
+        exit_html = ""
         tp_now, tp_next = donchian_exit_levels(px, n_x, pos)
         if tp_now is not None:
-            side_txt = ("高値を終値で超えたら決済" if pos < 0
-                        else "安値を終値で割ったら決済")
+            # 2026-10-13: 「ドンチャン10日高値」だけでは何の値か読めなかったため言い換え（表示のみ）
+            side_txt = (f"前日までの{n_x}日の最高値（ドンチャン{n_x}日）を終値で超えたら決済"
+                        if pos < 0 else
+                        f"前日までの{n_x}日の最安値（ドンチャン{n_x}日）を終値で割ったら決済")
             _u = float(st.get("units") or 0)
             _ent = float(st.get("entry") or 0)
 
@@ -1565,44 +2147,58 @@ def build():
             first = ""
             if _stop:
                 near_tp = (tp_now < _stop) if pos < 0 else (tp_now > _stop)
-                first = "　← 先に効くのはこちら" if near_tp else ""
+                first = ('<span class="first">逆指値より先に届く線</span>'
+                         if near_tp else "")
             _dist_atr, _dist_pct = donchian_exit_proximity(px, n_e, n_x, pos,
                                                            atr_series)
+            _near = _dist_pct is not None and _dist_pct <= 0.10
+            # 決済ラインまでの距離を pips でも出す（換算は risk.order_widths に一本化。
+            # ボード側で *100 を書かない＝同じ数字を2か所で計算しない）
+            _exit_pips = (risk.order_widths(pos, close, stop=tp_now)["損切り幅pips"]
+                          if pos else None)
+            # 距離の基準は日足終値（＝ヘッダのレート）。デイトレ欄の値より古いことがあるため明記する
             prox = ""
             if _dist_atr is not None:
-                prox = f'　現値からの距離 {_dist_atr:.2f}ATR'
-                if _dist_pct is not None and _dist_pct <= 0.10:
-                    prox += (f'（★過去の同方向保有時の下位{_dist_pct:.0%}＝'
-                             f'かなり接近中。値動き次第で近日中に決済判定が'
-                             f'入りうる）')
+                prox = (f'・日足終値{close:.3f}円からあと約{_exit_pips:.0f}pips'
+                        f'（1日の平均値幅の{_dist_atr:.2f}倍）'
+                        if _exit_pips is not None else
+                        f'・日足終値からの距離 1日の平均値幅の{_dist_atr:.2f}倍')
+            if _near:
+                prox += (f' <span class="alert">★過去の同方向保有中で最も近い{_dist_pct:.0%}の水準＝'
+                         f'かなり接近中。値動き次第で近日中に決済判定が入りうる</span>')
+                if pos:
+                    near_exit.append((name, tp_now, _exit_pips))
             _p_now = _at(tp_now)
             nxt = ""
             if tp_next is not None and abs(tp_next - tp_now) >= 0.005:
                 _p_nx = _at(tp_next)
                 _mv = "切り下がる" if tp_next < tp_now else "切り上がる"
-                nxt = (f'<br><span class="stop">　└ 次の引け以降は '
+                nxt = (f'<div class="nxt">└ 次の引け以降は '
                        f'<b>{tp_next:.3f}</b>円へ{_mv}見込み'
                        f'（到達なら{_kind(_p_nx)} {_p_nx:+,.0f}円）'
-                       f'　※当日バーが確定するまでは暫定値</span>')
-            tp_html = (f'<span class="stop">決済ライン（今回の引けで判定）'
-                       f'<b>{tp_now:.3f}</b>円'
-                       f'（ドンチャン{n_x}日{side_txt}／到達なら'
-                       f'{_kind(_p_now)} <b>{_p_now:+,.0f}</b>円・'
-                       f'スワップ込み概算）{first}{prox}</span>{nxt}')
+                       f'※当日バーが確定するまでは暫定値</div>')
+            _near_c = " near" if _near else ""
+            exit_html = (f'<div class="exit{_near_c}"><div class="exit-h">'
+                         f'<span class="k">決済ライン</span><b>{tp_now:.3f}</b>円'
+                         f'（今回の引けの終値で判定・注文は置かない）{first}</div>'
+                         f'<div>{side_txt}／到達なら'
+                         f'{_kind(_p_now)} <b>{_p_now:+,.0f}</b>円'
+                         f'（スワップ込み概算）{prox}</div>{nxt}'
+                         '<div class="nxt">※利確ではなく撤退線（含み損でも到達すれば決済）。'
+                         '詳しくは上の「表と決済ラインの見方」</div></div>')
         else:
-            tp_html = ('<span class="stop">決済ライン —'
-                       '（建玉なし。建てた時点でドンチャン'
-                       f'{n_x}日の逆側チャネルが決済ラインになる）</span>')
+            exit_html = ('<div class="exit"><span class="k">決済ライン</span>—'
+                         '（建玉なし。建てた時点でドンチャン'
+                         f'{n_x}日の逆側チャネルが決済ラインになる）</div>')
         if name in pending:   # 速報段階の暫定反映: 指示書本文と表示を一致させる
             act, cls = "ストップ到達→決済確認", "gold"
             needs_action, action_count = True, action_count + 1
-            stop_html = (f'ストップ <b>{float(st["stop"]):.3f}</b>円 到達 '
-                         f'（決済見込み {pending[name]:+,.0f}円・8時最終確定で正式計上）')
         bt = Backtester(px, initial_capital=float(cfg["口座資金_円"]),
                         risk_per_trade=float(s["リスク率"]),
                         max_leverage=float(s["レバ上限"]), atr_stop_mult=atr_k)
         ref = bt.run(donchian(px, n=n_e, exit_n=n_x))
         m = ref["metrics"]
+        _rr = None
         if pos:
             # 日足2系統は利確目標を置かない設計なので tp は渡さない。
             # RRの代わりに検証実績のペイオフレシオを添える。
@@ -1614,20 +2210,71 @@ def build():
             _rr["決済ライン"] = tp_now
             rr_rows.append(_rr)
         eq_ref_curves.append(ref["equity_curve"]["Equity"].astype(float).values)
+        # 2026-10-13: 建玉の数字は文に埋めず、ラベルと値の箱（_kv）で並べる。値は上で求めた
+        # ものを並べるだけ（含み損益は RR 欄と同じ _rr の値・新たに計算しない）。
+        kvs = ""
+        if name in pending:
+            # 速報段階の暫定決済: 従来どおり到達の事実と決済見込みだけを出す
+            kvs = _kv("ストップ到達", f'{float(st["stop"]):.3f}', "円",
+                      small=f'決済見込み {pending[name]:+,.0f}円・8時最終確定で正式計上',
+                      alert=True)
+        else:
+            if _rr:
+                kvs += _kv("含み損益", f'{_rr["含み損益円"]:+,.0f}', "円",
+                           cls="up" if _rr["含み損益円"] >= 0 else "down")
+            kvs += (_kv("ストップ", f'{float(st["stop"]):.3f}', "円")
+                    if st.get("stop") else _kv("ストップ", "設定なし"))
+            if pos and st.get("stop"):
+                kvs += _width_html(pos, st.get("entry"), close,
+                                   st.get("stop"), None, basis="日足終値")
+            if pos:
+                kvs += _kv("スワップ", f'{_sy:+,.0f}', "円", small=f'{_sd}日分')
+        act_disp = _act_disp(act, pos)
+        # 今日の発注欄の行（needs_action と同じ条件で「要作業」）
+        # 指示書が前の日のものなら札に対象日を添える（表示のみ・判定と件数は不変）
+        _act_lbl = f"要作業・{_stale_day}分" if _stale_day else ""
+        _done_ok = html.escape("（実施済みならそのままでOK）")
+        if cls in ("buy", "sell", "gold"):
+            _ops = ((order_json or {}).get("操作") or {}).get(name) or []
+            if name in pending:
+                today_rows.append(("act", "uj", name, html.escape(
+                    f'ストップ {float(st["stop"]):.3f}円 到達→決済確認（決済見込み '
+                    f'{pending[name]:+,.0f}円・8時最終確定で正式計上）'), "", _act_lbl))
+            elif _ops:
+                for _op in _ops:
+                    _w, _p = _op_todo(_op)
+                    today_rows.append(("act", "uj", name, _w + _done_ok, _p, _act_lbl))
+            else:
+                today_rows.append(("act", "uj", name,
+                                   html.escape(f'{act_disp}（指示書の原文を参照）') + _done_ok,
+                                   "", _act_lbl))
+        else:
+            if pos:
+                _stp = f'{float(st["stop"]):.3f}円' if st.get("stop") else "（未設定）"
+                _what = (f'{act_disp}・{"買" if pos > 0 else "売"} '
+                         f'{int(st.get("units", 0)):,}通貨・逆指値 {_stp} が置かれているか確認')
+            else:
+                _what = f'{act_disp}（ポジションなし）'
+            today_rows.append(("none", "uj", name, html.escape(_what), "",
+                               "確認のみ" if pos else ""))
+        _tile_cls = "card tile"
+        if cls in ("buy", "sell", "gold"):
+            _tile_cls += " need"
+        if pos:
+            _tile_cls += " side-buy" if pos > 0 else " side-sell"
+        _badges = ('<span class="badges"><span class="badge pair">USD/JPY</span>'
+                   '<span class="badge">日足</span>'
+                   + ('<span class="badge new">本日新規</span>' if _new_today else "")
+                   + '</span>')
         sys_cards.append(f"""
-<article class="card">
-  <div class="card-head"><h2>{html.escape(name)}</h2>
+<article class="{_tile_cls}">
+  <div class="tile-h"><h3>{html.escape(name)}</h3>{_badges}
     <span class="params">{html.escape(params)}</span></div>
-  <div class="action {cls}">{html.escape(act)}</div>
-  <div class="posline">{pos_html}<span class="stop">{stop_html}</span></div>
-  <div class="posline">{tp_html}</div>
-  <div class="note">※決済ラインは<b>終値での判定</b>。指値注文としては置かない
-    （日中に触れただけでは決済せず、終値で超えた翌朝の指示書が決済指示になる）。
-    MATRIX TRADERに実際に置く注文は上のストップのみ。<br>
-    ※この線は<b>利確ではなくトレンド転換の撤退線</b>。含み損のまま到達すれば
-    損切りとして働く（利益が出る保証はない）。</div>
+  <div class="tile-s"><div class="action {cls}">{html.escape(act_disp)}</div>{pos_html}</div>
+  <div class="kvs">{kvs}</div>
+  {exit_html}
   <div class="chips">
-    <span class="chip">15年検証 PF {m['プロフィットファクター']:.2f}</span>
+    <span class="chip">15年検証 PF {m['プロフィットファクター']:.2f}<small>（利益÷損失）</small></span>
     <span class="chip">勝率 {m['勝率']:.0%}</span>
     <span class="chip">最大DD {m['最大ドローダウン']:.1%}</span>
     <span class="chip">総リターン {m['総リターン']:+.1%}</span>
@@ -1654,17 +2301,10 @@ def build():
                      if dpos > 0 else
                      f'<span class="pos sell">売 {int(dst.get("units", 0)):,}通貨</span>'
                      if dpos < 0 else '<span class="pos flat">ポジションなし</span>')
-        dstop_html = (f'ストップ <b>{float(dst["stop"]):.3f}</b>円'
-                      if dst.get("stop") else "ストップ設定なし")
-        if dst.get("tp"):
-            dstop_html += f'　利確 <b>{float(dst["tp"]):.3f}</b>円'
+        _rr = None
         if dpos:
             _sy, _sd = swap.accrued(dpos, float(dst.get("units") or 0),
                                     dst.get("entry_date"), sw=swap.load(cfg))
-            dstop_html += f'　スワップ <b>{_sy:+,.0f}</b>円（{_sd}日分）'
-            dstop_html += _width_html(dpos, dst.get("entry"),
-                                      float(dstate.get("last_close") or close),
-                                      dst.get("stop"), dst.get("tp"))
             # デイトレは利確指値を置くのでRRが確定値で出せる。
             # 現値は必ず自系統の最終確定バー終値を使う。2026-08-15: ここが日足
             # 終値(close)だったため、金曜夜建ての玉が金曜朝の日足終値で評価され
@@ -1684,7 +2324,7 @@ def build():
         chips = ""
         if len(dres):
             dr = dres.iloc[-1]
-            chips = (f'<span class="chip">2.8年検証 PF {dr.get("PF全", "－")}</span>'
+            chips = (f'<span class="chip">2.8年検証 PF {dr.get("PF全", "－")}<small>（利益÷損失）</small></span>'
                      f'<span class="chip">勝率 {dr.get("勝率", "－")}</span>'
                      f'<span class="chip">最大DD {dr.get("最大DD", "－")}</span>'
                      f'<span class="chip">約{dr.get("頻度_回転毎営業日", "－")}回転/日</span>')
@@ -1696,15 +2336,40 @@ def build():
                           f'（{100 * got / exp:.0f}%）</span>')
         except Exception:
             pass
-        trial_tag = "（試験運転）" if dcfg.get("試験運転") else ""
+        # 2026-10-13: 見出しの括弧書き「（試験運転）」は札へ。数字は _kv の箱で並べる
+        # （値の式は従来と同じ。含み損益は RR 欄と同じ _rr の値）。
+        trial_tag = ('<span class="badge trial">試験運転</span>'
+                     if dcfg.get("試験運転") else "")
         upd = html.escape(str(dstatus.get("更新", ""))[:16].replace("T", " "))
+        dkvs = ""
+        if _rr:
+            dkvs += _kv("含み損益", f'{_rr["含み損益円"]:+,.0f}', "円",
+                        cls="up" if _rr["含み損益円"] >= 0 else "down")
+        dkvs += (_kv("ストップ", f'{float(dst["stop"]):.3f}', "円")
+                 if dst.get("stop") else _kv("ストップ", "設定なし"))
+        if dst.get("tp"):
+            dkvs += _kv("利確", f'{float(dst["tp"]):.3f}', "円")
+        if dpos:
+            dkvs += _width_html(dpos, dst.get("entry"),
+                                float(dstate.get("last_close") or close),
+                                dst.get("stop"), dst.get("tp"),
+                                basis="2時間足終値" if dstate.get("last_close") else "日足終値")
+            dkvs += _kv("スワップ", f'{_sy:+,.0f}', "円", small=f'{_sd}日分')
+        dact_disp = _act_disp(dact, dpos)
+        today_rows.append(_intraday_todo("デイトレ複合時間軸", dstatus, dst, dpos,
+                                         dact_disp, dcls))
+        _dtile = "card tile"
+        if dstatus.get("未通知"):
+            _dtile += " need"
+        if dpos:
+            _dtile += " side-buy" if dpos > 0 else " side-sell"
         sys_cards.append(f"""
-<article class="card span2">
-  <div class="card-head"><h2>デイトレ複合時間軸{trial_tag}</h2>
-    <span class="params">{dparams}・毎時判定・指標発表を常時監視</span></div>
-  <div class="action {dcls}">{html.escape(dact)}</div>
-  <div class="posline">{dpos_html}<span class="stop">{dstop_html}</span>
-    <span class="stop">最終判定 {upd}</span>{_bar_html(dstatus)}</div>
+<article class="{_dtile}">
+  <div class="tile-h"><h3>デイトレ複合時間軸</h3><span class="badges"><span class="badge pair">USD/JPY</span><span class="badge">毎時判定</span>{trial_tag}</span>
+    <span class="params">{dparams}・指標発表を常時監視</span></div>
+  <div class="tile-s"><div class="action {dcls}">{html.escape(dact_disp)}</div>{dpos_html}</div>
+  <div class="kvs">{dkvs}</div>
+  <div class="tile-meta"><span>最終判定 {upd}</span>{_bar_html(dstatus)}</div>
   {_stale_note(dstatus, "2時間足")}
   <div class="chips">{chips}{_fund_chip(dpos, fbal)}</div>
 </article>""")
@@ -1728,18 +2393,10 @@ def build():
                       if p15 > 0 else
                       f'<span class="pos sell">売 {int(d15st.get("units", 0)):,}通貨</span>'
                       if p15 < 0 else '<span class="pos flat">ポジションなし</span>')
-        stop15_html = (f'ストップ <b>{float(d15st["stop"]):.3f}</b>円'
-                       if d15st.get("stop") else "ストップ設定なし")
-        if d15st.get("tp"):
-            stop15_html += f'　利確 <b>{float(d15st["tp"]):.3f}</b>円'
+        _rr = None
         if p15:
             _sy, _sd = swap.accrued(p15, float(d15st.get("units") or 0),
                                     d15st.get("entry_date"), sw=swap.load(cfg))
-            stop15_html += f'　スワップ <b>{_sy:+,.0f}</b>円（{_sd}日分）'
-            stop15_html += _width_html(p15, d15st.get("entry"),
-                                       float(d15state.get("last_close")
-                                             or close),
-                                       d15st.get("stop"), d15st.get("tp"))
             # 現値は自系統の1時間足最終終値（日足closeで評価しない。上のデイ
             # トレ欄のコメント参照）。
             mark15 = float(d15state.get("last_close") or close)
@@ -1753,7 +2410,7 @@ def build():
         chips15 = ""
         if len(d15res):
             dr15 = d15res.iloc[-1]
-            chips15 = (f'<span class="chip">3年検証 PF {dr15.get("PF全", "－")}</span>'
+            chips15 = (f'<span class="chip">3年検証 PF {dr15.get("PF全", "－")}<small>（利益÷損失）</small></span>'
                        f'<span class="chip">勝率 {dr15.get("勝率", "－")}</span>'
                        f'<span class="chip">最大DD {dr15.get("最大DD", "－")}</span>'
                        f'<span class="chip">約{dr15.get("頻度_回転毎営業日", "－")}回転/日</span>')
@@ -1772,18 +2429,43 @@ def build():
                             f'（{100 * got15 / exp15:.0f}%）</span>')
         except Exception:
             pass
-        trial15 = "（試験運転）" if d15cfg.get("試験運転") else ""
+        trial15 = ('<span class="badge trial">試験運転</span>'
+                   if d15cfg.get("試験運転") else "")
         upd15 = html.escape(str(d15status.get("更新", ""))[:16].replace("T", " "))
         strat15 = html.escape(str(d15cfg.get("戦略", "")))
+        params15 = f'{strat15}・ATR×{d15cfg.get("ATRストップ係数", "－")}'
+        if d15cfg.get("利確ATR係数"):
+            params15 += "・利確ATR×" + str(d15cfg.get("利確ATR係数"))
+        params15 += "・指標発表を常時監視"
+        kvs15 = ""
+        if _rr:
+            kvs15 += _kv("含み損益", f'{_rr["含み損益円"]:+,.0f}', "円",
+                         cls="up" if _rr["含み損益円"] >= 0 else "down")
+        kvs15 += (_kv("ストップ", f'{float(d15st["stop"]):.3f}', "円")
+                  if d15st.get("stop") else _kv("ストップ", "設定なし"))
+        if d15st.get("tp"):
+            kvs15 += _kv("利確", f'{float(d15st["tp"]):.3f}', "円")
+        if p15:
+            kvs15 += _width_html(p15, d15st.get("entry"),
+                                 float(d15state.get("last_close") or close),
+                                 d15st.get("stop"), d15st.get("tp"),
+                                 basis="1時間足終値" if d15state.get("last_close") else "日足終値")
+            kvs15 += _kv("スワップ", f'{_sy:+,.0f}', "円", small=f'{_sd}日分')
+        act15_disp = _act_disp(act15, p15)
+        today_rows.append(_intraday_todo("デイトレ15分", d15status, d15st, p15,
+                                         act15_disp, cls15))
+        _tile15 = "card tile"
+        if d15status.get("未通知"):
+            _tile15 += " need"
+        if p15:
+            _tile15 += " side-buy" if p15 > 0 else " side-sell"
         sys_cards.append(f"""
-<article class="card span2">
-  <div class="card-head"><h2>デイトレ15分{trial15}</h2>
-    <span class="params">{strat15}・ATR×{d15cfg.get("ATRストップ係数", "－")}
-     {"・利確ATR×" + str(d15cfg.get("利確ATR係数")) if d15cfg.get("利確ATR係数") else ""}
-     ・15分ごと判定・指標発表を常時監視</span></div>
-  <div class="action {cls15}">{html.escape(act15)}</div>
-  <div class="posline">{pos15_html}<span class="stop">{stop15_html}</span>
-    <span class="stop">最終判定 {upd15}</span>{_bar_html(d15status)}</div>
+<article class="{_tile15}">
+  <div class="tile-h"><h3>デイトレ15分</h3><span class="badges"><span class="badge pair">USD/JPY</span><span class="badge">15分ごと判定</span>{trial15}</span>
+    <span class="params">{params15}</span></div>
+  <div class="tile-s"><div class="action {cls15}">{html.escape(act15_disp)}</div>{pos15_html}</div>
+  <div class="kvs">{kvs15}</div>
+  <div class="tile-meta"><span>最終判定 {upd15}</span>{_bar_html(d15status)}</div>
   {_stale_note(d15status, "1時間足")}
   <div class="chips">{chips15}{_fund_chip(p15, fbal)}</div>
 </article>""")
@@ -1795,9 +2477,17 @@ def build():
     sys_short = {"長期トレンド": "長期", "短期スイング": "短期",
                  "デイトレ複合時間軸": "デイ", "デイトレ15分": "15分",
                  "ユーロドル押し目戻り": "EU押目", "ユーロドルトレンド": "EUトレ"}
-    rr_card = ""
+    # 2026-10-13: 表と決済ラインの説明は高さ制限（.clamp）で畳む。innerText には残るので
+    # AI分析の材料は減らない。建玉が無い日も決済ラインの説明は残す。
+    _rr_unreal = None   # リスク欄の「いまの含み損益」（成績欄の注記で参照・表示のみ）
+    rr_card = ('<section class="card span2 rr"><div class="card-head"><h3>リスクと損益</h3>'
+               '<span class="params">保有中の建玉なし</span></div>'
+               + _clamp("cl-rrhow", "c-xs", '<h4 class="fh">決済ラインの見方</h4>' + exit_help,
+                        "決済ラインの見方を表示")
+               + '</section>')
     if rr_rows:
         pr = risk.portfolio_risk(rr_rows, cfg["口座資金_円"])
+        _rr_unreal = pr["合計含み損益円"]
         rr_tr = []
         for r in rr_rows:
             _rw = ("－" if r["リワード額円"] is None
@@ -1813,16 +2503,16 @@ def build():
                                    over=r["ストップ超過"])
             _cls = "down" if (r["リスク額円"] or 0) < 0 else "up"
             _warn = "　<b>★ストップ超過</b>" if r["ストップ超過"] else ""
+            _ucls = "up" if r["含み損益円"] >= 0 else "down"
             rr_tr.append(
                 f'<tr><td>{html.escape(sys_short.get(r["システム"], r["システム"]))}</td>'
                 f'<td>{r["建玉方向"]} {r["数量"]:,.0f}</td>'
-                f'<td>{r["建値"]:.3f}</td>'
-                f'<td>{r["現値"]:.3f}</td>'
-                f'<td class="{"up" if r["含み損益円"] >= 0 else "down"}">'
-                f'{r["含み損益円"]:+,.0f}円</td>'
-                f'<td class="{_cls}">{r["リスク額円"]:+,.0f}円</td>'
-                f'<td>{_rw}</td><td>{_rr_v}</td>'
-                f'<td>{html.escape(_cmt)}{_warn}</td></tr>')
+                f'<td class="n">{r["建値"]:.3f}</td>'
+                f'<td class="n">{r["現値"]:.3f}</td>'
+                f'<td class="n {_ucls}">{r["含み損益円"]:+,.0f}円</td>'
+                f'<td class="n {_cls}">{r["リスク額円"]:+,.0f}円</td>'
+                f'<td class="n">{_rw}</td><td class="n">{_rr_v}</td>'
+                f'<td class="w">{html.escape(_cmt)}{_warn}</td></tr>')
         _hedge = ""
         if pr["買建玉"] and pr["売建玉"]:
             _hedge = (f'　買{pr["買建玉"]:,.0f} / 売{pr["売建玉"]:,.0f} が'
@@ -1832,35 +2522,43 @@ def build():
                       f'（両建て度 {pr["両建て度"]:.0%}）。'
                       f'相場が一方向へ振れれば片側は利益になるため、'
                       f'合計リスクは最悪ケースの見積り。')
+        _hedge_html = f'<p class="hedge">{_hedge.strip()}</p>' if _hedge else ""
+        _ucls_all = "up" if pr["合計含み損益円"] >= 0 else "down"
+        _net = "買" if pr["ネット建玉"] > 0 else "売" if pr["ネット建玉"] < 0 else "±"
+        rr_how = _clamp(
+            "cl-rrhow", "c-xs",
+            '<h4 class="fh">表と決済ラインの見方</h4>'
+            '<p class="note">※「ストップ到達」「利確到達」は<b>建値との差＋スワップ</b>で'
+            '計算した決済損益の概算。含み益が乗っていればストップ到達でも利益になる'
+            '（トレール後の正常な状態）。RR＝ここから先の利益余地÷損失余地で、'
+            '利確目標を置かない日足2系統は「－」。'
+            '「評価に使った値」は<b>各システム自身の最終確定バー終値</b>（日足系＝日足終値／デイ＝2時間足'
+            '／15分＝1時間足）のため、行によって時点が異なることがある。</p>'
+            '<p class="note">※スリッページ・窓開けは考慮していない。指標発表時や'
+            '週明けの窓ではストップを超えて約定することがある。</p>' + exit_help,
+            "表と決済ラインの見方を表示")
         rr_card = f"""
-<section class="card span2">
-  <h3>リスクリワード管理（保有中の全建玉）</h3>
-  <div class="kpis" style="margin-top:10px">
+<section class="card span2 rr">
+  <div class="card-head"><h3>リスクと損益</h3>
+    <span class="params">ドル円の保有中の全建玉・全ストップ同時到達の最悪ケース（ユーロドルは下の欄で別計上）</span></div>
+  <div class="kpis">
     <div class="kpi"><div class="l">合計リスク額<br><small>全ストップ同時到達</small></div>
       <div class="v down">{pr["合計リスク額円"]:+,.0f}円</div></div>
-    <div class="kpi"><div class="l">口座資金に対する比率</div>
+    <div class="kpi"><div class="l">合計リスク額の口座資金比</div>
       <div class="v">{pr["合計リスク率"]:.2%}</div></div>
-    <div class="kpi"><div class="l">現在の含み損益<br><small>各系の最終確定バー評価</small></div>
-      <div class="v {"up" if pr["合計含み損益円"] >= 0 else "down"}">
-        {pr["合計含み損益円"]:+,.0f}円</div>
+    <div class="kpi"><div class="l">いまの含み損益<br><small>各システムの最新の足で評価（表の合計）</small></div>
+      <div class="v {_ucls_all}">{pr["合計含み損益円"]:+,.0f}円</div>
       <div class="l"><small>@@UNREAL_UNIFIED@@</small></div></div>
     <div class="kpi"><div class="l">ネット建玉</div>
-      <div class="v">{"買" if pr["ネット建玉"] > 0 else "売" if pr["ネット建玉"] < 0 else "±"}
-        {abs(pr["ネット建玉"]):,.0f}</div></div>
+      <div class="v">{_net} {abs(pr["ネット建玉"]):,.0f}通貨</div></div>
   </div>
-  <div class="tablewrap"><table>
-    <tr><th>系</th><th>売買/数量</th><th>建値</th><th>現値</th><th>含み損益</th>
-      <th>ストップ到達</th><th>利確到達</th><th>RR</th><th>評価</th></tr>
+  {_hedge_html}
+  <div class="tablewrap sticky1"><table>
+    <tr><th>システム</th><th>売買/数量</th><th class="n">建値</th><th class="n">評価に使った値</th><th class="n">含み損益</th>
+      <th class="n">ストップ到達</th><th class="n">利確到達</th><th class="n">RR</th><th>評価</th></tr>
     {"".join(rr_tr)}
   </table></div>
-  <div class="note">※「ストップ到達」「利確到達」は<b>建値との差＋スワップ</b>で
-    計算した決済損益の概算。含み益が乗っていればストップ到達でも利益になる
-    （トレール後の正常な状態）。RR＝ここから先の利益余地÷損失余地で、
-    利確目標を置かない日足2系統は「－」。
-    現値は<b>各システム自身の最終確定バー終値</b>（日足系＝日足終値／デイ＝2時間足
-    ／15分＝1時間足）のため、行によって時点が異なることがある。{_hedge}</div>
-  <div class="note">※スリッページ・窓開けは考慮していない。指標発表時や
-    週明けの窓ではストップを超えて約定することがある。</div>
+  {rr_how}
 </section>"""
 
     # 合算KPI（4システム合算。速報段階は当日ストップ到達分を暫定加算する）
@@ -1869,7 +2567,7 @@ def build():
     if perf_sum["件数"]:
         wr = f"{perf_sum['勝率']:.0%}"
         pf = f"{perf_sum['PF']:.2f}" if perf_sum["PF"] is not None else "－"
-        tag = ('<small style="font-weight:400">（暫定）</small>'
+        tag = ('<small>（暫定）</small>'
                if pending else "")
         cum_html = (f'<span class="{"up" if realized_all >= 0 else "down"}">'
                     f'{realized_all:+,.0f}円</span>{tag}')
@@ -1878,11 +2576,19 @@ def build():
         wr = pf = "－"; cum_html = "運用開始前"; ntr = "0回"
     # システム別の実現損益内訳（どのシステムの決済が効いているかを一目で）
     # sys_short はリスクリワードカードと共用（上で定義済み）。
-    perf_chips = "".join(
-        f'<span class="chip">{html.escape(sys_short.get(b["システム"], b["システム"]))}'
-        f' {b["損益円"]:+,.0f}円'
-        f'<small>／{b["件数"]}回・勝率{b["勝率"]:.0%}</small></span>'
-        for b in perf_sum["システム別"]) or ""
+    # 2026-10-13: チップの小さい字から、中央が0の横棒（右＝益・左＝損）に変更。
+    # 棒の幅は見た目の縮尺だけ（最大の絶対値を50%とする）で、数字は従来どおり。
+    _bmax = max((abs(float(b["損益円"])) for b in perf_sum["システム別"]),
+                default=0.0) or 1.0
+    perf_bars = ""
+    for b in perf_sum["システム別"]:
+        _bv = float(b["損益円"])
+        _bc = "up" if _bv >= 0 else "down"
+        perf_bars += (
+            f'<li><span class="nm">{html.escape(sys_short.get(b["システム"], b["システム"]))}</span>'
+            f'<span class="bar"><i class="{_bc}" style="width:{abs(_bv) / _bmax * 50:.1f}%"></i></span>'
+            f'<span class="val {_bc}">{_bv:+,.0f}円'
+            f'<small>{b["件数"]}回・勝率{b["勝率"]:.0%}</small></span></li>')
     kpi_note = ("<div class=\"note\">※速報段階のため本日のストップ到達分"
                 f"（{sum(pending.values()):+,.0f}円）を暫定反映。正式計上は"
                 "8時すぎの最終確定。</div>"
@@ -1917,7 +2623,7 @@ def build():
     if open_pos:
         unreal_html = (f'<span class="{"up" if unreal >= 0 else "down"}">'
                        f'{unreal:+,.0f}円</span>'
-                       f'<small style="font-weight:400">／{len(open_pos)}建玉'
+                       f'<small>／{len(open_pos)}建玉'
                        f'・内スワップ {unreal_swap:+,.0f}円</small>')
     else:
         unreal_html = '<span class="v">ポジションなし</span>'
@@ -1927,13 +2633,13 @@ def build():
     # 別基準の同一計算であることを示す。値は unreal を再利用し二重計算しない。
     rr_card = rr_card.replace(
         "@@UNREAL_UNIFIED@@",
-        (f"日足終値{mark:,.3f}円で統一評価すると {unreal:+,.0f}円"
-         f"（下の運用成績と一致）") if open_pos else "")
+        f"成績欄と同じ日足終値{mark:,.3f}円で評価すると {unreal:+,.0f}円"
+        if open_pos else "")
     # 2026-08-13: KPIの含み損益は全建玉を日足終値で統一評価するのに対し、
     # 指示書本文のデイトレ欄は2時間足終値で評価するため数十円ずれる。
     # 同一画面に違う合計が並んで「どちらかが誤り」に見えるため評価基準を明記する。
     mark_note = (f'※含み損益は全建玉を日足終値{mark:,.3f}円で統一評価'
-                 f'（下の指示書本文のデイトレ欄は2時間足終値評価のため'
+                 f'（指示書本文のデイトレ欄は2時間足終値評価のため'
                  f'数十円の差が出ることがある）。' if open_pos else "")
     if sw_cfg.get("有効", True):
         swap_part = (("スワップ込み。" if mark_note else "※含み損益はスワップ込み。")
@@ -1958,9 +2664,7 @@ def build():
     _eq_base = float(cfg["口座資金_円"])
     _eq_diff = equity_now - _eq_base
     _eq_cls = "up" if _eq_diff >= 0 else "down"
-    equity_sub = (f'<div class="l"><small>開始 {_eq_base:,.0f}円 → '
-                  f'<span class="{_eq_cls}">{_eq_diff:+,.0f}円'
-                  f'（{_eq_diff / _eq_base:+.2%}）</span></small></div>')
+    # 2026-10-13: 増減はヘッダの計器帯と成績欄の大きな数字の下に出す（値は同じ変数）
 
     # 資産カーブ(実運用5日未満は検証合成カーブ)
     if len(eq_daily) >= 5:
@@ -1981,16 +2685,21 @@ def build():
         curve_dates = []
         curve_label = "資産推移（15年検証・両システム合成の理論値）"
     # カーブの読み方を数字で添える（グラフだけでは起点・現在値が読めない）
+    # 2026-10-13: 始点・終点の値はグラフの直下（spark_lab）、点の定義は「数字の出どころ」へ
+    spark_lab, curve_def = "", ""
     if curve_dates:
-        curve_note = (
-            f'<div class="note">{curve_dates[0]} {curve[0]:,.0f}円 → '
-            f'{curve_dates[-1]} {curve[-1]:,.0f}円'
-            f'（{curve[-1] - curve[0]:+,.0f}円・{len(curve)}営業日）'
-            '　※各点＝口座資金＋その日までの4システム累計実現損益（スワップ込）'
+        spark_lab = (
+            f'<div class="spark-lab"><span>{html.escape(str(curve_dates[0]))} '
+            f'<b>{curve[0]:,.0f}</b>円</span>'
+            f'<span>{html.escape(str(curve_dates[-1]))} <b>{curve[-1]:,.0f}</b>円'
+            f'（{curve[-1] - curve[0]:+,.0f}円・{len(curve)}営業日）</span></div>')
+        curve_def = (
+            '<p class="note">※資産推移の各点＝口座資金＋その日までの4システム累計実現損益（スワップ込）'
             '＋日足2システムの評価損益。デイトレ2系統の過去の含み損益は点に含まない'
-            '（最終点のみ全建玉を評価）。</div>')
-    else:
-        curve_note = ""
+            '（最終点のみ全建玉を評価）。</p>')
+    elif curve:
+        spark_lab = (f'<div class="spark-lab"><span>開始 <b>{curve[0]:,.0f}</b>円</span>'
+                     f'<span>終点 <b>{curve[-1]:,.0f}</b>円</span></div>')
 
     # 研究・ペア研究
     res_msg = "研究ログなし"
@@ -2027,9 +2736,10 @@ def build():
         fc_html = "（予測なし）"
         if fc:
             lo, hi = fc.get("想定レンジ", [0, 0])
-            cls = "buy" if fc.get("上昇確率", 0.5) >= 0.5 else "sell"
+            # 2026-10-13: 検証で「常に上昇」を下回る＝エッジなし・表示のみなので、
+            # 買い/売りの方向色をやめて灰色の参考表示にした（値と文言は不変）
             fc_html = (
-                f'<span class="pos {cls}">{html.escape(fc.get("方向", ""))}'
+                f'<span class="pos flat">{html.escape(fc.get("方向", ""))}'
                 f' 確率{fc.get("上昇確率", 0)*100:.0f}%</span>'
                 f'<span class="stop">想定レンジ {lo:.2f}〜{hi:.2f}円'
                 f'（基準 {html.escape(str(fc.get("基準日", "")))} '
@@ -2058,17 +2768,17 @@ def build():
         if fbal:
             seg = "".join(
                 f'<span style="flex:{max(v, 0.001)};background:var({c})"></span>'
-                for v, c in ((fbal["円高"], "--sell"), (fbal["両方向"], "--line"),
+                for v, c in ((fbal["円高"], "--sell"), (fbal["両方向"], "--line-strong"),
                              (fbal["円安"], "--buy")))
             bal_html = (
-                f'<div class="fbar-head"><b>{html.escape(fbal["判定"])}</b>'
+                f'<div class="fbal"><div class="fbar-head"><b>{html.escape(fbal["判定"])}</b>'
                 f'<span class="stop">材料の重み（重要度の合計）　'
                 f'円高 {fbal["円高"]}／両方向 {fbal["両方向"]}／円安 {fbal["円安"]}'
                 f'</span></div><div class="fbar">{seg}</div>'
                 '<div class="fbar-legend"><span>← 円高（ドル安）</span>'
-                '<span>円安（ドル高）→</span></div>')
+                '<span>円安（ドル高）→</span></div></div>')
         impl = str(news.get("保有ポジションへの含意") or "").strip()
-        impl_html = (f'<div class="fbox"><div class="l">保有ポジションへの含意</div>'
+        impl_html = (f'<div class="fbox key"><div class="l">保有ポジションへの含意</div>'
                      f'{html.escape(impl)}</div>' if impl else "")
         _focus_raw = news.get("次の焦点") or []
         if isinstance(_focus_raw, str):
@@ -2109,7 +2819,10 @@ def build():
         # 方向バイアス）を表示。スキャル分析のプロンプトはボード本文経由でこれを読む。
         guide_html = ""
         # 2026-10-12: ユーロドル用の指針（スキャル指針_ユーロドル）と、ユーロドルのファンダ要約も表示
-        for key, ttl in (("スキャル指針", "スキャル指針・ドル円"), ("スキャル指針_ユーロドル", "スキャル指針・ユーロドル")):
+        # 2026-10-13: スキャル指針はドル円・ユーロドルを横並びの箱（guide-row）に。畳まない
+        # （スキャル分析の AI はここを画面の文字＝boardText から読む）。
+        for key, ttl, gcls in (("スキャル指針", "スキャル指針・ドル円", "uj"),
+                               ("スキャル指針_ユーロドル", "スキャル指針・ユーロドル", "eu")):
             g = news.get(key)
             if not (isinstance(g, dict) and g):
                 continue
@@ -2120,26 +2833,36 @@ def build():
                     vs = "／".join(str(x) for x in v) if isinstance(v, list) else str(v)
                     parts.append(f"<b>{html.escape(k)}</b>: {html.escape(vs)}")
             if parts:
-                guide_html += (f'<div class="fbox"><div class="l">{ttl}（ファンダ研究が3時間おきに更新）</div>'
+                guide_html += (f'<div class="fbox guide {gcls}"><div class="l">{ttl}（ファンダ研究が3時間おきに更新）</div>'
                                + "<br>".join(parts) + "</div>")
+        if guide_html:
+            guide_html = f'<div class="guide-row">{guide_html}</div>'
+        eu_fund_html = ""
         eu_f = news.get("ユーロドル")
         if isinstance(eu_f, dict) and eu_f:
             parts = [f"<b>{html.escape(k)}</b>: {html.escape(chr(12289).join(map(str, v)) if isinstance(v, list) else str(v))}"
                      for k, v in eu_f.items() if v]
-            guide_html += ('<div class="fbox"><div class="l">ユーロドルのファンダ（ECB・ユーロ圏・ドルとの関係）</div>'
-                           + "<br>".join(parts) + "</div>")
+            eu_fund_html = ('<div class="fbox"><div class="l">ユーロドルのファンダ（ECB・ユーロ圏・ドルとの関係）</div>'
+                            + "<br>".join(parts) + "</div>")
         themes = news.get("テーマ") or []
         items = "".join(_theme_row(t) for t in themes[:8])
+        # 上位3件は出したまま、4〜8件目は高さ制限で畳む（innerText には残る）
+        themes_top = "".join(_theme_row(t) for t in themes[:3])
+        themes_rest = "".join(_theme_row(t) for t in themes[3:8])
         news_upd = str(news.get("更新") or "")
         summary = str(news.get("総括") or "")
-        news_html = (
-            f'{impl_html}{focus_html}{guide_html}'
-            f'<h4 class="fh">材料一覧（新しい順・上位8件／全{len(themes)}件）</h4>'
-            f'<div class="themes">{items}</div>'
-            f'<details><summary>ニュース総括の全文'
-            f'{"（更新 " + html.escape(news_upd) + "）" if news_upd else ""}'
-            f'</summary><p class="note">{html.escape(summary)}</p></details>'
-            if items else '<p class="note">ニュース未収集</p>')
+        _sum_upd = "（更新 " + html.escape(news_upd) + "）" if news_upd else ""
+        if items:
+            news_top = f'{impl_html}{focus_html}{guide_html}'
+            news_list = (f'<h4 class="fh">材料一覧（新しい順・上位8件／全{len(themes)}件）</h4>'
+                         f'<div class="themes">{themes_top}</div>'
+                         + (_clamp("cl-themes", "c-xs", f'<div class="themes">{themes_rest}</div>',
+                                   "残りの材料を表示") if themes_rest else ""))
+            summary_html = (f'<details><summary>ニュース総括の全文{_sum_upd}</summary>'
+                            f'<p class="note">{html.escape(summary)}</p></details>')
+        else:
+            news_top = '<p class="note">ニュース未収集</p>'
+            news_list = eu_fund_html = summary_html = ""
         stale_html = ""
         fu_upd = str(fu.get("更新") or "")
         try:
@@ -2147,10 +2870,12 @@ def build():
                 .total_seconds() / 3600
             if age_h > 20:
                 fund_stale_days = age_h / 24
+                # 2026-10-13: カード内は banner ではなく callout（上部バナーと二重に
+                # AI分析の材料へ入っていたため。上部バナーは従来どおり出す）
                 stale_html = (
-                    '<div class="banner act">⚠ ファンダ研究が'
+                    '<p class="callout warn">⚠ ファンダ研究が'
                     f'{fund_stale_days:.1f}日更新されていません'
-                    '（3時間おき更新の想定・専任タスクの停止を確認してください）</div>')
+                    '（3時間おき更新の想定・専任タスクの停止を確認してください）</p>')
         except (ValueError, TypeError):
             pass
         try:
@@ -2159,46 +2884,64 @@ def build():
                                     for x in fund_live.status_lines())
         except Exception as e:                               # noqa: BLE001
             live_html = html.escape(f"状況の取得に失敗（{type(e).__name__}）")
+        # 2026-10-13: 中身は変えず並びと包みだけ変更。結論（地合い・含意・次の焦点・
+        # スキャル指針）を先頭に、検証値・本運用の状況は後ろへ。含意・焦点・指針・地合いは
+        # 畳まない（AI分析の材料）。本運用の箱は高さ制限（innerText には残る）。
+        _fund_upd = html.escape(str(fu.get("更新", "")))[:16].replace("T", " ")
+        _news_upd = ("／ニュース " + html.escape(news_upd)[:16].replace("T", " ")
+                     if news_upd else "")
+        fund_live_html = _clamp(
+            "cl-fundlive", "c-xs",
+            f'<div class="fbox"><div class="l">ファンダ本運用（売買判定への自動組込み）</div>{live_html}</div>'
+            '<p class="note">※検証ゲートを3営業日連続で通過したルールだけを自動で新規建ての判定'
+            '（見送り・数量）に使い、3営業日連続で不通過なら自動で外す。方向予測は的中率が'
+            '「常に上昇」を上回ることも条件。発注は従来どおり本人が手動で行う。</p>',
+            "本運用の状況を表示")
         fund_html = f"""
-<section class="card span2">
+<section class="card span2 fund">
+  <div class="card-head"><h3>ファンダメンタルズ</h3>
+    <span class="params">3時間おき更新・本運用は自動昇格方式・定量 {_fund_upd}{_news_upd}</span></div>
   {stale_html}
-  <div class="card-head"><h3>ファンダメンタルズ研究（3時間おき更新・本運用は自動昇格方式）</h3>
-    <span class="params">定量 {html.escape(str(fu.get("更新", "")))[:16].replace("T", " ")}\
-{"／ニュース " + html.escape(news_upd)[:16].replace("T", " ") if news_upd else ""}</span></div>
-  <div class="action flat" style="font-size:1.1rem">\
-{html.escape(str(fu.get("レジーム", "")))}</div>
-  <div class="chips">{corr_chips}</div>
+  <p class="regime">{html.escape(str(fu.get("レジーム", "")))}</p>
+  {news_top}
   {bal_html}
-  <div class="posline" style="margin-top:10px">{fc_html}</div>
+  <div class="chips">{corr_chips}</div>
+  {news_list}
+  <div class="fc-line"><span class="k">翌日予測（参考）</span>{fc_html}</div>
   <p class="note">{html.escape(wf_txt)}／{html.escape(fwd_txt)}</p>
-  <div class="fbox"><div class="l">ファンダ本運用（売買判定への自動組込み）</div>{live_html}</div>
-  <p class="note">※検証ゲートを3営業日連続で通過したルールだけを自動で新規建ての判定
-    （見送り・数量）に使い、3営業日連続で不通過なら自動で外す。方向予測は的中率が
-    「常に上昇」を上回ることも条件。発注は従来どおり本人が手動で行う。</p>
-  {news_html}
+  {eu_fund_html}
+  {fund_live_html}
+  {summary_html}
 </section>"""
 
     # 直近の記録（日足2システムの日次ログ + デイトレの毎時アクションログを
     # 時系列でマージして新しい順に表示）
     def _stop_disp(v):    # 決済行などストップ空欄は "nan" ではなく "—" を出す
         s = str(v or "").strip()
-        return "—" if s.lower() in ("", "nan", "none") else s
+        if s.lower() in ("", "nan", "none"):
+            return "—"
+        try:                  # 桁をそろえる（157.93 と 158.221 が混在していた・表示のみ）
+            return f"{float(s):.3f}"
+        except ValueError:
+            return s
 
+    # 2026-10-13: 日付の表示を「10/12」（日足）と「10/12 20:04」（デイトレ）にそろえた
+    # （並べ替えのキーは従来どおり先頭の完全な日時）。
     recs = []
     for _, r in daily.tail(10).iterrows():
-        recs.append((f"{r['日付']} 08:00", str(r["日付"]),
+        recs.append((f"{r['日付']} 08:00", str(r["日付"])[5:10].replace("-", "/"),
                      str(r["システム"])[:2], str(r["アクション"]),
                      _stop_disp(r["ストップ"]), f"{float(r['モデル資産']):,.0f}"))
     dlog = _read_csv(R("results", "intraday_log.csv"), ["日時"])
     for _, r in dlog.tail(10).iterrows():
         ts = str(r["日時"]).replace("T", " ")
         stop_s = _stop_disp(r.get("ストップ", ""))
-        recs.append((ts, ts[5:16], "デイ", str(r["アクション"]), stop_s, "—"))
+        recs.append((ts, ts[5:16].replace("-", "/"), "デイ", str(r["アクション"]), stop_s, "—"))
     d15log = _read_csv(R("results", "intraday15_log.csv"), ["日時"])
     for _, r in d15log.tail(10).iterrows():
         ts = str(r["日時"]).replace("T", " ")
         stop_s = _stop_disp(r.get("ストップ", ""))
-        recs.append((ts, ts[5:16], "15分", str(r["アクション"]), stop_s, "—"))
+        recs.append((ts, ts[5:16].replace("-", "/"), "15分", str(r["アクション"]), stop_s, "—"))
     recs.sort(key=lambda x: x[0], reverse=True)
     # 2026-08-14: 「資産」列を廃止した。この列は daily_log の モデル資産（日足2
     # システムだけの旧計算）で、同じ画面上部の モデル資産（全4システム合算・
@@ -2222,29 +2965,46 @@ def build():
         pnl = float(r["損益円"])
         swp = r["スワップ円"]
         swp_s = "—" if pd.isna(swp) else f"{float(swp):+,.0f}"
+        _pcls = "up" if pnl >= 0 else "down"
         trade_rows += (
-            f'<tr><td>{html.escape(str(r["決済"])[:16])}</td>'
+            f'<tr><td>{html.escape(str(r["決済"])[5:16].replace("-", "/"))}</td>'
             f'<td>{html.escape(sys_short.get(r["システム"], str(r["システム"])))}</td>'
             f'<td>{html.escape(str(r["売買"]))} {int(r["数量"]):,}</td>'
-            f'<td>{float(r["建値"]):.3f}→{float(r["決済値"]):.3f}</td>'
-            f'<td>{swp_s}</td>'
-            f'<td class="{"up" if pnl >= 0 else "down"}">{pnl:+,.0f}</td></tr>')
+            f'<td class="n">{float(r["建値"]):.3f}→{float(r["決済値"]):.3f}</td>'
+            f'<td class="n">{swp_s}</td>'
+            f'<td class="n {_pcls}">{pnl:+,.0f}</td></tr>')
     if not trade_rows:
         trade_rows = '<tr><td colspan="6">まだ決済はありません</td></tr>'
 
+    # 2026-10-13: バナーは種類別の色（要作業＝琥珀／なし＝青灰／速報＝点線／警告＝紅）。
+    # 件数の数え方は従来どおり。対象の指示書の日付と段階を明記し、「今日の発注」へ飛べる
+    # リンクを付ける（リンクの文字は CSS で出すので AI分析の材料には入らない）。
+    _od = (f'・{str(order_json.get("日付", ""))[5:].replace("-", "/")} '
+           f'{order_json.get("段階", "")}分' if order_json else "")
+    eu_need = sum(1 for it in eu_items
+                  if it["cls"] in ("buy", "sell", "gold") and it["act"] != "指示書待ち")
+    _eu_sfx = f'（ユーロドルは別に{eu_need}件）' if eu_need else ""
     if is_flash:
-        banner = ('<div class="banner ok">速報配信中——正式な発注判断は'
+        banner = ('<div class="banner flash">速報配信中——正式な発注判断は'
                   '8時すぎの【最終確定】で</div>')
+    elif needs_action and _stale_day:
+        # 指示書が前の日のもの（夜中・土日）。件数は同じ数え方のまま、文言だけ替える
+        _stage = html.escape(str((order_json or {}).get("段階", "")))
+        banner = (f'<div class="banner act">直近の発注作業 {action_count}件'
+                  f'（{_stale_day} {_stage}の指示書の分を含む）— 実施済みなら対応不要。'
+                  f'次の指示書は朝6時台から{_eu_sfx}'
+                  '<a class="go" href="#today" aria-label="直近の発注へ"></a></div>')
     elif needs_action:
         banner = (f'<div class="banner act">本日は発注作業があります'
-                  f'（{action_count}件・下の指示書どおりに）</div>')
+                  f'（{action_count}件{html.escape(_od)}・下の「今日の発注」どおりに）{_eu_sfx}'
+                  '<a class="go" href="#today" aria-label="今日の発注へ"></a></div>')
     else:
-        banner = '<div class="banner ok">本日の発注作業はありません</div>'
+        banner = f'<div class="banner ok">本日の発注作業はありません{_eu_sfx}</div>'
     # 2026-09-09: ファンダ研究の停止警告が下部セクションに埋もれて気づきにくい
     # ため、上部バナー直後にも短い注意を出す（詳細は下のファンダ・予測研究欄）
     if fund_stale_days is not None:
         banner += (
-            f'<div class="banner act">⚠ ファンダ研究停止 '
+            f'<div class="banner warn">⚠ ファンダ研究停止 '
             f'{fund_stale_days:.0f}日（詳細は下部）</div>')
     # 2026-10-02: 本日の★5級指標イベントは下部の指示書<pre>に埋もれていて
     # 一目で気づけなかった（NFP等・新規建て自動見送りの根拠）。上部バナーにも
@@ -2260,7 +3020,7 @@ def build():
         label = jp or title
         extra = f"ほか{len(ev) - 1}件" if len(ev) > 1 else ""
         banner += (
-            f'<div class="banner act">⚠ 今後24時間に★5級指標 '
+            f'<div class="banner warn">⚠ 今後24時間に★5級指標 '
             f'{jst:%m/%d %H:%M} {html.escape(label)}{extra}'
             f'（新規建ては全系見送り）</div>')
 
@@ -2269,179 +3029,141 @@ def build():
     origin = ("クラウド(GitHub Actions)" if os.environ.get("GITHUB_ACTIONS") == "true"
               else "Mac")
 
+    # ── 2026-10-13 ビジュアル改修: ページの部品（page の f-string に式を詰め込まない）──
+    # 今日の発注（最上段）。ユーロドルは件数に入れず「指示書待ち／要作業」の行だけ足す。
+    for it in eu_items:
+        if it["act"] == "指示書待ち":
+            _st = "wait"
+            _what = "朝6時台の配信で最初の指示書が出ます"   # 札（指示書待ち）と同じ語を重ねない
+        elif it["cls"] in ("buy", "sell", "gold"):
+            _st = "act"
+            _what = f'{it["act"]}・ユーロドルの指示書（原文）どおりに'
+        else:
+            _st = "none"
+            if it["pos"]:
+                _stp = f'{it["stop"]:.5f}' if it["stop"] else "（未設定）"
+                _what = (f'{it["act"]}・{"買" if it["pos"] > 0 else "売"} {it["units"]:,.0f}通貨・'
+                         f'逆指値 {_stp} が置かれているか確認')
+            else:
+                _what = f'{it["act"]}（ポジションなし）'
+        _lbl = "確認のみ" if (_st == "none" and it["pos"]) else ""
+        today_rows.append((_st, "eu", it["name"], html.escape(_what), "", _lbl))
+    today_html = _today_html(today_rows, order_json, is_flash, action_count, near_exit,
+                             stale_day=_stale_day, basis_close=close)
+    # 指示書の原文（pre.order の要素・クラス・本文はそのまま。高さ制限で畳むだけ）
+    _order_kind = "速報・参考" if is_flash else "最終確定"
+    order_box = ('<section class="card span2 orderbox" id="order"><div class="card-head">'
+                 '<h3>注文指示書（原文・MATRIX TRADER 転記用）</h3>'
+                 f'<span class="params">{_order_kind}・指標イベント欄含む・日足の欄は朝6〜8時時点の文面'
+                 '（デイトレは末尾の最新指示が正）</span></div>'
+                 + _clamp("cl-order", "c-l", f'<pre class="order">{html.escape(order_text)}</pre>',
+                          "指示書の全文を表示")
+                 + '</section>')
+    # ページ内リンクの帯（.grid の外＝AI分析の材料外）
+    _cnt = f'<span class="cnt">{action_count}</span>' if action_count else ""
+    _fund_link = '<a href="#g-fund">ファンダ</a>' if fund_html else ""
+    nav_html = (f'<nav class="jump" aria-label="ページ内の移動"><a href="#today">今日の発注{_cnt}</a>'
+                '<a href="#g-pos">ポジション</a><a href="#g-tools">分析・スキャル</a>'
+                f'{_fund_link}<a href="#g-perf">成績</a><a href="#g-log">記録・研究</a></nav>')
+    fund_head = ('<h2 class="grp" id="g-fund">ファンダ<small>相場の地合い・材料・スキャル指針</small></h2>'
+                 if fund_html else "")
+    _nsys = len(sys_cards) + len(eu_items)
+    # 運用成績と資産推移を1枚に（数字はすべて上で求めた変数を並べるだけ）
+    _eq_pct = _eq_diff / _eq_base
+    equity_def = (f'<p class="note">※モデル資産＝口座資金{_eq_base:,.0f}円'
+                  '＋累計実現損益＋含み損益（4システム合算・毎回その場で再計算）。</p>')
+    _sysbar_html = (f'<h4 class="fh">システム別の実現損益</h4><ul class="sysbar">{perf_bars}</ul>'
+                    if perf_bars else "")
+    # リスク欄の含み損益（各システムの最新の足で評価）と符号まで違うことがあるため、こちらからも案内する
+    _unreal_ref = (f'<br><small>リスク欄の{_rr_unreal:+,.0f}円は各システムの最新の足で評価'
+                   '（デイトレ2つは評価時点が新しいため差が出る）</small>'
+                   if (open_pos and _rr_unreal is not None) else "")
+    perf_card = (
+        '<section class="card span2 perf"><div class="card-head"><h3>運用成績</h3>'
+        '<span class="params">ドル円4システム合算（実現＋含み）・ユーロドルは未計上</span></div>'
+        f'<div class="perf-hero"><div><span class="hero-l">モデル資産</span>'
+        f'<b class="hero-v {_eq_cls}">{equity_txt}</b>'
+        f'<span class="hero-d {_eq_cls}">開始 {_eq_base:,.0f}円から {_eq_diff:+,.0f}円（{_eq_pct:+.2%}）</span></div>'
+        f'<div><h4 class="fh">{curve_label}<small>破線＝開始資金</small></h4>'
+        f'{_spark_svg(curve, base=_eq_base)}{spark_lab}</div></div>'
+        '<div class="kpis">'
+        f'<div class="kpi"><div class="l">累計実現損益</div><div class="v">{cum_html}</div></div>'
+        f'<div class="kpi"><div class="l">含み損益（{mark:.3f}円評価）{_unreal_ref}</div><div class="v">{unreal_html}</div></div>'
+        f'<div class="kpi"><div class="l">勝率</div><div class="v">{wr}</div></div>'
+        f'<div class="kpi"><div class="l">PF<br><small>利益÷損失・1超で黒字</small></div><div class="v">{pf}</div></div>'
+        f'<div class="kpi"><div class="l">決済取引</div><div class="v">{ntr}</div></div>'
+        '</div>'
+        f'{_sysbar_html}{kpi_note}'
+        + _clamp("cl-perf", "c-xs", equity_def + swap_note + curve_def, "数字の出どころを表示")
+        + '</section>')
+    trades_card = (
+        '<section class="card span2"><div class="card-head"><h3>決済履歴</h3>'
+        '<span class="params">ドル円4システム・新しい順・直近12件</span></div>'
+        + _clamp("cl-trades", "c-s",
+                 '<div class="tablewrap sticky1"><table>'
+                 '<tr><th>決済</th><th>システム</th><th>売買/数量</th><th class="n">建値→決済値</th>'
+                 f'<th class="n">スワップ</th><th class="n">損益円</th></tr>{trade_rows}</table></div>'
+                 '<p class="note">※スワップは建玉からのロールオーバー跨ぎ回数で計上'
+                 f'（JST火〜金の朝{swap.rollover_hour_jst(date.today())}時・木曜は3日分）。'
+                 '2026-08-13より前に決済した行は現在のレートでの遡及概算。</p>',
+                 "決済履歴をすべて表示")
+        + '</section>')
+    research_card = (
+        '<section class="card half"><h3>研究・進化</h3><dl class="kv-list">'
+        f'<dt>日次研究</dt><dd>{html.escape(res_msg)}</dd>'
+        '<dt>ファンダ・フィルタ検証（マクロで新規を絞ると成績は上がるか・発注には未使用）</dt>'
+        f'<dd>{html.escape(ff_msg)}</dd>'
+        f'<dt>週次ペア研究</dt><dd>{html.escape(pair_msg)}</dd></dl></section>')
+
+    # 2026-10-13: CSS は BOARD_CSS（ページ全体）＋ ANALYSIS_CSS（分析・スキャル欄）。
+    # 書体は Google Fonts（公開先の CSP で許可済み）から数字用の IBM Plex Mono と、
+    # 指示書の原文用の BIZ UDGothic だけを読む（読めなくても標準書体で崩れない）。
     page = f"""<title>FXドル円 運用ボード</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=BIZ+UDGothic&family=IBM+Plex+Mono:wght@500;600&display=swap">
 <style>
-:root {{
-  --ground:#F6F8FA; --panel:#FFFFFF; --ink:#1A2B3F; --sub:#5B6B7E;
-  --navy:#1F4E79; --gold:#B8901F; --buy:#C0392B; --sell:#2E5FA3;
-  --up:#1E7E34; --down:#C0392B; --line:#DFE6EE; --chipbg:#EDF2F7;
-}}
-@media (prefers-color-scheme: dark) {{ :root {{
-  --ground:#0E1826; --panel:#16233A; --ink:#E8EEF5; --sub:#93A5B8;
-  --navy:#7FA8D0; --gold:#D8B24A; --buy:#E06A5A; --sell:#6E9BD8;
-  --up:#5BBF75; --down:#E06A5A; --line:#263850; --chipbg:#1E2E47;
-}} }}
-:root[data-theme="light"] {{
-  --ground:#F6F8FA; --panel:#FFFFFF; --ink:#1A2B3F; --sub:#5B6B7E;
-  --navy:#1F4E79; --gold:#B8901F; --buy:#C0392B; --sell:#2E5FA3;
-  --up:#1E7E34; --down:#C0392B; --line:#DFE6EE; --chipbg:#EDF2F7;
-}}
-:root[data-theme="dark"] {{
-  --ground:#0E1826; --panel:#16233A; --ink:#E8EEF5; --sub:#93A5B8;
-  --navy:#7FA8D0; --gold:#D8B24A; --buy:#E06A5A; --sell:#6E9BD8;
-  --up:#5BBF75; --down:#E06A5A; --line:#263850; --chipbg:#1E2E47;
-}}
-* {{ box-sizing:border-box }}
-body {{ margin:0; background:var(--ground); color:var(--ink);
-  font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Yu Gothic",sans-serif;
-  line-height:1.55; -webkit-text-size-adjust:100%; }}
-.wrap {{ max-width:960px; margin:0 auto; padding:16px 14px 48px; }}
-header.top {{ display:flex; flex-wrap:wrap; align-items:baseline; gap:6px 14px;
-  padding:6px 2px 2px; }}
-header.top h1 {{ font-size:1.15rem; margin:0; letter-spacing:.02em; }}
-header.top .rate {{ font-size:1.5rem; font-weight:700;
-  font-variant-numeric:tabular-nums; }}
-header.top .meta {{ color:var(--sub); font-size:.78rem; width:100%; }}
-.banner {{ margin:12px 0; padding:10px 14px; border-radius:10px;
-  font-weight:700; font-size:.95rem; color:#fff; }}
-.banner.act {{ background:var(--gold); }}
-.banner.ok {{ background:var(--navy); }}
-.grid {{ display:grid; gap:12px; grid-template-columns:1fr; }}
-/* 2026-09-21: 指示書preの長い1行がカードを押し広げ、スマホでページ全体が
-   横スクロールになっていた（幅7,000px超）。グリッド子要素の最小幅を0にする */
-.grid > * {{ min-width:0; }}
-@media (min-width:700px) {{ .grid {{ grid-template-columns:1fr 1fr; }}
-  .grid .span2 {{ grid-column:1/-1; }} }}
-.card {{ background:var(--panel); border:1px solid var(--line);
-  border-radius:14px; padding:14px 16px; }}
-.card h2, .card h3 {{ margin:0; font-size:.95rem; }}
-.card-head {{ display:flex; justify-content:space-between; align-items:baseline;
-  gap:8px; flex-wrap:wrap; }}
-.params {{ color:var(--sub); font-size:.75rem; }}
-.action {{ font-size:1.45rem; font-weight:800; margin:8px 0 4px; }}
-.action.buy {{ color:var(--buy); }} .action.sell {{ color:var(--sell); }}
-.action.gold {{ color:var(--gold); }} .action.flat {{ color:var(--sub); }}
-.posline {{ display:flex; gap:12px; align-items:center; flex-wrap:wrap;
-  font-size:.9rem; }}
-.pos {{ font-weight:700; }} .pos.buy {{ color:var(--buy); }}
-.pos.sell {{ color:var(--sell); }} .pos.flat {{ color:var(--sub); }}
-.stop {{ color:var(--sub); font-variant-numeric:tabular-nums; }}
-.chips {{ display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }}
-.chip {{ background:var(--chipbg); border-radius:999px; padding:3px 10px;
-  font-size:.72rem; color:var(--sub); font-variant-numeric:tabular-nums; }}
-.kpis {{ display:grid; gap:10px;
-  grid-template-columns:repeat(auto-fit,minmax(112px,1fr)); }}
-.kpi .l {{ color:var(--sub); font-size:.72rem; }}
-.kpi .v {{ font-size:1.15rem; font-weight:700;
-  font-variant-numeric:tabular-nums; }}
-.up {{ color:var(--up); }} .down {{ color:var(--down); }}
-pre.order {{ margin:8px 0 0; padding:12px; background:var(--chipbg);
-  border-radius:10px; font-size:.78rem; line-height:1.5; overflow-x:auto;
-  font-family:ui-monospace,"SF Mono",Menlo,monospace; }}
-svg {{ width:100%; height:auto; display:block; margin-top:6px; }}
-svg .grid {{ stroke:var(--line); stroke-width:1; }}
-svg .line {{ fill:none; stroke:var(--navy); stroke-width:2.2; }}
-svg .area {{ fill:var(--navy); opacity:.12; stroke:none; }}
-svg .dot {{ fill:var(--gold); }}
-.tablewrap {{ overflow-x:auto; margin-top:8px; }}
-table {{ border-collapse:collapse; width:100%; font-size:.8rem;
-  font-variant-numeric:tabular-nums; white-space:nowrap; }}
-th, td {{ text-align:left; padding:6px 10px;
-  border-bottom:1px solid var(--line); }}
-th {{ color:var(--sub); font-weight:600; font-size:.72rem; }}
-.note {{ color:var(--sub); font-size:.75rem; margin-top:6px; }}
-.fbar-head {{ display:flex; gap:10px; align-items:baseline; flex-wrap:wrap;
-  margin-top:12px; font-size:.9rem; }}
-.fbar {{ display:flex; height:10px; border-radius:999px; overflow:hidden;
-  margin-top:6px; gap:2px; }}
-.fbar-legend {{ display:flex; justify-content:space-between;
-  color:var(--sub); font-size:.7rem; margin-top:3px; }}
-.fbox {{ margin-top:12px; padding:10px 12px; border-left:3px solid var(--gold);
-  background:var(--chipbg); border-radius:0 10px 10px 0; font-size:.82rem; }}
-.fbox .l {{ color:var(--sub); font-size:.72rem; font-weight:700;
-  margin-bottom:2px; }}
-h4.fh {{ margin:14px 0 4px; font-size:.82rem; color:var(--sub); }}
-ul.focus {{ margin:0; padding-left:1.2em; font-size:.8rem; }}
-ul.focus li {{ margin:3px 0; }}
-.theme {{ padding:8px 0; border-bottom:1px solid var(--line); }}
-.theme-meta {{ display:flex; gap:10px; align-items:baseline; font-size:.75rem; }}
-.theme-meta .gold {{ color:var(--gold); letter-spacing:.05em; }}
-.theme-h {{ font-size:.82rem; font-weight:600; margin-top:2px; }}
-details {{ margin-top:6px; font-size:.78rem; color:var(--sub); }}
-details summary {{ cursor:pointer; }}
-footer {{ color:var(--sub); font-size:.7rem; margin-top:22px;
-  line-height:1.6; }}
+{BOARD_CSS}
 {ANALYSIS_CSS}
 </style>
 <div class="wrap">
 <header class="top">
-  <h1>FXドル円 運用ボード</h1>
-  <span class="rate">{close:.3f}<small>円</small></span>
-  {eu_head}
-  <span class="meta">更新 {datetime.now():%Y-%m-%d %H:%M}（朝6・7・8時台の3回＋デイトレ毎時判定）
-   ｜ 生成元: {origin}
-   ｜ 運用先: MATRIX TRADER（発注は手動）{delivery}</span>
+  <div class="top-id"><h1>FX運用ボード<small>ドル円・ユーロドル</small></h1>
+    <span class="meta"><span class="upd">更新 {datetime.now():%Y-%m-%d %H:%M}</span>｜生成元: {origin}</span></div>
+  <div class="inst-row">
+    <div class="inst"><span class="inst-l">ドル円 USD/JPY</span><span class="rate">{close:.3f}<small>円</small></span><span class="inst-n">日足終値</span></div>
+    {eu_head}
+    <div class="inst eq"><span class="inst-l">モデル資産</span><b class="eqv">{equity_txt}</b><span class="d {_eq_cls}">{_eq_diff:+,.0f}円（{_eq_pct:+.2%}）</span></div>
+  </div>
+  {delivery}
+  <p class="meta-s">配信は朝6・7・8時台の3回＋デイトレ毎時判定｜運用先: MATRIX TRADER（発注は手動）</p>
 </header>
 {banner}
+{nav_html}
 <div class="grid">
-{ANALYSIS_CARD}
-{scalp_card}
+{today_html}
+{order_box}
+{eu_order_html}
+<h2 class="grp" id="g-pos">ポジションとリスク<small>保有中の建玉・{_nsys}システムの状態</small></h2>
+{rr_card}
 {''.join(sys_cards)}
 {eu_op_html}
-{rr_card}
+<h2 class="grp" id="g-tools">分析・スキャル<small>ボタンで動く道具</small></h2>
+{ANALYSIS_CARD}
+{scalp_card}
+{fund_head}
 {fund_html}
-<section class="card span2">
-  <h3>運用成績（全4システム合算・実現＋含み）</h3>
-  <div class="kpis" style="margin-top:10px">
-    <div class="kpi"><div class="l">モデル資産</div><div class="v">{equity_txt}</div>
-      {equity_sub}</div>
-    <div class="kpi"><div class="l">累計実現損益</div><div class="v">{cum_html}</div></div>
-    <div class="kpi"><div class="l">含み損益（{mark:.3f}円評価）</div><div class="v">{unreal_html}</div></div>
-    <div class="kpi"><div class="l">勝率</div><div class="v">{wr}</div></div>
-    <div class="kpi"><div class="l">PF</div><div class="v">{pf}</div></div>
-    <div class="kpi"><div class="l">決済取引</div><div class="v">{ntr}</div></div>
-  </div>
-  <div class="chips" style="margin-top:10px">{perf_chips}</div>
-  <div class="note">※モデル資産＝口座資金{float(cfg["口座資金_円"]):,.0f}円
-    ＋累計実現損益＋含み損益（4システム合算・毎回その場で再計算）。</div>
-  {kpi_note}
-  {swap_note}
-</section>
-<section class="card span2">
-  <h3>決済履歴（全4システム・新しい順）</h3>
-  <div class="tablewrap"><table>
-    <tr><th>決済</th><th>系</th><th>売買/数量</th><th>建値→決済値</th>
-      <th>スワップ</th><th>損益円</th></tr>
-    {trade_rows}
-  </table></div>
-  <div class="note">※スワップは建玉からのロールオーバー跨ぎ回数で計上
-    （JST火〜金の朝{swap.rollover_hour_jst(date.today())}時・木曜は3日分）。
-    2026-08-13より前に決済した行は現在のレートでの遡及概算。</div>
-</section>
-<section class="card span2">
-  <h3>{curve_label}</h3>
-  {_spark_svg(curve)}
-  {curve_note}
-</section>
-<section class="card span2">
-  <h3>本日の注文指示書（{"速報・参考" if is_flash else "最終確定"}・指標イベント欄含む）</h3>
-  <pre class="order">{html.escape(order_text)}</pre>
-</section>
-{eu_order_html}
+<h2 class="grp" id="g-perf">成績<small>モデル資産・勝率・決済履歴</small></h2>
+{perf_card}
+{trades_card}
+<h2 class="grp" id="g-log">記録・研究<small>ユーロドル研究・直近の記録・研究ログ</small></h2>
 {eu_res_html}
-<section class="card">
+<section class="card half">
   <h3>直近の記録</h3>
   <div class="tablewrap"><table>
-    <tr><th>日付</th><th>系</th><th>アクション</th><th>ストップ</th></tr>
+    <tr><th>日付</th><th>システム</th><th>アクション</th><th>ストップ</th></tr>
     {rows_html}
   </table></div>
 </section>
-<section class="card">
-  <h3>研究・進化</h3>
-  <p class="note">日次研究: {html.escape(res_msg)}</p>
-  <p class="note">ファンダ・フィルタ検証（マクロで新規を絞ると成績は上がるか・発注には未使用）: {html.escape(ff_msg)}</p>
-  <p class="note">週次ペア研究: {html.escape(pair_msg)}</p>
-</section>
+{research_card}
 </div>
 <footer>発注はMATRIX TRADERで本人が手動で行う（JFXはEA・自動売買禁止）。逆指値は建玉と必ずセット。
 検証値は過去データによるもので将来の成果を保証しない。高重要度指標イベント日は新規建てを自動見送り。
