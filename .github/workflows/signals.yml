@@ -76,7 +76,13 @@ jobs:
         run: |
           git config user.name  "fx-actions"
           git config user.email "actions@users.noreply.github.com"
-          git add -A state.json state_intraday.json state_intraday15.json state_eurusd.json results data 2>/dev/null || true
+          # 2026-10-13: state_eurusd.json は確定ステージで初めて作られるため、速報①②の時点では
+          # 未作成。git add に存在しないパスを渡すと全体が失敗し変更なしと誤判定されるため
+          # (state系は個別に存在確認・results/dataは常にある前提でまとめて add)。
+          for f in state.json state_intraday.json state_intraday15.json state_eurusd.json; do
+            [ -f "$f" ] && git add -- "$f"
+          done
+          git add -A -- results data 2>/dev/null || true
           if git diff --staged --quiet; then
             echo "変更なし"
           else
