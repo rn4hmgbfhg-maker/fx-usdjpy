@@ -418,6 +418,37 @@ ANALYSIS_CSS = """
 .t-steps{margin:0;padding-left:1.4em;display:grid;gap:6px;font-size:var(--fs-body)}
 .t-steps li::marker{font-weight:800;color:var(--gold)}
 .mono{font-family:var(--f-num)}
+/* スキャルのチャート（2026-10-13）: ローソク＋EMA＋ペーパートレード＋AIの案。色は既存トークンのみ */
+.sc-wrap{margin-top:var(--s3);border:1px solid var(--line);border-radius:var(--r3);background:var(--panel);padding:var(--s3)}
+.sc-bar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;justify-content:space-between}
+.sc-tabs{display:flex;gap:4px}
+.sc-tabs button{border:1px solid var(--line-strong);background:var(--raised);color:var(--ink);border-radius:999px;padding:3px 12px;font-size:var(--fs-cap);font-weight:700;cursor:pointer}
+.sc-tabs button[aria-pressed="true"]{background:var(--ink);color:var(--panel);border-color:var(--ink)}
+.sc-legend{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:var(--fs-cap);color:var(--sub)}
+.sc-legend i{display:inline-block;width:14px;height:0;border-top:2px solid;vertical-align:middle;margin-right:4px}
+.sc-svg{width:100%;height:auto;display:block;margin-top:6px;touch-action:pan-y}
+.sc-svg .gl{stroke:var(--line);stroke-width:1}
+.sc-svg .ax{font-size:11px;fill:var(--sub);font-family:var(--f-num)}
+.sc-svg .cu{fill:var(--up);stroke:var(--up)} .sc-svg .cd{fill:var(--down);stroke:var(--down)}
+.sc-svg .e20{fill:none;stroke:var(--navy);stroke-width:2} .sc-svg .e50{fill:none;stroke:var(--gold);stroke-width:2}
+.sc-svg .tb{fill:var(--buy);stroke:var(--panel);stroke-width:1.5} .sc-svg .ts{fill:var(--sell);stroke:var(--panel);stroke-width:1.5}
+.sc-svg .tb.hollow,.sc-svg .ts.hollow{fill:var(--panel);stroke-width:2} .sc-svg .tb.hollow{stroke:var(--buy)} .sc-svg .ts.hollow{stroke:var(--sell)}
+.sc-svg .xw{fill:var(--up);stroke:var(--panel);stroke-width:1.5} .sc-svg .xl{fill:var(--down);stroke:var(--panel);stroke-width:1.5}
+.sc-svg .tl{stroke:var(--sub);stroke-width:1.2;stroke-dasharray:3 3}
+.sc-svg .ai{stroke:var(--ink);stroke-width:1.5} .sc-svg .ai.buy{fill:var(--buy)} .sc-svg .ai.sell{fill:var(--sell)} .sc-svg .ai.flat{fill:var(--panel)}
+.sc-svg .pl{stroke-width:1.5;stroke-dasharray:6 4} .sc-svg .pl.up{stroke:var(--up)} .sc-svg .pl.down{stroke:var(--down)} .sc-svg .pl.ent{stroke:var(--ink);stroke-dasharray:none}
+.sc-svg .pt{font-size:11px;font-weight:700;font-family:var(--f-num);paint-order:stroke;stroke:var(--panel);stroke-width:4px}
+.sc-svg .pt.up{fill:var(--up)} .sc-svg .pt.down{fill:var(--down)} .sc-svg .pt.ent{fill:var(--ink)}
+.sc-svg .ch{stroke:var(--sub);stroke-width:1;stroke-dasharray:2 3}
+.sc-tip{position:absolute;pointer-events:none;background:var(--panel);border:1px solid var(--line-strong);border-radius:var(--r2);padding:6px 8px;font-size:var(--fs-cap);line-height:1.5;box-shadow:0 4px 14px rgba(0,0,0,.12);white-space:nowrap;z-index:5}
+.sc-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,13rem),1fr));gap:var(--s2);margin-top:var(--s3)}
+.sc-stats > div{padding:var(--s2) 10px;border-radius:var(--r2);background:var(--chipbg);display:grid;gap:2px}
+.sc-stats span{font-size:var(--fs-cap);color:var(--sub)} .sc-stats b{font-family:var(--f-num);font-size:1.15rem}
+.sc-stats small{font-size:var(--fs-cap);color:var(--sub)}
+.sc-eq{width:100%;height:auto;display:block;margin-top:6px}
+.sc-eq .gl{stroke:var(--line)} .sc-eq .z{stroke:var(--line-strong)} .sc-eq .ax{font-size:11px;fill:var(--sub);font-family:var(--f-num)}
+.sc-eq .s1{fill:none;stroke:var(--navy);stroke-width:2} .sc-eq .s2{fill:none;stroke:var(--gold);stroke-width:2} .sc-eq .s3{fill:none;stroke:var(--ink);stroke-width:2;stroke-dasharray:5 3}
+.sc-eq .lb{font-size:11px;font-weight:700;paint-order:stroke;stroke:var(--panel);stroke-width:4px;fill:var(--ink)}
 .t-warn{margin:0;padding:var(--s2) var(--s3);border-radius:var(--r2);background:var(--alert-bg);color:var(--alert-ink);font-weight:700}
 .t-lead{margin:0;font-weight:600}
 .t-trig{margin:0;padding:0;list-style:none;display:grid;gap:6px}
@@ -489,6 +520,18 @@ SCALP_CARD = """
     <button class="abtn ghost" id="s-stop" type="button" hidden>停止</button>
   </div>
   <div class="astatus" id="s-status">読み込み中…</div>
+  <div class="sc-wrap" id="sc-wrap">
+    <div class="sc-bar"><b id="sc-title">チャート</b>
+      <div class="sc-tabs" role="group" aria-label="時間足"><button type="button" data-tf="15分" aria-pressed="true">15分足</button><button type="button" data-tf="1時間" aria-pressed="false">1時間足</button></div></div>
+    <div class="sc-legend"><span><i style="border-color:var(--navy)"></i>EMA20</span><span><i style="border-color:var(--gold)"></i>EMA50</span>
+      <span>▲▼ ペーパー売買（塗り＝1時間ルール／白抜き＝15分ルール）</span><span>● 決済（緑＝勝ち・赤＝負け）</span><span>◆ AIの案</span>
+      <span><i style="border-color:var(--ink)"></i>最新案の入る値</span><span><i style="border-color:var(--up);border-top-style:dashed"></i>利確</span><span><i style="border-color:var(--down);border-top-style:dashed"></i>損切り</span></div>
+    <div style="position:relative"><svg class="sc-svg" id="sc-svg" viewBox="0 0 720 320" role="img" aria-label="スキャル用チャート"></svg><div class="sc-tip" id="sc-tip" hidden></div></div>
+    <div class="sc-stats" id="sc-stats"></div>
+    <svg class="sc-eq" id="sc-eq" viewBox="0 0 720 170" role="img" aria-label="累計pipsの推移"></svg>
+    <details class="fold"><summary>ペーパー売買の明細（直近30日・新しい順）</summary><div class="tablewrap" id="sc-table"></div></details>
+    <p class="note">※ペーパー売買＝スキャル研究で最も安定したルールを、過去の値動きに機械的に当てはめた「もし入っていたら」の結果（往復コスト0.8pips込み・実際の発注とは無関係）。AIの案は「スキャル分析」を押した時刻の案を、その後の15分足で自動判定（入る値に2時間以内に届いたら約定・その後4時間以内に利確／損切り、届かなければ時間切れで評価）。</p>
+  </div>
   <div class="aout" id="s-out"></div>
   <div class="aout" id="s-log"></div>
   <details class="fold"><summary>スキャル研究の詳しい表（ドル円・ユーロドル／時間足別の検証）</summary>
@@ -923,6 +966,211 @@ ANALYSIS_JS = r"""
   }
 
   // ── スキャルピング専用（高リスク発注欄）──
+  // ── スキャル用チャート（2026-10-13 落合さん指示「実績が見えない。チャートでビジュアルに」）──
+  // ローソク＋EMA20/50、研究の最良ルールのペーパー売買（▲▼→●）、AIの案（◆）と最新案の線、
+  // 下に成績タイルと累計pipsの推移。AIの案はその後の15分足で自動判定する。
+  var SC = { pair: "ドル円", tf: "15分", hist: [], lastBy: {}, histCol: null };
+  var scAll = null;
+  try { var sce = document.getElementById("scalp-chart"); if (sce) scAll = JSON.parse(sce.textContent); } catch (e) { scAll = null; }
+  function scSpec(p) { return p === "ユーロドル" ? { dec: 5, mult: 10000 } : { dec: 3, mult: 100 }; }
+  function scT(min) {
+    try { return new Date(min * 60000).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }); }
+    catch (e) { return String(min); }
+  }
+  function scIdx(bars, tm) {   // tm（分）を含む足の番号。範囲外は -1
+    if (!bars.length || tm < bars[0][0]) return -1;
+    var lo = 0, hi = bars.length - 1;
+    while (lo < hi) { var mid = (lo + hi + 1) >> 1; if (bars[mid][0] <= tm) lo = mid; else hi = mid - 1; }
+    return lo;
+  }
+  // AIの案を15分足で自動判定（約定: 2時間以内に入る値へ到達／決着: その後4時間以内に利確・損切り）
+  function scEvalAI(h) {
+    if (h.auto && h.auto.done) return h.auto;
+    var side = /買/.test(h.verdict || "") ? 1 : /売/.test(h.verdict || "") ? -1 : 0;
+    if (!side || h.entry == null || h.stop == null) return { done: true, res: "見送り" };
+    var d = scAll && scAll[h.pair || "ドル円"] && scAll[h.pair || "ドル円"].tf["15分"];
+    if (!d || !d.length) return { done: false, res: "判定中" };
+    var S = scSpec(h.pair), t0 = Math.floor(Date.parse(h.at) / 60000);
+    var e = Number(h.entry), sl = Number(h.stop), tp = h.take_profit != null ? Number(h.take_profit) : null;
+    var i0 = scIdx(d, t0); if (i0 < 0) return { done: false, res: "判定不能（足が古い）" };
+    var fill = -1;
+    for (var i = i0; i < d.length && d[i][0] <= t0 + 120; i++) { if (d[i][3] <= e && e <= d[i][2]) { fill = i; break; } }
+    if (fill < 0) return d[d.length - 1][0] > t0 + 120 ? { done: true, res: "未約定" } : { done: false, res: "判定中" };
+    for (var j = fill; j < d.length && j <= fill + 16; j++) {
+      var hitSL = side > 0 ? d[j][3] <= sl : d[j][2] >= sl;
+      var hitTP = tp != null && (side > 0 ? d[j][2] >= tp : d[j][3] <= tp);
+      if (hitSL) return { done: true, res: "負け", pips: Math.round(((sl - e) * side * S.mult - 0.8) * 10) / 10, out: d[j][0], x: sl, in: d[fill][0] };
+      if (hitTP) return { done: true, res: "勝ち", pips: Math.round(((tp - e) * side * S.mult - 0.8) * 10) / 10, out: d[j][0], x: tp, in: d[fill][0] };
+    }
+    if (fill + 16 < d.length) {
+      var c = d[fill + 16][4], pp = Math.round(((c - e) * side * S.mult - 0.8) * 10) / 10;
+      return { done: true, res: pp > 0 ? "勝ち" : "負け", why: "時間切れ", pips: pp, out: d[fill + 16][0], x: c, in: d[fill][0] };
+    }
+    return { done: false, res: "保有中", in: d[fill][0] };
+  }
+  function scDraw() {
+    var svg = $("sc-svg"), wrap = $("sc-wrap");
+    if (!svg) return;
+    var C = scAll && scAll[SC.pair];
+    if (!C || C.error || !C.tf || !C.tf[SC.tf]) { wrap.querySelector("#sc-title").textContent = "チャート（データなし" + (C && C.error ? "：" + C.error : "") + "）"; return; }
+    // 画面幅に合わせて描く（スマホで文字が潰れないように）。狭い画面は直近の足だけ
+    var VW = Math.max(340, Math.min(1000, Math.round(wrap.clientWidth - 24) || 720));
+    var S = scSpec(SC.pair), bars = C.tf[SC.tf];
+    var keep = VW < 520 ? 110 : VW < 760 ? 200 : bars.length;
+    bars = bars.slice(-keep);
+    var n = bars.length;
+    svg.setAttribute("viewBox", "0 0 " + VW + " 320");
+    $("sc-title").textContent = SC.pair + " " + SC.tf + "足（最終 " + (C.最終 || "") + "・ボード更新時点）";
+    var X0 = 8, X1 = VW - 68, Y0 = 10, Y1 = 290, W = (X1 - X0) / n;
+    var hi = -Infinity, lo = Infinity;
+    bars.forEach(function (b) { hi = Math.max(hi, b[2]); lo = Math.min(lo, b[3]); });
+    var last = SC.lastBy[SC.pair], lr = last && last.result, lside = lr ? (/買/.test(lr.verdict || "") ? 1 : /売/.test(lr.verdict || "") ? -1 : 0) : 0;
+    var lines = [];
+    if (lside && lr.entry != null) {
+      [["入る値", lr.entry, "ent"], ["利確", lr.take_profit, "up"], ["損切り", lr.stop, "down"]].forEach(function (x) {
+        if (x[1] != null && !isNaN(Number(x[1]))) { lines.push(x); hi = Math.max(hi, Number(x[1])); lo = Math.min(lo, Number(x[1])); }
+      });
+    }
+    var pad = (hi - lo) * 0.05 || 1 / S.mult; hi += pad; lo -= pad;
+    var y = function (v) { return Y0 + (hi - v) / (hi - lo) * (Y1 - Y0); };
+    var x = function (i) { return X0 + (i + 0.5) * W; };
+    var g = "";
+    for (var k = 0; k <= 4; k++) {
+      var v = lo + (hi - lo) * k / 4, yy = y(v);
+      g += "<line class='gl' x1='" + X0 + "' x2='" + X1 + "' y1='" + yy + "' y2='" + yy + "'/><text class='ax' x='" + (X1 + 6) + "' y='" + (yy + 4) + "'>" + v.toFixed(S.dec) + "</text>";
+    }
+    var step = Math.ceil(n / Math.max(2, Math.floor(VW / 120)));
+    for (var i = 0; i < n; i += step) g += "<text class='ax' x='" + (i ? x(i) : X0) + "' y='308' text-anchor='" + (i ? "middle" : "start") + "'>" + scT(bars[i][0]) + "</text>";
+    var bw = Math.max(1, W * 0.62);
+    bars.forEach(function (b, i) {
+      var up = b[4] >= b[1], cls = up ? "cu" : "cd", xx = x(i);
+      g += "<line class='" + cls + "' x1='" + xx + "' x2='" + xx + "' y1='" + y(b[2]) + "' y2='" + y(b[3]) + "' stroke-width='1'/>"
+         + "<rect class='" + cls + "' x='" + (xx - bw / 2) + "' width='" + bw + "' y='" + Math.min(y(b[1]), y(b[4])) + "' height='" + Math.max(1, Math.abs(y(b[1]) - y(b[4]))) + "'/>";
+    });
+    ["e20", "e50"].forEach(function (c, ci) {
+      g += "<polyline class='" + c + "' points='" + bars.map(function (b, i) { return x(i).toFixed(1) + "," + y(b[5 + ci]).toFixed(1); }).join(" ") + "'/>";
+    });
+    // ペーパー売買
+    var marks = {};
+    (C.paper || []).forEach(function (P, pi) {
+      (P.trades || []).forEach(function (t) {
+        var ii = scIdx(bars, t.in); if (ii < 0) return;
+        var io = t.open ? n - 1 : scIdx(bars, t.out);
+        var ye = y(t.e), xe = x(ii), dir = t.d > 0 ? "tb" : "ts", hol = pi === 1 ? " hollow" : "";
+        g += "<line class='tl' x1='" + xe + "' y1='" + ye + "' x2='" + x(io) + "' y2='" + y(t.open ? t.e : t.x) + "'/>";
+        var tri = t.d > 0 ? [[xe, ye + 3], [xe - 6, ye + 13], [xe + 6, ye + 13]] : [[xe, ye - 3], [xe - 6, ye - 13], [xe + 6, ye - 13]];
+        g += "<polygon class='" + dir + hol + "' points='" + tri.map(function (p) { return p.join(","); }).join(" ") + "'/>";
+        if (!t.open) g += "<circle class='" + (t.pips > 0 ? "xw" : "xl") + "' cx='" + x(io) + "' cy='" + y(t.x) + "' r='4.5'/>";
+        (marks[ii] = marks[ii] || []).push(P.tf + "ルール " + (t.d > 0 ? "買" : "売") + " " + t.e.toFixed(S.dec) + (t.open ? "（保有中）" : " → " + t.x.toFixed(S.dec) + "（" + t.why + " " + (t.pips > 0 ? "+" : "") + t.pips + "pips）"));
+      });
+    });
+    // AIの案（◆）
+    SC.hist.filter(function (h) { return (h.pair || "ドル円") === SC.pair; }).forEach(function (h) {
+      var ii = scIdx(bars, Math.floor(Date.parse(h.at) / 60000)); if (ii < 0) return;
+      var side = /買/.test(h.verdict || "") ? "buy" : /売/.test(h.verdict || "") ? "sell" : "flat";
+      var pv = h.entry != null ? Number(h.entry) : Number(h.rate); if (isNaN(pv)) return;
+      var xx = x(ii), yy = y(pv);
+      g += "<polygon class='ai " + side + "' points='" + [[xx, yy - 7], [xx + 6, yy], [xx, yy + 7], [xx - 6, yy]].map(function (p) { return p.join(","); }).join(" ") + "'/>";
+      var ev = scEvalAI(h);
+      (marks[ii] = marks[ii] || []).push("AIの案 " + (h.verdict || "見送り") + (h.entry != null ? " " + Number(h.entry).toFixed(S.dec) : "") + "（" + ev.res + (ev.pips != null ? " " + (ev.pips > 0 ? "+" : "") + ev.pips + "pips" : "") + "）");
+    });
+    // 最新案の線
+    if (lines.length) {
+      var li = scIdx(bars, Math.floor(Date.parse(last.at) / 60000)), lx = li < 0 ? X0 : x(li);
+      lines.forEach(function (L) {
+        var yy = y(Number(L[1]));
+        g += "<line class='pl " + L[2] + "' x1='" + lx + "' x2='" + X1 + "' y1='" + yy + "' y2='" + yy + "'/>"
+           + "<text class='pt " + L[2] + "' x='" + (X1 - 4) + "' y='" + (yy - 4) + "' text-anchor='end'>" + L[0] + " " + Number(L[1]).toFixed(S.dec) + "</text>";
+      });
+    }
+    g += "<line class='ch' id='sc-ch' x1='0' x2='0' y1='" + Y0 + "' y2='" + Y1 + "' visibility='hidden'/>"
+       + "<rect id='sc-hit' x='" + X0 + "' y='" + Y0 + "' width='" + (X1 - X0) + "' height='" + (Y1 - Y0) + "' fill='transparent'/>";
+    svg.innerHTML = g;
+    var tip = $("sc-tip"), ch = $("sc-ch");
+    var move = function (ev) {
+      var r = svg.getBoundingClientRect(), sx = (ev.clientX - r.left) / r.width * VW;
+      var i = Math.max(0, Math.min(n - 1, Math.floor((sx - X0) / W))), b = bars[i];
+      ch.setAttribute("x1", x(i)); ch.setAttribute("x2", x(i)); ch.setAttribute("visibility", "visible");
+      tip.innerHTML = "<b>" + esc(scT(b[0])) + "</b><br>始 " + b[1].toFixed(S.dec) + "　高 " + b[2].toFixed(S.dec) + "<br>安 " + b[3].toFixed(S.dec) + "　終 " + b[4].toFixed(S.dec)
+        + (marks[i] ? "<br>" + marks[i].map(esc).join("<br>") : "");
+      tip.hidden = false;
+      var px = x(i) / VW * r.width;
+      tip.style.left = Math.min(px + 12, r.width - tip.offsetWidth - 4) + "px"; tip.style.top = "8px";
+    };
+    var hit = $("sc-hit");
+    hit.addEventListener("pointermove", move); hit.addEventListener("pointerdown", move);
+    hit.addEventListener("pointerleave", function () { tip.hidden = true; ch.setAttribute("visibility", "hidden"); });
+    scStats(C, S, VW);
+  }
+  function scStats(C, S, VW) {
+    var now = (C.tf["15分"] && C.tf["15分"].length) ? C.tf["15分"][C.tf["15分"].length - 1][0] : 0;
+    var series = [], tiles = "", rows = [];
+    (C.paper || []).forEach(function (P, pi) {
+      var ts = (P.trades || []).filter(function (t) { return !t.open; });
+      var w = ts.filter(function (t) { return t.pips > 0; }).length, sum = ts.reduce(function (a, t) { return a + t.pips; }, 0);
+      var op = (P.trades || []).filter(function (t) { return t.open; }).length;
+      tiles += "<div><span>ペーパー " + esc(P.tf) + "ルール（" + (pi === 0 ? "塗り▲▼" : "白抜き△▽") + "・直近30日）</span>"
+        + "<b class='" + (sum >= 0 ? "up" : "down") + "'>" + (sum >= 0 ? "+" : "") + sum.toFixed(1) + " pips</b>"
+        + "<small>" + ts.length + "回・勝ち" + w + "（勝率" + (ts.length ? Math.round(100 * w / ts.length) : 0) + "%）" + (op ? "・保有中" + op : "") + "<br>検証: 勝率" + Math.round(P.勝率 * 100) + "%・PF" + P.PF + "（" + P.回数 + "回）</small></div>";
+      var cum = 0; series.push({ name: P.tf + "ルール", cls: "s" + (pi + 1), pts: ts.map(function (t) { cum += t.pips; return [t.out, cum]; }) });
+      ts.forEach(function (t) { rows.push([t.in, P.tf + "ルール", t.d > 0 ? "買" : "売", t.e.toFixed(S.dec) + " → " + t.x.toFixed(S.dec), t.why, t.pips]); });
+    });
+    var mine = SC.hist.filter(function (h) { return (h.pair || "ドル円") === SC.pair; });
+    var ev = mine.map(function (h) { return [h, scEvalAI(h)]; });
+    var done = ev.filter(function (x) { return x[1].pips != null && x[1].done; });
+    var aw = done.filter(function (x) { return x[1].pips > 0; }).length, asum = done.reduce(function (a, x) { return a + x[1].pips; }, 0);
+    var skip = ev.filter(function (x) { return x[1].res === "見送り"; }).length, nofill = ev.filter(function (x) { return x[1].res === "未約定"; }).length;
+    tiles += "<div><span>AIの案（◆・自動判定）</span><b class='" + (!done.length ? "" : asum >= 0 ? "up" : "down") + "'>" + (done.length ? (asum >= 0 ? "+" : "") + asum.toFixed(1) + " pips" : "記録待ち") + "</b>"
+      + "<small>" + mine.length + "回分析・決着" + done.length + "（勝ち" + aw + "）・未約定" + nofill + "・見送り" + skip + "</small></div>";
+    $("sc-stats").innerHTML = tiles;
+    var cum2 = 0; series.push({ name: "AIの案", cls: "s3", pts: done.slice().sort(function (a, b) { return (a[1].out || 0) - (b[1].out || 0); }).map(function (x) { cum2 += x[1].pips; return [x[1].out, cum2]; }) });
+    done.forEach(function (x) { rows.push([x[1].in || Math.floor(Date.parse(x[0].at) / 60000), "AIの案", /買/.test(x[0].verdict) ? "買" : "売", Number(x[0].entry).toFixed(S.dec) + " → " + Number(x[1].x).toFixed(S.dec), x[1].why || (x[1].res === "勝ち" ? "利確" : "損切り"), x[1].pips]); });
+    // 累計pipsの推移
+    var t0 = now - 30 * 1440, all = [];
+    series.forEach(function (s) { s.pts.forEach(function (p) { all.push(p[1]); }); });
+    var eq = $("sc-eq"), X0 = 8, X1 = VW - 60, Y0 = 18, Y1 = 150;
+    eq.setAttribute("viewBox", "0 0 " + VW + " 172");
+    if (!all.length) { eq.innerHTML = "<text class='ax' x='10' y='40'>決着した売買がまだありません</text>"; }
+    else {
+      var mx = Math.max(0, Math.max.apply(null, all)), mn = Math.min(0, Math.min.apply(null, all)), sp = (mx - mn) || 1;
+      var xe = function (t) { return X0 + Math.max(0, (t - t0)) / (now - t0) * (X1 - X0); }, ye = function (v) { return Y0 + (mx - v) / sp * (Y1 - Y0); };
+      var h = "<text class='ax' x='" + X0 + "' y='12'>累計pips（直近30日・決着順）</text><line class='z' x1='" + X0 + "' x2='" + X1 + "' y1='" + ye(0) + "' y2='" + ye(0) + "'/>"
+        + "<text class='ax' x='" + (X1 + 6) + "' y='" + (ye(0) + 4) + "'>0</text><text class='ax' x='" + (X1 + 6) + "' y='" + (ye(mx) + 4) + "'>" + mx.toFixed(0) + "</text>" + (ye(mn) - ye(0) > 14 ? "<text class='ax' x='" + (X1 + 6) + "' y='" + (ye(mn) + 4) + "'>" + mn.toFixed(0) + "</text>" : "")
+        + "<text class='ax' x='" + X0 + "' y='166'>" + scT(t0) + "</text><text class='ax' x='" + X1 + "' y='166' text-anchor='end'>" + scT(now) + "</text>";
+      series.forEach(function (s) {
+        if (!s.pts.length) return;
+        var pts = [[t0, 0]].concat(s.pts.filter(function (p) { return p[0] >= t0; })), d = "";
+        pts.push([now, pts[pts.length - 1][1]]);   // 最後の決着から現在まで横に延ばす
+        pts.forEach(function (p, i) { d += (i ? " L" : "M") + xe(p[0]).toFixed(1) + "," + ye(i ? pts[i - 1][1] : 0).toFixed(1) + " L" + xe(p[0]).toFixed(1) + "," + ye(p[1]).toFixed(1); });
+        var lp = pts[pts.length - 1];
+        h += "<path class='" + s.cls + "' d='" + d + "'/><text class='lb' x='" + Math.min(xe(lp[0]) + 4, X1 - 4) + "' y='" + (ye(lp[1]) - 5) + "' text-anchor='end'>" + esc(s.name) + " " + (lp[1] >= 0 ? "+" : "") + lp[1].toFixed(1) + "</text>";
+      });
+      eq.innerHTML = h;
+    }
+    rows.sort(function (a, b) { return b[0] - a[0]; });
+    $("sc-table").innerHTML = rows.length ? "<table><tr><th>入った時刻</th><th>種類</th><th>売買</th><th>入→出</th><th>決着</th><th>pips</th></tr>"
+      + rows.slice(0, 60).map(function (r) { return "<tr><td>" + esc(scT(r[0])) + "</td><td>" + esc(r[1]) + "</td><td>" + r[2] + "</td><td class='mono'>" + r[3] + "</td><td>" + esc(r[4]) + "</td><td class='" + (r[5] > 0 ? "up" : "down") + "'>" + (r[5] > 0 ? "+" : "") + r[5] + "</td></tr>"; }).join("") + "</table>"
+      : "<p class='note'>まだありません。</p>";
+    // 決着したAIの案は結果を保存（足が流れても残す）
+    if (SC.histCol) ev.forEach(function (x) {
+      if (x[1].done && x[1].res !== "見送り" && !(x[0].auto && x[0].auto.done) && x[0]._id) {
+        x[0].auto = x[1];
+        try { SC.histCol.doc(x[0]._id).update({ auto: JSON.parse(JSON.stringify(x[1])) }).catch(function () {}); } catch (e) {}
+      }
+    });
+  }
+  document.querySelectorAll("#sc-wrap .sc-tabs button").forEach(function (b) {
+    b.onclick = function () {
+      SC.tf = b.dataset.tf;
+      document.querySelectorAll("#sc-wrap .sc-tabs button").forEach(function (o) { o.setAttribute("aria-pressed", o === b ? "true" : "false"); });
+      scDraw();
+    };
+  });
+  (function () { var ps = $("s-pair"); if (ps) SC.pair = ps.value; try { var sp = localStorage.getItem("fx_scalp_pair"); if (sp) SC.pair = sp; } catch (e) {} })();
+  scDraw();
+  var scRz = null;
+  window.addEventListener("resize", function () { clearTimeout(scRz); scRz = setTimeout(scDraw, 200); });
+
   function setupScalp(sample, db) {
     var sRun = $("s-run"), sStop = $("s-stop"), sRisk = $("s-risk");
     var sStatus = $("s-status"), sOut = $("s-out");
@@ -1027,8 +1275,11 @@ ANALYSIS_JS = r"""
       var sub = S.code + "・" + esc(r.headline || "") + (r.confidence ? "・自信 " + esc(r.confidence) : "");
       h += "<div class='ticket " + cls + "'><div class='t-head'><div class='t-pair'>" + S.code + "</div>"
          + "<div class='t-do'>" + big + "</div><div class='t-sub'>" + sub + "</div></div>";
+      // 2026-10-13: 判断を緩めた代わりに、自信『低』の案はリスクを半分にして数量を出す
+      var lowConf = /低/.test(String(r.confidence || ""));
+      var effRisk = (doc.riskRate || 0.02) * (lowConf ? 0.5 : 1);
       if (side && r.entry != null && r.stop != null) {
-        var u = units(r.entry, r.stop, doc.riskRate || 0.02, S);
+        var u = units(r.entry, r.stop, effRisk, S);
         var tpD = r.take_profit != null ? Math.abs(Number(r.take_profit) - Number(r.entry)) : null;
         var slD = Math.abs(Number(r.entry) - Number(r.stop));
         var lossYen = -u.yenPerUnit * u.units, profYen = tpD != null ? tpD * S.jpy * u.units : null;
@@ -1041,7 +1292,7 @@ ANALYSIS_JS = r"""
         }
         h += "<div class='t-body'>" + ladder(r, S, ref)
            + "<div class='t-kpis'>"
-           + "<div><span>数量</span><b>" + u.units.toLocaleString() + "</b><small>通貨（" + (u.units / 1000) + "Lot）</small></div>"
+           + "<div><span>数量</span><b>" + u.units.toLocaleString() + "</b><small>通貨（" + (u.units / 1000) + "Lot）" + (lowConf ? "・自信『低』のためリスク半分（" + Math.round(effRisk * 1000) / 10 + "%）" : "") + "</small></div>"
            + "<div><span>損切りなら</span><b class='down'>" + yen(lossYen) + "</b><small>" + Math.round(slD * S.mult) + " pips</small></div>"
            + "<div><span>利確なら</span><b class='up'>" + (profYen != null ? yen(profYen) : "—") + "</b><small>" + (tpD != null ? Math.round(tpD * S.mult) + " pips" : "利確なし") + "</small></div>"
            + "<div><span>損益比</span><b>" + (rr != null ? "1 : " + rr.toFixed(2) : "—") + "</b><small>損1に対し益</small></div>"
@@ -1090,6 +1341,7 @@ ANALYSIS_JS = r"""
     }
     function showPair() {
       selectPair(); renderScalp(last); renderLog();
+      SC.pair = pairSel.value; SC.lastBy = lastBy; scDraw();
       sStatus.textContent = last ? pairSel.value + "の最終案 " + fmtAt(last.at) + "（レート " + (last.rate || "—")
         + "・リスク " + Math.round((last.riskRate || 0) * 100) + "%）" : pairSel.value + "の案はまだありません。";
     }
@@ -1102,6 +1354,14 @@ ANALYSIS_JS = r"""
         }, function (e) { sStatus.textContent = "保存先に接続できません（" + e.code + "）。"; });
       });
     } else { renderScalp(null); sStatus.textContent = "保存機能なし（この画面内だけ表示します）。"; }
+    // AIの案の履歴（押すたびに1件。チャートの◆と自動判定に使う）
+    if (db) {
+      SC.histCol = db.collection("scalp_hist");
+      SC.histCol.orderBy("at", "desc").limit(80).onSnapshot(function (snap) {
+        SC.hist = snap.docs.map(function (d) { var o = d.data(); o._id = d.id; return o; });
+        scDraw();
+      }, function () {});
+    }
     if (!sample) { sStatus.textContent += " ※「スキャル分析」は claude.ai の閲覧画面でのみ使えます。"; return; }
     sRun.hidden = false;
     var ctl = null, timer = null;
@@ -1118,12 +1378,12 @@ ANALYSIS_JS = r"""
       p.push("対象の通貨ペアは【" + S.name + "（" + S.code + "）】。価格は小数" + S.dec + "桁・単位は" + S.unit
         + "・1pip＝" + (S.mult === 100 ? "0.01円" : "0.0001ドル") + "。相手の通貨（" + S.other
         + "）はドルの動きを確認する材料として使う（ボードに両方の値動き・研究が載っている）。");
-      if (S.name === "ユーロドル") p.push("ユーロドルはドル円より短い足の優位性が小さい（15分足はPF1未満）。案を出してよいのは、スキャル研究の各時間足の上位条件のうち前半・後半ともPF1.1以上のもの（例: 4時間足『EMA20押し目/戻り・EMA200と同方向』、30分足『RSI行き過ぎの戻り・EMA200と同方向』）に合う時だけ。合わなければ見送り。ECB・ユーロ圏CPIなどユーロ側の★5級も避ける。");
+      if (S.name === "ユーロドル") p.push("ユーロドルはドル円より短い足の優位性が小さい（15分足はPF1未満）。前半・後半ともPF1.1以上の条件（例: 4時間足『EMA20押し目/戻り・EMA200と同方向』、30分足『RSI行き過ぎの戻り・EMA200と同方向』）に合えば自信『中』以上、PF1.0以上の条件に下の決まりで2つ合えば自信『低』で案を出してよい。ECB・ユーロ圏CPIなどユーロ側の★5級も避ける。");
       p.push("あなたは" + S.name + "のスキャルピング（数分〜数十分で5〜20pips程度を狙う超短期売買）の案を作る担当です。下の【運用ボードの内容】だけを材料にします。数字はボードの値を使い、無い数字は作らず『不明』と書くこと。");
       p.push("読む人は専門家ではありません。専門用語は避け、短い文で。これは本人のツール内の案であり投資助言ではない。");
-      p.push("判断材料: テクニカル合議（15分足・1時間足）、ATR、直近の値動き・高値安値・節目（ファンダ研究欄の『次の焦点』にある節目）、ファンダメンタルズ（レジーム・材料バランス・翌日予測・ニュース総括・当局のけん制・指標イベント）。指標発表の前後30分や★5級イベント直前なら『見送り』。材料が拮抗し方向が読めないときも『見送り』を選ぶ（無理に案を出さない）。");
+      p.push("判断材料: テクニカル合議（15分足・1時間足）、ATR、直近の値動き・高値安値・節目（ファンダ研究欄の『次の焦点』にある節目）、ファンダメンタルズ（レジーム・材料バランス・翌日予測・ニュース総括・当局のけん制・指標イベント）。指標発表の前後30分や★5級イベント直前なら『見送り』。材料が拮抗していても、下の『判断の決まり』で2つ以上の条件がそろえば自信『低』で案を出す（2026-10-13 落合さん指示: 見送りばかりで実績が見えないため判断を少し緩める）。");
       p.push("価格は『直近の値動き』の最終バー終値（あれば。無ければボードのヘッダのレート）を基準レートにし、エントリーは基準レートから" + S.zone + "以内、損切りは12pips前後（8〜16）、利確は損切りの1.2〜1.5倍で具体的な小数" + S.dec + "桁の数値を出す。数量は書かない（ページが口座資金とリスク率から計算する）。");
-      p.push("判断の決まり（過去の検証に寄せる）: ①『スキャル研究』の各時間足の上位条件（入り方・EMA200と同方向か・損切り/利確のATR倍率・時間帯）に、『直近の値動き』のその足の RSI14／EMA20とEMA50の配列／EMA200の向き／いまの時刻（JST）が合うときだけ案を出す。PFが1.0未満の足は案を出さない。②合わなければ必ず『見送り』。③『避ける時間帯』・指標の前後30分・★5級イベント接近時も見送り。④『これまでの案と結果』で負けが続いている型（同じ時間帯・同じ向き）は避ける。⑤案を出すときは reason に『時間足=◯・RSI=◯・EMA200の向き=◯・時間帯=◯時台（研究の勝率◯%）』と数字で根拠を書く。損切り/利確はその足の『損切りpips目安／利確pips目安』を使う。");
+      p.push("判断の決まり（過去の検証に寄せる）: ①『スキャル研究』のPF1.0以上の時間足の上位条件（入り方・EMA200と同方向か・時間帯）と、『直近の値動き』のその足の RSI14／EMA20とEMA50の配列／EMA200の向き／いまの時刻（JST）を比べる。4つとも合えば自信『高』、3つなら『中』、2つなら『低』で案を出す（緩めた基準。研究結論の『合わなければ見送り』よりこちらを優先）。②1つ以下しか合わない時だけ『見送り』。③★5級イベントの前後30分は必ず見送り。『避ける時間帯』は見送りにせず自信を1段下げる（低の場合は見送り）。④『これまでの案と結果』で負けが続いている型（同じ時間帯・同じ向き）は避ける。⑤案を出すときは reason に『時間足=◯・RSI=◯・EMA200の向き=◯・時間帯=◯時台（研究の勝率◯%）』と数字で根拠を書く。損切り/利確はその足の『損切りpips目安／利確pips目安』を使う。");
       p.push("内部予想（見送りでも必ず）: forecast に 15分・1時間・4時間・日足 の4行を入れ、各行で『方向（上／下／横ばい）・確率（%）・想定レンジ（円）・根拠（RSI・EMA配列・ATR・節目・ファンダを数字で）』を書く。確率は50%を中立とし、材料が無いときは50〜55%に留める。entry_triggers には『何が起きたら買い／売りの案に変わるか』を価格と時刻で2〜4個、next_check には次に見るべき時刻（JST）を書く。");
       if (sd && sd.研究) p.push("【スキャル研究（短い足から日足まで・時間帯幅1/2/3/6時間・JSON）】\n" + JSON.stringify(sd.研究).slice(0, 24000));
       if (sd && sd.値動き) p.push("【直近の値動き（15分・30分・1時間・4時間・日足の指標と直近バー。時刻はJST）】\n" + JSON.stringify(sd.値動き).slice(0, 16000));
@@ -1149,6 +1409,15 @@ ANALYSIS_JS = r"""
         if (pairSel.value === runPair) renderScalp(doc);
         sStatus.textContent = "案を更新 " + fmtAt(doc.at) + "（" + Math.round((Date.now() - t0) / 1000) + "秒・リスク " + Math.round(riskRate * 100) + "%）";
         if (runRef) { try { await runRef.set(doc); } catch (e) { sStatus.textContent += " ※保存できませんでした（閲覧のみの権限）。"; } }
+        if (SC.histCol) {
+          try {
+            var r0 = result || {};
+            await SC.histCol.doc(String(doc.at).replace(/[^0-9A-Za-z]/g, "") + (runPair === "ユーロドル" ? "eu" : "uj")).set(JSON.parse(JSON.stringify({
+              at: doc.at, pair: runPair, verdict: r0.verdict || "見送り", confidence: r0.confidence || "",
+              entry: r0.entry, stop: r0.stop, take_profit: r0.take_profit, rate: rate, riskRate: riskRate,
+              headline: r0.headline || "" })));
+          } catch (e) {}
+        }
       } catch (e) {
         if (e && e.code === "cancelled") { sStatus.textContent = "停止しました。"; renderScalp(last); }
         else { sStatus.textContent = copyFor[e && e.code] || "分析に失敗しました（" + (e && e.code) + "）。"; renderScalp(last); }
@@ -1618,6 +1887,87 @@ def _today_html(rows, order_json, is_flash, action_count, near_exit, stale_day="
             f'<ul class="todo">{lis}</ul></section>')
 
 
+_SC_METHODS = {"RSI行き過ぎの戻り": "rsi_rev", "ボリンジャー外→内の戻り": "bb_rev",
+               "直近4本レンジのブレイク": "range_brk", "EMA20押し目/戻り": "ema_pull"}
+
+
+def _parse_scalp_label(lab):
+    """研究の条件ラベル → (入り方, 順行のみ, 損切りATR, 利確ATR, 保有本数)。読めなければ None。"""
+    m = re.match(r"(.+?)(・EMA200と同方向のみ)?（損切りATR×([\d.]+)／利確ATR×([\d.]+)／最長(\d+)本）", lab or "")
+    if not m or m.group(1) not in _SC_METHODS:
+        return None
+    return _SC_METHODS[m.group(1)], bool(m.group(2)), float(m.group(3)), float(m.group(4)), int(m.group(5))
+
+
+def _scalp_chart(pair="usdjpy", days=10):
+    """2026-10-13 落合さん指示「スキャルの実績が見えない。チャートでビジュアルに」。
+    ①15分足・1時間足のローソク（直近）＋EMA20/50 ②研究の最良ルールを機械的に当てはめた
+    ペーパートレード（直近の売買点・勝ち負け・累計pips）をボードに渡す。発注とは無関係の検証表示。"""
+    try:
+        import numpy as np                                   # noqa: PLC0415
+        import research_scalp as rs                          # noqa: PLC0415
+        cfgp = rs.PAIRS[pair]
+        rs.MULT = cfgp["MULT"]
+        dec = 5 if pair == "eurusd" else 3
+        m15, h1 = rs._load_pair(pair)
+        res = json.load(open(R("results", cfgp["out"]), encoding="utf-8"))
+        end = m15.index[-1]
+        out = {"tf": {}, "paper": [], "最終": f"{end:%m/%d %H:%M}"}
+        frames = {"15分": (m15, 320), "1時間": (rs._base_for("1時間", m15, h1), 200)}
+        for name, (src, keep) in frames.items():
+            df = rs.add_indicators(rs.resample(src, "15min" if name == "15分" else "1h")).tail(keep)
+            out["tf"][name] = [[int(t.timestamp() // 60), round(r.Open, dec), round(r.High, dec),
+                                round(r.Low, dec), round(r.Close, dec),
+                                round(r.ema20, dec), round(r.ema50, dec)] for t, r in df.iterrows()]
+        for tf_name in ("1時間", "15分"):
+            top = ((res.get("時間足別") or {}).get(tf_name) or {}).get("上位条件") or []
+            prm = _parse_scalp_label(top[0]["条件"]) if top else None
+            if not prm:
+                continue
+            meth, trend_only, sl_k, tp_k, hold = prm
+            df = rs.add_indicators(rs.resample(rs._base_for(tf_name, m15, h1), "15min" if tf_name == "15分" else "1h"))
+            sig = rs.signals(df, meth).values
+            o, hi, lo, c = (df[k].values for k in ("Open", "High", "Low", "Close"))
+            atr, tr, idx = df["atr"].values, df["trend"].values, df.index
+            trades, last_exit, n = [], -1, len(df)
+            for i in np.where(sig != 0)[0]:
+                if i + 1 >= n or i <= last_exit or not np.isfinite(atr[i]) or atr[i] <= 0:
+                    continue
+                d = int(sig[i])
+                if trend_only and tr[i] != d:
+                    continue
+                if idx[i + 1] < end - pd.Timedelta(days=30):
+                    continue
+                e = o[i + 1]
+                stop, take = e - d * sl_k * atr[i] / rs.MULT, e + d * tp_k * atr[i] / rs.MULT
+                pnl, jx, px_out, why = None, None, None, "時間切れ"
+                for j in range(i + 1, min(i + 1 + hold, n)):
+                    if (lo[j] <= stop) if d > 0 else (hi[j] >= stop):
+                        pnl, jx, px_out, why = -sl_k * atr[i], j, stop, "損切り"
+                        break
+                    if (hi[j] >= take) if d > 0 else (lo[j] <= take):
+                        pnl, jx, px_out, why = tp_k * atr[i], j, take, "利確"
+                        break
+                if pnl is None:
+                    if i + hold >= n:     # まだ決着していない（保有中）
+                        trades.append({"in": int(idx[i + 1].timestamp() // 60), "d": d, "e": round(e, dec),
+                                       "sl": round(stop, dec), "tp": round(take, dec), "open": True})
+                        break
+                    jx = i + hold
+                    px_out = c[jx]
+                    pnl = (c[jx] - e) * d * rs.MULT
+                trades.append({"in": int(idx[i + 1].timestamp() // 60), "out": int(idx[jx].timestamp() // 60),
+                               "d": d, "e": round(e, dec), "x": round(float(px_out), dec),
+                               "sl": round(stop, dec), "tp": round(take, dec),
+                               "pips": round(float(pnl) - rs.COST_PIPS, 1), "why": why})
+                last_exit = jx
+            out["paper"].append({"tf": tf_name, "rule": top[0]["条件"], "PF": top[0]["PF"],
+                                 "勝率": top[0]["勝率"], "回数": top[0]["取引数"], "trades": trades})
+        return out
+    except Exception as e:  # noqa: BLE001
+        return {"error": str(e)[:200]}
+
+
 def _scalp_snapshot(pair="usdjpy"):
     """スキャル分析に渡す「直近の値動き」を短い足から長期まで（15分・30分・1時間・
     4時間・日足）そろえる。各足の RSI14・EMA20/50/200・EMA200の向き・ATR・直近バー。
@@ -1962,6 +2312,11 @@ def build():
                                      "ユーロドル": {"研究": scalp_research_eu,
                                                "値動き": _scalp_snapshot("eurusd")}},
                                     ensure_ascii=False).replace("</", "<\\/")
+                       + "</script>"
+                       # 2026-10-13: スキャルのチャート用（ローソク・EMA・ペーパートレード）。分析の材料とは別枠
+                       + '<script type="application/json" id="scalp-chart">'
+                       + json.dumps({"ドル円": _scalp_chart("usdjpy"), "ユーロドル": _scalp_chart("eurusd")},
+                                    ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/")
                        + "</script>")
     # 本日の配信メタ（各ステージの実際の生成時刻・遅延印・完成率）
     # 2026-08-12: launchdの発火遅れ+エンジンの長時間ハングで最終確定が09:34になった
