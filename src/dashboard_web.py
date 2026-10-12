@@ -57,6 +57,44 @@ ANALYSIS_CSS = """
 .aout table td:not(:last-child), .aout table th { white-space:nowrap; }
 .aout table td:last-child { white-space:normal; min-width:14em; }
 .aout .tag { white-space:nowrap; }
+/* スキャル発注チケット（2026-10-12）: 側（買/売/見送り）を色帯と大見出しで、価格ははしご図で */
+.ticket { margin-top:12px; border:1px solid var(--line); border-radius:12px; overflow:hidden;
+  background:var(--panel); }
+.ticket .t-head { padding:12px 16px; border-left:6px solid var(--sub); background:var(--chipbg); }
+.ticket.buy .t-head { border-left-color:var(--buy); }
+.ticket.sell .t-head { border-left-color:var(--sell); }
+.t-pair { font-size:.75rem; letter-spacing:.08em; color:var(--sub); font-weight:700; }
+.t-do { font-size:1.5rem; font-weight:800; line-height:1.3; }
+.ticket.buy .t-do { color:var(--buy); } .ticket.sell .t-do { color:var(--sell); }
+.ticket.flat .t-do { color:var(--ink); }
+.t-sub { font-size:.82rem; color:var(--sub); margin-top:2px; }
+.t-body { padding:12px 16px; display:grid; gap:12px; }
+.ladder { max-width:640px; }
+.ladder .lv { stroke-width:2; } .ladder .lv.up { stroke:var(--up); } .ladder .lv.down { stroke:var(--down); }
+.ladder .lv.ent { stroke:var(--ink); stroke-width:2.5; } .ladder .lv.now { stroke:var(--sub); stroke-dasharray:5 4; }
+.ladder .lt { font-size:13px; font-weight:700; fill:var(--sub); }
+.ladder .lt.up { fill:var(--up); } .ladder .lt.down { fill:var(--down); } .ladder .lt.ent { fill:var(--ink); }
+.ladder .lp { font-size:13px; fill:var(--ink); font-family:ui-monospace,"SF Mono",Menlo,monospace; }
+.ladder .zone-up { fill:var(--up); opacity:.10; } .ladder .zone-down { fill:var(--down); opacity:.10; }
+.t-kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:8px; }
+.t-kpis > div { background:var(--chipbg); border-radius:10px; padding:8px 10px; display:grid; gap:2px; }
+.t-kpis span { font-size:.72rem; color:var(--sub); }
+.t-kpis b { font-size:1.2rem; font-variant-numeric:tabular-nums; }
+.t-kpis small { font-size:.72rem; color:var(--sub); }
+.t-steps { margin:0; padding-left:1.4em; display:grid; gap:6px; font-size:.9rem; }
+.t-steps li::marker { font-weight:800; color:var(--gold); }
+.mono { font-family:ui-monospace,"SF Mono",Menlo,monospace; }
+.t-warn { margin:0; padding:8px 12px; border-radius:8px; background:var(--chipbg); color:var(--down); font-weight:700; }
+.t-lead { margin:0; font-weight:600; }
+.t-trig { margin:0; padding:0; list-style:none; display:grid; gap:6px; }
+.t-trig li { padding:8px 12px; border:1px dashed var(--line); border-radius:8px; font-size:.88rem; }
+.t-trig li::before { content:"□ "; color:var(--gold); font-weight:800; }
+.t-foot { padding:8px 16px; border-top:1px solid var(--line); font-size:.85rem; color:var(--sub); }
+.fc-row { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:8px; margin-top:10px; }
+.fc { border:1px solid var(--line); border-radius:10px; padding:8px 10px; display:grid; gap:2px; }
+.fc span { font-size:.72rem; color:var(--sub); } .fc b { font-size:1rem; }
+.fc.buy b { color:var(--buy); } .fc.sell b { color:var(--sell); } .fc small { font-size:.72rem; color:var(--sub); }
+.t-more { margin-top:10px; } .t-more summary { font-weight:700; color:var(--ink); }
 .aout .tag { display:inline-block; border-radius:999px; padding:1px 8px;
   font-size:.72rem; font-weight:700; color:#fff; background:var(--sub); }
 .aout .tag.now { background:var(--navy); } .aout .tag.more { background:var(--gold); }
@@ -615,55 +653,105 @@ ANALYSIS_JS = r"""
       var u = Math.floor(cap * riskRate / yenPerUnit / 1000) * 1000;
       return { pips: d * S.mult, units: Math.max(0, u), yenPerUnit: yenPerUnit };
     }
+    // 2026-10-12 落合さん指摘「ポジションの持ち方が分からない」→ 発注チケット形式に作り直し。
+    // 上から: ①いまやること（大きく） ②価格のはしご（利確・入る値・損切りの位置関係）
+    // ③数字4つ ④MATRIX TRADERでの手順（順番どおり） ⑤見送り時は「入る条件」と予想。根拠は折りたたみ。
+    function fmtP(x, S) { return x == null || isNaN(Number(x)) ? "—" : Number(x).toFixed(S.dec); }
+    function ladder(r, S, ref) {
+      var pts = [["利確", r.take_profit, "up"], ["入る値", r.entry, "ent"], ["損切り", r.stop, "down"]]
+        .filter(function (x) { return x[1] != null && !isNaN(Number(x[1])); });
+      if (ref) pts.push(["分析時の値", ref, "now"]);
+      if (pts.length < 2) return "";
+      var vals = pts.map(function (x) { return Number(x[1]); });
+      var hi = Math.max.apply(null, vals), lo = Math.min.apply(null, vals), span = (hi - lo) || 1;
+      var H = 168, top = 14, bot = 14, W = 640;
+      var y = function (v) { return top + (hi - v) / span * (H - top - bot); };
+      var g = "";
+      var e = Number(r.entry), tp = Number(r.take_profit), sl = Number(r.stop);
+      if (!isNaN(e) && !isNaN(tp)) g += "<rect x='150' width='300' y='" + Math.min(y(e), y(tp)) + "' height='" + Math.abs(y(e) - y(tp)) + "' class='zone-up'/>";
+      if (!isNaN(e) && !isNaN(sl)) g += "<rect x='150' width='300' y='" + Math.min(y(e), y(sl)) + "' height='" + Math.abs(y(e) - y(sl)) + "' class='zone-down'/>";
+      pts.forEach(function (x) {
+        var yy = y(Number(x[1]));
+        var pips = (x[2] === "up" || x[2] === "down") && !isNaN(e)
+          ? Math.round(Math.abs(Number(x[1]) - e) * S.mult) + " pips" : "";
+        g += "<line x1='150' x2='450' y1='" + yy + "' y2='" + yy + "' class='lv " + x[2] + "'/>"
+           + "<text x='140' y='" + (yy + 4) + "' text-anchor='end' class='lt " + x[2] + "'>" + x[0] + "</text>"
+           + "<text x='460' y='" + (yy + 4) + "' class='lp'>" + fmtP(x[1], S) + "</text>"
+           + (pips ? "<text x='" + (W - 6) + "' y='" + (yy + 4) + "' text-anchor='end' class='lt " + x[2] + "'>" + pips + "</text>" : "");
+      });
+      return "<svg class='ladder' viewBox='0 0 " + W + " " + H + "' role='img' aria-label='価格の位置関係'>" + g + "</svg>";
+    }
     function renderScalp(doc) {
       if (!doc || !doc.result) { sOut.innerHTML = "<p class='note'>まだ案はありません。「スキャル分析」を押してください。</p>"; return; }
       var r = doc.result, h = "";
+      var S = spec(doc.pair || "ドル円");
       var v = String(r.verdict || "見送り");
-      var cls = /買/.test(v) ? "buy" : /売/.test(v) ? "sell" : "flat";
-      h += "<div class='lead'><span class='pos " + cls + "'>" + esc(v) + "</span>　"
-         + esc(r.headline || "") + (r.confidence ? "　<span class='tag'>" + esc("自信 " + r.confidence) + "</span>" : "") + "</div>";
-      if (r.reason) h += "<h4>根拠（テクニカル）</h4>" + list(r.reason);
-      if (r.fundamental) h += "<h4>ファンダの読み（この案に効く材料）</h4>" + list(r.fundamental);
-      // 内部予想（見送りでも毎回出す）: 各時間足の方向・確率・想定レンジ・何が起きたら入るか
-      if (r.forecast && r.forecast.length) {
-        h += "<h4>内部予想（見送りでも毎回・短い足から長期まで）</h4><div class='tablewrap'><table>"
-           + "<tr><th>時間足</th><th>方向</th><th>確率</th><th>想定レンジ</th><th>根拠</th></tr>";
-        r.forecast.forEach(function (f) {
-          var fc = /上|買|円安/.test(String(f.direction || "")) ? "buy" : /下|売|円高/.test(String(f.direction || "")) ? "sell" : "flat";
-          h += "<tr><td>" + esc(f.timeframe) + "</td><td class='pos " + fc + "'>" + esc(f.direction) + "</td>"
-             + "<td>" + esc(f.probability) + "</td><td>" + esc(f.range) + "</td><td>" + esc(f.basis) + "</td></tr>";
-        });
-        h += "</table></div>";
-      }
-      if (r.entry_triggers && r.entry_triggers.length) h += "<h4>何が起きたら入るか（次に見る条件）</h4>" + list(r.entry_triggers);
-      if (r.next_check) h += "<p class='note'>次に見るべき時刻: " + esc(r.next_check) + "</p>";
-      if (cls !== "flat" && r.entry != null && r.stop != null) {
-        var S = spec(doc.pair || "ドル円");
+      var side = /買/.test(v) ? 1 : /売/.test(v) ? -1 : 0;
+      var cls = side > 0 ? "buy" : side < 0 ? "sell" : "flat";
+      var ref = doc.rate ? Number(doc.rate) : null;
+      var big = side > 0 ? "買いで入る（ロング）" : side < 0 ? "売りで入る（ショート）" : "今は入らない（見送り）";
+      var sub = S.code + "・" + esc(r.headline || "") + (r.confidence ? "・自信 " + esc(r.confidence) : "");
+      h += "<div class='ticket " + cls + "'><div class='t-head'><div class='t-pair'>" + S.code + "</div>"
+         + "<div class='t-do'>" + big + "</div><div class='t-sub'>" + sub + "</div></div>";
+      if (side && r.entry != null && r.stop != null) {
         var u = units(r.entry, r.stop, doc.riskRate || 0.02, S);
         var tpD = r.take_profit != null ? Math.abs(Number(r.take_profit) - Number(r.entry)) : null;
-        var tpPips = tpD != null ? tpD * S.mult : null;
+        var slD = Math.abs(Number(r.entry) - Number(r.stop));
         var lossYen = -u.yenPerUnit * u.units, profYen = tpD != null ? tpD * S.jpy * u.units : null;
-        h += "<h4>発注案（MATRIX TRADERへ転記・" + S.code + "）</h4><div class='tablewrap'><table>"
-           + "<tr><th>項目</th><th>値</th></tr>"
-           + "<tr><td>売買</td><td><b>" + esc(v) + "</b></td></tr>"
-           + "<tr><td>数量</td><td><b>" + u.units.toLocaleString() + " 通貨</b>（1回のリスク " + Math.round((doc.riskRate || 0.02) * 100) + "%＝" + Math.round(cap * (doc.riskRate || 0.02)).toLocaleString() + "円を損切り幅で割った値）</td></tr>"
-           + "<tr><td>エントリー</td><td>" + Number(r.entry).toFixed(S.dec) + " " + S.unit + (r.entry_zone ? "（目安の価格帯 " + esc(r.entry_zone) + "）" : "") + "</td></tr>"
-           + "<tr><td>逆指値（損切り）</td><td>" + Number(r.stop).toFixed(S.dec) + " " + S.unit + "　損切り幅 " + Math.round(u.pips) + " pips　<span class='down'>" + yen(lossYen) + "</span></td></tr>"
-           + "<tr><td>指値（利確）</td><td>" + (r.take_profit != null ? Number(r.take_profit).toFixed(S.dec) + " " + S.unit + "　利確幅 " + Math.round(tpPips) + " pips　<span class='up'>" + yen(profYen) + "</span>" : "—") + "</td></tr>"
-           + "<tr><td>有効時間</td><td>" + esc(r.valid_until || "—") + "</td></tr>"
-           + "<tr><td>基準レート</td><td>" + esc(r.reference_rate || "—") + "（ボード時点。現在値と" + esc(r.max_slippage || "10pips") + "以上ずれたら見送り）</td></tr>"
-           + "</table></div>";
-        if (u.units === 0) h += "<p class='note'>※損切り幅に対してリスク額が小さく、1,000通貨未満になるため発注不可。</p>";
-      } else if (cls !== "flat") {
-        h += "<p class='note'>価格が指定されなかったため発注案は出せません。もう一度押してください。</p>";
+        var rr = tpD != null && slD ? (tpD / slD) : null;
+        // 入り方: 分析時の値より有利な側なら指値、不利な側なら逆指値、ほぼ同じなら成行
+        var e = Number(r.entry), eps = 2 / S.mult, how = "成行";
+        if (ref != null) {
+          if ((side > 0 && e < ref - eps) || (side < 0 && e > ref + eps)) how = "指値";
+          else if ((side > 0 && e > ref + eps) || (side < 0 && e < ref - eps)) how = "逆指値";
+        }
+        h += "<div class='t-body'>" + ladder(r, S, ref)
+           + "<div class='t-kpis'>"
+           + "<div><span>数量</span><b>" + u.units.toLocaleString() + "</b><small>通貨（" + (u.units / 1000) + "Lot）</small></div>"
+           + "<div><span>損切りなら</span><b class='down'>" + yen(lossYen) + "</b><small>" + Math.round(slD * S.mult) + " pips</small></div>"
+           + "<div><span>利確なら</span><b class='up'>" + (profYen != null ? yen(profYen) : "—") + "</b><small>" + (tpD != null ? Math.round(tpD * S.mult) + " pips" : "利確なし") + "</small></div>"
+           + "<div><span>損益比</span><b>" + (rr != null ? "1 : " + rr.toFixed(2) : "—") + "</b><small>損1に対し益</small></div>"
+           + "</div>";
+        if (u.units === 0) h += "<p class='t-warn'>損切り幅に対してリスク額が小さく1,000通貨未満になるため、この案は発注できません。1回のリスクを上げるか見送ってください。</p>";
+        h += "<ol class='t-steps'>"
+           + "<li>MATRIX TRADER で通貨ペアを <b>" + S.code + "</b> にする</li>"
+           + "<li>新規注文 →「<b>IFO</b>」タブ（新規と利確・損切りを1回で出す注文）</li>"
+           + "<li>新規: <b>" + (side > 0 ? "買" : "売") + "</b>・数量 <b>" + u.units.toLocaleString() + "</b>・<b>" + how + "</b>"
+           + (how === "成行" ? "（いまの値がおおむね " + fmtP(r.entry, S) + " 付近なら）" : " <b class='mono'>" + fmtP(r.entry, S) + "</b>") + "</li>"
+           + "<li>決済（OCO）: 指値（利確） <b class='mono up'>" + fmtP(r.take_profit, S) + "</b> ／ 逆指値（損切り） <b class='mono down'>" + fmtP(r.stop, S) + "</b></li>"
+           + "<li>有効期限: <b>" + esc(r.valid_until || "当日中") + "</b>。それまでに約定しなければ注文を取り消す</li>"
+           + "<li>約定したら触らない（利確か損切りで自動的に終わる）。現在値が " + fmtP(ref, S) + " から "
+           + esc(r.max_slippage || "10pips") + " 以上離れていたら、発注せず見送る</li>"
+           + "</ol></div>";
+      } else if (side) {
+        h += "<p class='t-warn'>価格が出なかったため発注案になりません。もう一度「スキャル分析」を押してください。</p>";
+      } else {
+        h += "<div class='t-body'><p class='t-lead'>条件がそろっていないため、いまは建てません。次の条件がそろったら案に変わります。</p>";
+        if (r.entry_triggers && r.entry_triggers.length) {
+          h += "<ul class='t-trig'>" + r.entry_triggers.map(function (x) { return "<li>" + esc(x) + "</li>"; }).join("") + "</ul>";
+        }
+        h += "</div>";
       }
-      if (r.checklist) h += "<h4>発注前チェック</h4>" + list(r.checklist);
-      if (r.other_pairs && r.other_pairs.length) {
-        h += "<h4>他の通貨ペアへの含意（方向のみ・数値なし＝ボードに値動きデータが無いため）</h4><ul>";
-        r.other_pairs.forEach(function (p) { h += "<li><b>" + esc(p.pair) + "</b> " + esc(p.bias) + "：" + esc(p.why) + "</li>"; });
-        h += "</ul>";
+      if (r.next_check) h += "<div class='t-foot'>次に見る時刻: <b>" + esc(r.next_check) + "</b></div>";
+      h += "</div>";
+      // 内部予想（コンパクト表示: 矢印＋確率）
+      if (r.forecast && r.forecast.length) {
+        h += "<div class='fc-row'>" + r.forecast.map(function (f) {
+          var d = String(f.direction || "");
+          var c = /上|買|円安/.test(d) ? "buy" : /下|売|円高/.test(d) ? "sell" : "flat";
+          var arrow = c === "buy" ? "↑" : c === "sell" ? "↓" : "→";
+          return "<div class='fc " + c + "' title='" + esc(f.basis || "") + "'><span>" + esc(f.timeframe) + "</span><b>" + arrow + " " + esc(d) + "</b>"
+               + "<small>" + esc(f.probability || "") + "・" + esc(f.range || "") + "</small></div>";
+        }).join("") + "</div>";
       }
-      if (r.caution) h += "<h4>注意</h4>" + list(r.caution);
+      if (r.checklist && r.checklist.length) h += "<h4>発注前チェック</h4>" + list(r.checklist);
+      var more = "";
+      if (r.reason) more += "<h4>根拠（テクニカル）</h4>" + list(r.reason);
+      if (r.fundamental) more += "<h4>ファンダの読み</h4>" + list(r.fundamental);
+      if (r.forecast && r.forecast.length) more += "<h4>予想の根拠</h4>" + list(r.forecast.map(function (f) { return f.timeframe + ": " + (f.basis || ""); }));
+      if (r.other_pairs && r.other_pairs.length) more += "<h4>他の通貨ペア（方向のみ）</h4>" + list(r.other_pairs.map(function (p) { return p.pair + " " + p.bias + "：" + p.why; }));
+      if (r.caution) more += "<h4>注意</h4>" + list(r.caution);
+      if (more) h += "<details class='t-more'><summary>根拠・ファンダ・注意を開く</summary>" + more + "</details>";
       sOut.innerHTML = h;
     }
     function showPair() {
