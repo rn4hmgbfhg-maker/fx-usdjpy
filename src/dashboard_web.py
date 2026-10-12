@@ -1995,8 +1995,11 @@ def build():
         # 2026-10-12: ファンダ研究タスクが書く「スキャル指針」（避ける時間帯・狙い目・節目・
         # 方向バイアス）を表示。スキャル分析のプロンプトはボード本文経由でこれを読む。
         guide_html = ""
-        g = news.get("スキャル指針")
-        if isinstance(g, dict) and g:
+        # 2026-10-12: ユーロドル用の指針（スキャル指針_ユーロドル）と、ユーロドルのファンダ要約も表示
+        for key, ttl in (("スキャル指針", "スキャル指針・ドル円"), ("スキャル指針_ユーロドル", "スキャル指針・ユーロドル")):
+            g = news.get(key)
+            if not (isinstance(g, dict) and g):
+                continue
             parts = []
             for k in ("方向バイアス", "狙い目", "避ける時間帯", "節目", "一言"):
                 v = g.get(k)
@@ -2004,8 +2007,14 @@ def build():
                     vs = "／".join(str(x) for x in v) if isinstance(v, list) else str(v)
                     parts.append(f"<b>{html.escape(k)}</b>: {html.escape(vs)}")
             if parts:
-                guide_html = ('<div class="fbox"><div class="l">スキャル指針（ファンダ研究が3時間おきに更新）</div>'
-                              + "<br>".join(parts) + "</div>")
+                guide_html += (f'<div class="fbox"><div class="l">{ttl}（ファンダ研究が3時間おきに更新）</div>'
+                               + "<br>".join(parts) + "</div>")
+        eu_f = news.get("ユーロドル")
+        if isinstance(eu_f, dict) and eu_f:
+            parts = [f"<b>{html.escape(k)}</b>: {html.escape(chr(12289).join(map(str, v)) if isinstance(v, list) else str(v))}"
+                     for k, v in eu_f.items() if v]
+            guide_html += ('<div class="fbox"><div class="l">ユーロドルのファンダ（ECB・ユーロ圏・ドルとの関係）</div>'
+                           + "<br>".join(parts) + "</div>")
         themes = news.get("テーマ") or []
         items = "".join(_theme_row(t) for t in themes[:8])
         news_upd = str(news.get("更新") or "")
