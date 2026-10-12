@@ -522,6 +522,7 @@ SCALP_CARD = """
   <div class="astatus" id="s-status">読み込み中…</div>
   <div class="sc-wrap" id="sc-wrap">
     <div class="sc-bar"><b id="sc-title">チャート</b>
+      <div class="sc-tabs" role="group" aria-label="表示の拡大縮小"><button type="button" id="sc-zin" aria-label="拡大（本数を減らす）">＋ 拡大</button><button type="button" id="sc-zout" aria-label="縮小（本数を増やす）">− 広く</button><button type="button" id="sc-zreset">既定</button><span class="params" id="sc-zoomlbl"></span></div>
       <div class="sc-tabs" role="group" aria-label="時間足"><button type="button" data-tf="15分" aria-pressed="true">15分</button><button type="button" data-tf="30分" aria-pressed="false">30分</button><button type="button" data-tf="1時間" aria-pressed="false">1時間</button><button type="button" data-tf="4時間" aria-pressed="false">4時間</button><button type="button" data-tf="8時間" aria-pressed="false">8時間</button><button type="button" data-tf="12時間" aria-pressed="false">12時間</button><button type="button" data-tf="24時間" aria-pressed="false">24時間</button></div></div>
     <div class="sc-legend"><span><i style="border-color:var(--navy)"></i>EMA20</span><span><i style="border-color:var(--gold)"></i>EMA50</span>
       <span>▲▼ ペーパー売買（塗り＝1時間ルール／白抜き＝15分ルール）</span><span>● 決済（緑＝勝ち・赤＝負け）</span><span>◆ AIの案</span>
@@ -969,7 +970,7 @@ ANALYSIS_JS = r"""
   // ── スキャル用チャート（2026-10-13 落合さん指示「実績が見えない。チャートでビジュアルに」）──
   // ローソク＋EMA20/50、研究の最良ルールのペーパー売買（▲▼→●）、AIの案（◆）と最新案の線、
   // 下に成績タイルと累計pipsの推移。AIの案はその後の15分足で自動判定する。
-  var SC = { pair: "ドル円", tf: "15分", hist: [], lastBy: {}, histCol: null };
+  var SC = { pair: "ドル円", tf: "15分", hist: [], lastBy: {}, histCol: null, zoom: {} };
   var scAll = null;
   try { var sce = document.getElementById("scalp-chart"); if (sce) scAll = JSON.parse(sce.textContent); } catch (e) { scAll = null; }
   function scSpec(p) { return p === "ユーロドル" ? { dec: 5, mult: 10000 } : { dec: 3, mult: 100 }; }
@@ -1016,9 +1017,16 @@ ANALYSIS_JS = r"""
     // 画面幅に合わせて描く（スマホで文字が潰れないように）。狭い画面は直近の足だけ
     var VW = Math.max(340, Math.min(1000, Math.round(wrap.clientWidth - 24) || 720));
     var S = scSpec(SC.pair), bars = C.tf[SC.tf];
-    var keep = VW < 520 ? 110 : VW < 760 ? 200 : bars.length;
+    // 2026-10-13: 時間足ごとに既定の表示本数を決め（長い足ほど本数を絞って売買点を広げる）、
+    // ＋／−で拡大縮小。1本あたり最低4pxを保つ（スマホは自動で本数を減らす）
+    var DEF = { "15分": 96, "30分": 96, "1時間": 120, "4時間": 90, "8時間": 60, "12時間": 60, "24時間": 45 };
+    var maxByW = Math.floor((VW - 76) / 4);
+    var want = SC.zoom[SC.tf] || DEF[SC.tf] || 100;
+    var keep = Math.max(20, Math.min(want, bars.length, maxByW));
     bars = bars.slice(-keep);
     var n = bars.length;
+    var zl = $("sc-zoomlbl");
+    if (zl) zl.textContent = n + "本（" + scT(bars[0][0]).slice(0, 5) + "〜）";
     svg.setAttribute("viewBox", "0 0 " + VW + " 320");
     $("sc-title").textContent = SC.pair + " " + SC.tf + "足（最終 " + (C.最終 || "") + "・ボード更新時点）";
     var X0 = 8, X1 = VW - 68, Y0 = 10, Y1 = 290, W = (X1 - X0) / n;
@@ -1031,7 +1039,7 @@ ANALYSIS_JS = r"""
         if (x[1] != null && !isNaN(Number(x[1]))) { lines.push(x); hi = Math.max(hi, Number(x[1])); lo = Math.min(lo, Number(x[1])); }
       });
     }
-    var pad = (hi - lo) * 0.05 || 1 / S.mult; hi += pad; lo -= pad;
+    var pad = (hi - lo) * 0.14 || 1 / S.mult; hi += pad; lo -= pad;   // 足の上下に売買の印を置く余白
     var y = function (v) { return Y0 + (hi - v) / (hi - lo) * (Y1 - Y0); };
     var x = function (i) { return X0 + (i + 0.5) * W; };
     var g = "";
@@ -1050,19 +1058,41 @@ ANALYSIS_JS = r"""
     ["e20", "e50"].forEach(function (c, ci) {
       g += "<polyline class='" + c + "' points='" + bars.map(function (b, i) { return x(i).toFixed(1) + "," + y(b[5 + ci]).toFixed(1); }).join(" ") + "'/>";
     });
-    // ペーパー売買
-    var marks = {};
+    // ペーパー売買（2026-10-13 再設計）: 長い足でつぶれないよう、①▲は足の安値の下・▼は高値の上に置く
+    // ②同じ足・同じルール・同じ向きはまとめて1つの印＋件数 ③決済の●は、入った足と別の足なら決済値に、
+    // 同じ足なら▲▼の隣に小さく置く ④印の大きさは足の幅に合わせる（5〜9px）
+    var marks = {}, ms = Math.max(5, Math.min(9, W * 0.8)), groups = {};
     (C.paper || []).forEach(function (P, pi) {
       (P.trades || []).forEach(function (t) {
         var ii = scIdx(bars, t.in); if (ii < 0) return;
-        var io = t.open ? n - 1 : scIdx(bars, t.out);
-        var ye = y(t.e), xe = x(ii), dir = t.d > 0 ? "tb" : "ts", hol = pi === 1 ? " hollow" : "";
-        g += "<line class='tl' x1='" + xe + "' y1='" + ye + "' x2='" + x(io) + "' y2='" + y(t.open ? t.e : t.x) + "'/>";
-        var tri = t.d > 0 ? [[xe, ye + 3], [xe - 6, ye + 13], [xe + 6, ye + 13]] : [[xe, ye - 3], [xe - 6, ye - 13], [xe + 6, ye - 13]];
-        g += "<polygon class='" + dir + hol + "' points='" + tri.map(function (p) { return p.join(","); }).join(" ") + "'/>";
-        if (!t.open) g += "<circle class='" + (t.pips > 0 ? "xw" : "xl") + "' cx='" + x(io) + "' cy='" + y(t.x) + "' r='4.5'/>";
+        var key = ii + "|" + pi + "|" + t.d;
+        (groups[key] = groups[key] || { ii: ii, pi: pi, d: t.d, list: [] }).list.push(t);
         (marks[ii] = marks[ii] || []).push(P.tf + "ルール " + (t.d > 0 ? "買" : "売") + " " + t.e.toFixed(S.dec) + (t.open ? "（保有中）" : " → " + t.x.toFixed(S.dec) + "（" + t.why + " " + (t.pips > 0 ? "+" : "") + t.pips + "pips）"));
       });
+    });
+    var stackB = {}, stackS = {};   // 同じ足に複数ルールの印が来たら上下にずらす
+    Object.keys(groups).forEach(function (k) {
+      var G = groups[k], b = bars[G.ii], xe = x(G.ii), hol = G.pi === 1 ? " hollow" : "", dir = G.d > 0 ? "tb" : "ts";
+      var lvl = G.d > 0 ? (stackB[G.ii] = (stackB[G.ii] || 0) + 1) : (stackS[G.ii] = (stackS[G.ii] || 0) + 1);
+      var off = 4 + (lvl - 1) * (ms * 2 + 4);
+      var yb = G.d > 0 ? y(b[3]) + off : y(b[2]) - off;   // 三角の先端
+      var tri = G.d > 0 ? [[xe, yb], [xe - ms, yb + ms * 1.6], [xe + ms, yb + ms * 1.6]] : [[xe, yb], [xe - ms, yb - ms * 1.6], [xe + ms, yb - ms * 1.6]];
+      G.list.forEach(function (t) {
+        if (t.open) return;
+        var io = scIdx(bars, t.out);
+        if (io > G.ii + 1) {   // 別の足で決着: 決済値に●と、入りからの点線
+          g += "<line class='tl' x1='" + xe + "' y1='" + y(t.e) + "' x2='" + x(io) + "' y2='" + y(t.x) + "'/>"
+             + "<circle class='" + (t.pips > 0 ? "xw" : "xl") + "' cx='" + x(io) + "' cy='" + y(t.x) + "' r='" + (ms * 0.6) + "'/>";
+        }
+      });
+      g += "<polygon class='" + dir + hol + "' points='" + tri.map(function (p) { return p[0].toFixed(1) + "," + p[1].toFixed(1); }).join(" ") + "'/>";
+      // 同じ足（または次の足）で決着したものは、三角の外側に勝ち負けの●を並べる
+      var near = G.list.filter(function (t) { return !t.open && scIdx(bars, t.out) <= G.ii + 1; });
+      var ybase = G.d > 0 ? yb + ms * 1.6 + ms * 0.7 + 2 : yb - ms * 1.6 - ms * 0.7 - 2;
+      near.slice(0, 3).forEach(function (t, q) {
+        g += "<circle class='" + (t.pips > 0 ? "xw" : "xl") + "' cx='" + (xe + (q - (Math.min(3, near.length) - 1) / 2) * ms * 1.3) + "' cy='" + ybase + "' r='" + (ms * 0.55) + "'/>";
+      });
+      if (G.list.length > 1) g += "<text class='pt ent' x='" + (xe + ms + 3) + "' y='" + (G.d > 0 ? yb + ms * 1.6 : yb - ms * 0.4) + "'>×" + G.list.length + "</text>";
     });
     // AIの案（◆）
     SC.hist.filter(function (h) { return (h.pair || "ドル円") === SC.pair; }).forEach(function (h) {
@@ -1070,7 +1100,7 @@ ANALYSIS_JS = r"""
       var side = /買/.test(h.verdict || "") ? "buy" : /売/.test(h.verdict || "") ? "sell" : "flat";
       var pv = h.entry != null ? Number(h.entry) : Number(h.rate); if (isNaN(pv)) return;
       var xx = x(ii), yy = y(pv);
-      g += "<polygon class='ai " + side + "' points='" + [[xx, yy - 7], [xx + 6, yy], [xx, yy + 7], [xx - 6, yy]].map(function (p) { return p.join(","); }).join(" ") + "'/>";
+      g += "<polygon class='ai " + side + "' points='" + [[xx, yy - ms * 1.1], [xx + ms, yy], [xx, yy + ms * 1.1], [xx - ms, yy]].map(function (p) { return p.join(","); }).join(" ") + "'/>";
       var ev = scEvalAI(h);
       (marks[ii] = marks[ii] || []).push("AIの案 " + (h.verdict || "見送り") + (h.entry != null ? " " + Number(h.entry).toFixed(S.dec) : "") + "（" + ev.res + (ev.pips != null ? " " + (ev.pips > 0 ? "+" : "") + ev.pips + "pips" : "") + "）");
     });
@@ -1162,17 +1192,25 @@ ANALYSIS_JS = r"""
       }
     });
   }
-  document.querySelectorAll("#sc-wrap .sc-tabs button").forEach(function (b) {
+  (function () {
+    var cur = function () { var C = scAll && scAll[SC.pair]; var n = C && C.tf && C.tf[SC.tf] ? C.tf[SC.tf].length : 100;
+      var v = document.querySelector("#sc-zoomlbl"); var m = v && /^(\d+)/.exec(v.textContent); return { now: m ? +m[1] : 100, max: n }; };
+    var zin = $("sc-zin"), zout = $("sc-zout"), zr = $("sc-zreset");
+    if (zin) zin.onclick = function () { var c = cur(); SC.zoom[SC.tf] = Math.max(20, Math.round(c.now / 1.5)); scDraw(); };
+    if (zout) zout.onclick = function () { var c = cur(); SC.zoom[SC.tf] = Math.min(c.max, Math.round(c.now * 1.5)); scDraw(); };
+    if (zr) zr.onclick = function () { delete SC.zoom[SC.tf]; scDraw(); };
+  })();
+  document.querySelectorAll("#sc-wrap .sc-tabs button[data-tf]").forEach(function (b) {
     b.onclick = function () {
       SC.tf = b.dataset.tf;
       try { localStorage.setItem("fx_scalp_tf", SC.tf); } catch (e) {}
-      document.querySelectorAll("#sc-wrap .sc-tabs button").forEach(function (o) { o.setAttribute("aria-pressed", o === b ? "true" : "false"); });
+      document.querySelectorAll("#sc-wrap .sc-tabs button[data-tf]").forEach(function (o) { o.setAttribute("aria-pressed", o === b ? "true" : "false"); });
       scDraw();
     };
   });
   (function () {
     try { var st = localStorage.getItem("fx_scalp_tf"); if (st && scAll && scAll["ドル円"] && scAll["ドル円"].tf && scAll["ドル円"].tf[st]) {
-      SC.tf = st; document.querySelectorAll("#sc-wrap .sc-tabs button").forEach(function (o) { o.setAttribute("aria-pressed", o.dataset.tf === st ? "true" : "false"); }); } } catch (e) {}
+      SC.tf = st; document.querySelectorAll("#sc-wrap .sc-tabs button[data-tf]").forEach(function (o) { o.setAttribute("aria-pressed", o.dataset.tf === st ? "true" : "false"); }); } } catch (e) {}
     var ps = $("s-pair"); if (ps) SC.pair = ps.value; try { var sp = localStorage.getItem("fx_scalp_pair"); if (sp) SC.pair = sp; } catch (e) {} })();
   scDraw();
   var scRz = null;
