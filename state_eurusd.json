@@ -1,0 +1,20 @@
+{
+  "押し目戻り": {
+    "position": 0,
+    "entry": null,
+    "stop": null,
+    "units": 0,
+    "best": null,
+    "entry_date": null,
+    "jpy_at_entry": null
+  },
+  "トレンド": {
+    "position": -1,
+    "entry": 1.116071343421936,
+    "stop": 1.13877,
+    "units": 1000,
+    "best": 1.116071343421936,
+    "entry_date": "2026-10-13",
+    "jpy_at_entry": 158.589
+  }
+}
