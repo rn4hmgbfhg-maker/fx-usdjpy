@@ -1548,6 +1548,190 @@ ANALYSIS_JS = r"""
 </script>
 """
 
+# 2026-10-13 落合さん指示「ボードにコメント欄と送信ボタン。タスクに伝えたいことを送りやすく」
+# 連絡箱: 画面のどこからでも開ける「💬 タスクに伝える」＋各カードの見出しの💬（その欄を対象にして開く）。
+# 送った内容は artifact の db「board_inbox」に入り、連絡箱の処理タスク（毎時）と朝の配信タスクが読み、
+# 返事（reply）と状況（status）を書き戻す。画面の下に履歴と返事が並ぶ。
+INBOX_HTML = """
+<section class="card inbox" id="inbox">
+  <div class="card-head"><h3>タスクへの連絡<span class="badge">コメント欄</span></h3>
+    <span class="params">ここに書いて送ると、連絡箱の処理タスク（平日7〜23時の毎時）と朝の配信が読んで対応し、返事をここに書きます</span></div>
+  <div class="ib-form" id="ib-form">
+    <div class="ib-row"><span class="ib-l">宛先</span><div class="ib-chips" data-k="to">
+      <button type="button" data-v="おまかせ" aria-pressed="true">おまかせ</button><button type="button" data-v="朝の配信・指示書">朝の配信・指示書</button><button type="button" data-v="デイトレ">デイトレ</button><button type="button" data-v="スキャル・シグナル">スキャル・シグナル</button><button type="button" data-v="ボードの見た目・機能">ボードの見た目・機能</button><button type="button" data-v="研究・ファンダ">研究・ファンダ</button></div></div>
+    <div class="ib-row"><span class="ib-l">種類</span><div class="ib-chips" data-k="kind">
+      <button type="button" data-v="要望" aria-pressed="true">要望</button><button type="button" data-v="不具合">不具合</button><button type="button" data-v="質問">質問</button><button type="button" data-v="発注の報告">発注の報告</button><button type="button" data-v="メモ">メモ（記録だけ）</button></div></div>
+    <div class="ib-row"><span class="ib-l">定型文</span><div class="ib-tpl" id="ib-tpl">
+      <button type="button" data-kind="発注の報告" data-to="朝の配信・指示書" data-t="本日の指示書どおりに発注しました。">指示どおり発注した</button>
+      <button type="button" data-kind="発注の報告" data-to="朝の配信・指示書" data-t="本日の指示書は見送りました。理由：">見送った（理由）</button>
+      <button type="button" data-kind="発注の報告" data-to="スキャル・シグナル" data-t="スキャルのシグナルで入りました。結果：">シグナルで入った</button>
+      <button type="button" data-kind="不具合" data-to="ボードの見た目・機能" data-t="表示がおかしいです。場所：　どうおかしい：">表示がおかしい</button>
+      <button type="button" data-kind="要望" data-to="ボードの見た目・機能" data-t="こう変えてほしい：">こう変えてほしい</button>
+      <button type="button" data-kind="質問" data-to="おまかせ" data-t="教えてください：">質問する</button></div></div>
+    <textarea id="ib-text" rows="4" placeholder="伝えたいことを書いてください（⌘／Ctrl＋Enter で送信）。書きかけは自動で残ります"></textarea>
+    <div class="ib-row ib-foot">
+      <label class="ib-chk"><input type="checkbox" id="ib-ctx" checked> いまの画面の状況を添える（更新時刻・レート・見ている欄・選択中の倍率など）</label>
+      <label class="ib-chk"><input type="checkbox" id="ib-urgent"> 急ぎ</label>
+      <span class="ib-target" id="ib-target"></span>
+      <button class="abtn gold" id="ib-send" type="button">送信</button>
+    </div>
+    <div class="astatus" id="ib-status"></div>
+  </div>
+  <h4 class="fh">これまでの連絡と返事</h4>
+  <div id="ib-list" class="ib-list"><p class="note">読み込み中…</p></div>
+</section>
+<button class="ib-fab" id="ib-fab" type="button" aria-label="タスクに伝える">💬 タスクに伝える</button>
+"""
+
+INBOX_CSS = """
+.inbox{margin-top:var(--s4)}
+.ib-form{display:grid;gap:8px}
+.ib-row{display:flex;flex-wrap:wrap;gap:6px 8px;align-items:center}
+.ib-l{font-size:var(--fs-cap);color:var(--sub);font-weight:700;min-width:3.5em}
+.ib-chips,.ib-tpl{display:flex;flex-wrap:wrap;gap:4px}
+.ib-chips button,.ib-tpl button{border:1px solid var(--line-strong);background:var(--raised);color:var(--ink);border-radius:999px;padding:4px 12px;font-size:var(--fs-cap);font-weight:700;cursor:pointer}
+.ib-chips button[aria-pressed="true"]{background:var(--ink);color:var(--panel);border-color:var(--ink)}
+.ib-tpl button{border-style:dashed;font-weight:600}
+#ib-text{width:100%;box-sizing:border-box;border:1px solid var(--line-strong);border-radius:var(--r2);padding:10px 12px;font:inherit;font-size:16px;background:var(--panel);color:var(--ink);resize:vertical;min-height:6em}
+#ib-text:focus{outline:2px solid var(--navy);outline-offset:1px}
+.ib-foot{justify-content:space-between}
+.ib-chk{font-size:var(--fs-cap);color:var(--sub);display:flex;gap:4px;align-items:center}
+.ib-target{font-size:var(--fs-cap);color:var(--ink);font-weight:700}
+.ib-target button{margin-left:4px;border:0;background:none;color:var(--sub);cursor:pointer}
+.ib-list{display:grid;gap:8px}
+.ib-item{border:1px solid var(--line);border-radius:var(--r2);padding:8px 12px;background:var(--panel)}
+.ib-item .ib-meta{display:flex;flex-wrap:wrap;gap:4px 10px;font-size:var(--fs-cap);color:var(--sub)}
+.ib-item .ib-body{white-space:pre-wrap;margin-top:4px}
+.ib-item .ib-reply{margin-top:6px;padding:6px 10px;border-left:3px solid var(--navy);background:var(--raised);white-space:pre-wrap;font-size:var(--fs-note)}
+.ib-st{display:inline-block;border-radius:999px;padding:0 8px;font-weight:700;border:1px solid var(--line-strong)}
+.ib-st.s-未読{background:var(--act);color:var(--act-ink);border-color:transparent}
+.ib-st.s-対応中{background:var(--info-bg);color:var(--info-ink);border-color:transparent}
+.ib-st.s-確認待ち{background:var(--alert-bg);color:var(--alert-ink);border-color:var(--alert-line)}
+.ib-item .ib-act{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap}
+.ib-item .ib-act input{flex:1;min-width:10em;border:1px solid var(--line-strong);border-radius:var(--r2);padding:4px 8px;font:inherit;background:var(--panel);color:var(--ink)}
+.ib-fab{position:fixed;right:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:30;border:0;border-radius:999px;padding:12px 18px;font-weight:800;font-size:.95rem;background:var(--ink);color:var(--panel);box-shadow:0 6px 18px rgba(0,0,0,.22);cursor:pointer}
+.ib-pin{margin-left:6px;border:1px solid var(--line);background:var(--raised);border-radius:999px;font-size:.72rem;padding:0 7px;cursor:pointer;vertical-align:middle;color:var(--sub)}
+@media print{.ib-fab,.ib-pin{display:none}}
+"""
+
+INBOX_JS = r"""
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var esc = function (s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); };
+  var fmt = function (iso) { try { var d = new Date(iso); return (d.getMonth() + 1) + "/" + d.getDate() + " " + d.getHours() + ":" + ("0" + d.getMinutes()).slice(-2); } catch (e) { return ""; } };
+  var text = $("ib-text"), st = $("ib-status"), list = $("ib-list"), target = null;
+  var pick = function (k) { var b = document.querySelector(".ib-chips[data-k='" + k + "'] button[aria-pressed='true']"); return b ? b.dataset.v : ""; };
+  var setChip = function (k, v) { document.querySelectorAll(".ib-chips[data-k='" + k + "'] button").forEach(function (b) { b.setAttribute("aria-pressed", b.dataset.v === v ? "true" : "false"); }); };
+  document.querySelectorAll(".ib-chips button").forEach(function (b) {
+    b.onclick = function () { setChip(b.parentNode.dataset.k, b.dataset.v); };
+  });
+  // 書きかけの自動保存（この端末だけ）
+  try { var dr = localStorage.getItem("fx_inbox_draft"); if (dr) text.value = dr; } catch (e) {}
+  text.addEventListener("input", function () { try { localStorage.setItem("fx_inbox_draft", text.value); } catch (e) {} });
+  document.querySelectorAll("#ib-tpl button").forEach(function (b) {
+    b.onclick = function () {
+      setChip("kind", b.dataset.kind); setChip("to", b.dataset.to);
+      text.value = (text.value ? text.value.replace(/\s+$/, "") + "\n" : "") + b.dataset.t;
+      text.focus(); text.setSelectionRange(text.value.length, text.value.length);
+      try { localStorage.setItem("fx_inbox_draft", text.value); } catch (e) {}
+    };
+  });
+  function showTarget() {
+    var t = $("ib-target");
+    t.innerHTML = target ? "対象: " + esc(target) + " <button type='button' aria-label='対象を外す'>×</button>" : "";
+    var x = t.querySelector("button"); if (x) x.onclick = function () { target = null; showTarget(); };
+  }
+  function openWith(sectionTitle) {
+    target = sectionTitle || null; showTarget();
+    $("inbox").scrollIntoView({ behavior: "smooth", block: "start" });
+    setTimeout(function () { text.focus(); }, 350);
+  }
+  $("ib-fab").onclick = function () { openWith(null); };
+  // 各カードの見出しに 💬 を付け、その欄を対象にして開けるようにする
+  document.querySelectorAll(".card .card-head h2, .card .card-head h3, .card > h3, .card .tile-h h3").forEach(function (h) {
+    if (h.closest("#inbox")) return;
+    var b = document.createElement("button");
+    b.type = "button"; b.className = "ib-pin"; b.textContent = "💬"; b.title = "この欄についてタスクに伝える";
+    b.onclick = function (ev) { ev.preventDefault(); openWith(h.textContent.replace("💬", "").trim().slice(0, 40)); };
+    h.appendChild(b);
+  });
+  function context() {
+    var c = {};
+    try {
+      var u = document.querySelector(".upd"); if (u) c.board_updated = u.textContent.trim();
+      c.rates = Array.prototype.map.call(document.querySelectorAll(".inst"), function (e) { return e.innerText.replace(/\s+/g, " ").trim(); }).join(" ／ ");
+      var y = window.scrollY + 80, seen = "";
+      document.querySelectorAll("h2.grp, .card h3, .card h2").forEach(function (h) { if (h.getBoundingClientRect().top + window.scrollY <= y) seen = h.textContent.replace("💬", "").trim(); });
+      c.viewing = seen;
+      var rs = $("a-risk"); if (rs) c.risk_mult = rs.value;
+      var sp = $("s-pair"); if (sp) c.scalp_pair = sp.value;
+      var sr = $("s-risk"); if (sr) c.scalp_risk = sr.value;
+      var sg = $("sc-sig"); if (sg) c.scalp_signal = sg.innerText.replace(/\s+/g, " ").trim().slice(0, 160);
+      c.screen = window.innerWidth + "px";
+    } catch (e) {}
+    return c;
+  }
+  function render(items) {
+    if (!items.length) { list.innerHTML = "<p class='note'>まだ連絡はありません。</p>"; return; }
+    list.innerHTML = items.map(function (m) {
+      var s = m.status || "未読";
+      return "<div class='ib-item' data-id='" + esc(m._id) + "'><div class='ib-meta'><span class='ib-st s-" + esc(s) + "'>" + esc(s) + "</span>"
+        + "<span>" + esc(fmt(m.at)) + "</span><span>宛先: " + esc(m.to) + "</span><span>" + esc(m.kind) + "</span>"
+        + (m.urgent ? "<span><b>急ぎ</b></span>" : "") + (m.target ? "<span>対象: " + esc(m.target) + "</span>" : "") + "</div>"
+        + "<div class='ib-body'>" + esc(m.text) + "</div>"
+        + (m.reply ? "<div class='ib-reply'><b>" + esc(m.replied_by || "タスク") + "</b>（" + esc(fmt(m.replied_at)) + "）\n" + esc(m.reply) + "</div>" : "")
+        + (m.thread && m.thread.length ? m.thread.map(function (t) { return "<div class='ib-reply'><b>" + esc(t.by) + "</b>（" + esc(fmt(t.at)) + "）\n" + esc(t.text) + "</div>"; }).join("") : "")
+        + (s !== "完了" ? "<div class='ib-act'><input type='text' placeholder='返事・追記（承認なら「承認」）'><button type='button' class='abtn ghost' data-a='add'>追記して送る</button><button type='button' class='abtn ghost' data-a='done'>完了にする</button></div>" : "")
+        + "</div>";
+    }).join("");
+  }
+  if (!window.claude || typeof window.claude.use !== "function") {
+    list.innerHTML = "<p class='note'>この画面では送信できません（claude.ai の閲覧画面で使えます）。</p>";
+    $("ib-send").disabled = true; return;
+  }
+  claude.use("db").then(function (db) {
+    if (!db) { list.innerHTML = "<p class='note'>保存先に接続できないため送信できません。</p>"; $("ib-send").disabled = true; return; }
+    var col = db.collection("board_inbox"), items = [];
+    col.orderBy("at", "desc").limit(40).onSnapshot(function (snap) {
+      items = snap.docs.map(function (d) { var o = d.data(); o._id = d.id; return o; });
+      render(items);
+    }, function (e) { list.innerHTML = "<p class='note'>読み込めませんでした（" + esc(e.code) + "）。</p>"; });
+    async function send() {
+      var t = text.value.trim();
+      if (!t) { st.textContent = "内容を書いてください。"; text.focus(); return; }
+      $("ib-send").disabled = true; st.textContent = "送信中…";
+      var now = new Date().toISOString(), id = now.replace(/[^0-9]/g, "").slice(0, 17);
+      var doc = { at: now, to: pick("to"), kind: pick("kind"), text: t, urgent: $("ib-urgent").checked,
+        target: target || "", status: pick("kind") === "メモ" ? "完了" : "未読",
+        context: $("ib-ctx").checked ? context() : {}, thread: [] };
+      try {
+        await col.doc(id).set(JSON.parse(JSON.stringify(doc)));
+        text.value = ""; try { localStorage.removeItem("fx_inbox_draft"); } catch (e) {}
+        target = null; showTarget(); $("ib-urgent").checked = false;
+        st.textContent = "送信しました（" + fmt(now) + "）。" + (doc.status === "未読" ? "処理タスクが次の回（毎時）に読んで返事をここに書きます。" : "記録だけ残しました。");
+      } catch (e) {
+        st.textContent = "送信できませんでした（" + (e && e.code || "不明") + "）。書いた内容は残してあります。";
+      } finally { $("ib-send").disabled = false; }
+    }
+    $("ib-send").onclick = send;
+    text.addEventListener("keydown", function (ev) { if (ev.key === "Enter" && (ev.metaKey || ev.ctrlKey)) { ev.preventDefault(); send(); } });
+    list.addEventListener("click", async function (ev) {
+      var b = ev.target.closest("button[data-a]"); if (!b) return;
+      var box = b.closest(".ib-item"), id = box.dataset.id, m = items.filter(function (x) { return x._id === id; })[0];
+      if (!m) return;
+      try {
+        if (b.dataset.a === "done") { await col.doc(id).update({ status: "完了" }); return; }
+        var inp = box.querySelector("input"), v = inp.value.trim(); if (!v) { inp.focus(); return; }
+        var th = (m.thread || []).concat([{ by: "落合さん", at: new Date().toISOString(), text: v }]);
+        await col.doc(id).update({ thread: th, status: "未読" });
+      } catch (e) { st.textContent = "更新できませんでした（" + (e && e.code || "不明") + "）。"; }
+    });
+  });
+})();
+</script>
+"""
+
 ACT_STYLE = {  # アクション → (表示, クラス)
     "新規買(ロング)": ("新規 買", "buy"), "新規売(ショート)": ("新規 売", "sell"),
     # 2026-10-13: 売り玉では逆指値を「下げる」のに「切上げ」と出ていたため中立の表示にした。
@@ -3542,7 +3726,7 @@ def build():
     _fund_link = '<a href="#g-fund">ファンダ</a>' if fund_html else ""
     nav_html = (f'<nav class="jump" aria-label="ページ内の移動"><a href="#today">今日の発注{_cnt}</a>'
                 '<a href="#g-pos">ポジション</a><a href="#g-tools">分析・スキャル</a>'
-                f'{_fund_link}<a href="#g-perf">成績</a><a href="#g-log">記録・研究</a></nav>')
+                f'{_fund_link}<a href="#g-perf">成績</a><a href="#g-log">記録・研究</a><a href="#inbox">💬連絡</a></nav>')
     fund_head = ('<h2 class="grp" id="g-fund">ファンダ<small>相場の地合い・材料・スキャル指針</small></h2>'
                  if fund_html else "")
     _nsys = len(sys_cards) + len(eu_items)
@@ -3643,6 +3827,8 @@ def build():
 </section>
 {research_card}
 </div>
+<style>{INBOX_CSS}</style>
+{INBOX_HTML}
 <footer>発注はMATRIX TRADERで本人が手動で行う（JFXはEA・自動売買禁止）。逆指値は建玉と必ずセット。
 検証値は過去データによるもので将来の成果を保証しない。高重要度指標イベント日は新規建てを自動見送り。
 本ページは情報提供であり投資助言ではない。</footer>
@@ -3650,6 +3836,7 @@ def build():
 {order_data_html}
 {scalp_data_html}
 {ANALYSIS_JS}
+{INBOX_JS}
 """
     os.makedirs(os.path.dirname(OUT_HTML), exist_ok=True)
     with open(OUT_HTML, "w", encoding="utf-8") as f:
