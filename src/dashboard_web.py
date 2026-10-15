@@ -637,7 +637,13 @@ LIVE_JS = r"""
     var dl = await mcp.callTool("Google Drive", "download_file_content", { fileId: file.id }, { cache: false });
     return JSON.parse(b64utf8((dl.payload && dl.payload.content) || ""));
   }
-  async function run(manual) {
+  var running = null, latest = {};   // latest: ペア → {price, time}（スキャル分析が基準レートに使う）
+  function run(manual) {
+    if (running) return running;
+    running = runInner(manual).finally(function () { running = null; });
+    return running;
+  }
+  async function runInner(manual) {
     if (busy) return;
     if (!mcp) { st.textContent = "この画面ではGoogle Driveを使えないため、日足終値のままです（claude.ai で開いてください）。"; return; }
     busy = true; btn.disabled = true;
@@ -662,7 +668,7 @@ LIVE_JS = r"""
         var best = null;
         if (pp && pp.price) best = pp;
         if (row && row.price && (!best || row.time > best.time)) best = { price: row.price, time: row.time };
-        if (best) { setRate(pair, best.price, "現在 " + hhmm(best.time), close); newestT = Math.max(newestT, best.time); got++; }
+        if (best) { setRate(pair, best.price, "現在 " + hhmm(best.time), close); newestT = Math.max(newestT, best.time); got++; latest[pair] = best; }
         var C = sc && sc[PAIRS[pair]];
         if (C && row && row.tf) { C.tf = row.tf; C.最終 = row.最終 || ""; C.src = "更新ボタンで取得"; C.error = null; }
         if (C && best && extendBars(C, best.price, best.time)) redraw = true;
@@ -683,9 +689,22 @@ LIVE_JS = r"""
     setInterval(function () { if (document.visibilityState === "visible") run(false); }, 60000);
   }
   btn.onclick = function () { run(true); startTick(); };
+  // 2026-10-15 落合さん指示「スキャル分析のボタンを押したら、そこでも最新のチャートに更新」:
+  // スキャル分析はまずここを呼び、足のファイル・現在値を読み直してチャートを描き直してから分析する。
+  var mcpReady = null;
+  window.__fxLive = {
+    refresh: async function () {
+      if (!mcp && mcpReady) { try { await mcpReady; } catch (e) {} }
+      if (!mcp) return { ok: false, why: "Google Driveを使えないため、ボード作成時点の足で分析します" };
+      await run(true); startTick();
+      return { ok: true };
+    },
+    latest: function (pair) { return latest[pair] || null; },
+    label: hhmm
+  };
   // 開いたときにも1回だけ自動で読む（Driveの利用を許可済みの時だけ。未許可ならボタンで）
   if (window.claude && claude.use) {
-    Promise.all([claude.use("mcp"), claude.use("permissions")]).then(async function (r) {
+    mcpReady = Promise.all([claude.use("mcp"), claude.use("permissions")]).then(async function (r) {
       mcp = r[0];
       if (!mcp) return;
       var ok = true;
@@ -1624,12 +1643,35 @@ ANALYSIS_JS = r"""
     sRun.onclick = async function () {
       sRun.disabled = true; sStop.hidden = false; ctl = new AbortController();
       var t0 = Date.now(); sStatus.textContent = "スキャル分析中…（0秒）";
-      timer = setInterval(function () { sStatus.textContent = "スキャル分析中…（" + Math.round((Date.now() - t0) / 1000) + "秒）"; }, 1000);
+      var sPhase = "最新のチャートに更新中…";
+      timer = setInterval(function () { sStatus.textContent = sPhase + "（" + Math.round((Date.now() - t0) / 1000) + "秒）"; }, 1000);
       var riskRate = parseFloat(sRisk.value) || 0.02;
       selectPair();
       var S = spec(pairSel.value), runPair = pairSel.value, runRef = ref;
       var rate = sd && sd.値動き && sd.値動き["15分"] ? String(sd.値動き["15分"].終値) : "";
+      // ①まず最新のチャート（足のファイル＋毎分の現在値）に更新してから分析する（2026-10-15 指示）
+      var liveNote = "", LC = { "ドル円": "usdjpy", "ユーロドル": "eurusd", "ユーロ円": "eurjpy", "ポンド円": "gbpjpy" }[runPair];
+      if (window.__fxLive) {
+        try {
+          var lr = await window.__fxLive.refresh();
+          var lv = window.__fxLive.latest(LC);
+          if (lv && lv.price) {
+            rate = String(lv.price);
+            liveNote = "【現在値（" + window.__fxLive.label(lv.time) + "・ボードの直近の値動きより新しい）】" + runPair + " " + lv.price
+              + "。基準レート・エントリーはこの現在値を使う。";
+          } else if (lr && !lr.ok) { liveNote = ""; }
+        } catch (e) {}
+      }
+      sPhase = "スキャル分析中…" + (rate ? "（基準レート " + rate + "）" : "");
+      // 現在値まで伸ばした15分足の直近8本も材料に添える
+      try {
+        var C0 = window.__fxSc && window.__fxSc.data()[runPair];
+        var b15 = C0 && C0.tf && C0.tf["15分"] ? C0.tf["15分"].slice(-8) : [];
+        if (b15.length) liveNote += "【最新の15分足（現在値まで・JST）】" + JSON.stringify(b15.map(function (b) {
+          return { t: window.__fxLive ? window.__fxLive.label(b[0] * 60) : b[0], o: b[1], h: b[2], l: b[3], c: b[4] }; }));
+      } catch (e) {}
       var p = [];
+      if (liveNote) p.push(liveNote);
       p.push("対象の通貨ペアは【" + S.name + "（" + S.code + "）】。価格は小数" + S.dec + "桁・単位は" + S.unit
         + "・1pip＝" + (S.mult === 100 ? "0.01円" : "0.0001ドル") + "。相手の通貨（" + S.other
         + "）は" + (S.name === "ユーロ円" || S.name === "ポンド円" ? "円" : "ドル") + "の動きを確認する材料として使う（ボードに両方の値動き・研究が載っている）。");
