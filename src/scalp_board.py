@@ -269,8 +269,8 @@ STANCE_ORDER = {"入る候補": 0, "条件待ち": 1, "様子見寄り": 2}
 
 def rank_key(r):
     ev = r.get("ev_r")
-    return (STANCE_ORDER.get(r.get("stance"), 3), 0 if (ev is not None and ev > 0) else 1,
-            -(ev if ev is not None else -9), -r.get("score", 0))
+    return (0 if r.get("stance") == "入る候補" else 1, 0 if (ev is not None and ev > 0) else 1,
+            STANCE_ORDER.get(r.get("stance"), 3), -(ev if ev is not None else -9), -r.get("score", 0))
 
 
 def _wil(p, n, z=1.96):
@@ -383,8 +383,8 @@ def run(out_dir=None, force_research=False):
         print("スキャルボード: 全ペア計算失敗 " + "; ".join(errs))
         return
     # 2026-10-16 落合さん指摘「ボード内で矛盾している（どちらが有利か不明瞭）」: 順位は
-    # ①判定（入る候補→条件待ち→様子見寄り）②期待値（損失1単位あたり＝R倍。検証勝率×手取り利益−負け率×手取り損失）
-    # ③スコア の順に並べる。期待値マイナスのペアが1位に来ないようにする（全ペアがマイナスなら見送りが有利と表示）
+    # ①入る候補か ②期待値がプラスか ③判定（条件待ち→様子見寄り）④期待値の大きさ（損失1単位あたり＝R倍。
+    # 検証勝率×手取り利益−負け率×手取り損失）⑤スコア の順に並べる。期待値マイナスのペアが1位に来ないようにする（全ペアがマイナスなら見送りが有利と表示）
     rows.sort(key=rank_key)
     for i, r in enumerate(rows, 1):
         r["rank"] = i
