@@ -600,7 +600,32 @@ LIVE_JS = r"""
     not_in_manifest: "この画面でGoogle Driveが許可されていません",
     approval_required: "Google Driveの利用を許可してください（ボタンを押すと確認が出ます）",
     not_granted: "この画面ではGoogle Driveを使えません" };
-  var chartStamp = null;
+  var chartStamp = null, lastChartCheck = 0;
+  // 2026-10-15 落合さん指摘「チャートが最新の時間に更新されない」: 足のファイルは15分〜1時間ごとにしか
+  // 書かれず、元データ（Yahoo）も15分ほど遅れる。毎分の現在値で各時間足の最後の足を伸ばし（同じ足なら
+  // 高値・安値・終値を更新、新しい時間帯なら形成中の足を1本足す。EMAも同じ式で進める）、いまの時刻まで描く。
+  var TFMIN = { "15分": 15, "30分": 30, "1時間": 60, "4時間": 240, "8時間": 480, "12時間": 720, "24時間": 1440 };
+  function extendBars(C, price, sec) {
+    if (!C || !C.tf || !(price > 0) || !sec) return false;
+    var tmin = Math.floor(sec / 60), moved = false;
+    Object.keys(C.tf).forEach(function (k) {
+      var bars = C.tf[k], f = TFMIN[k];
+      if (!bars || !bars.length || !f) return;
+      var start = Math.floor((tmin + 540) / f) * f - 540;   // JSTの0時を起点に区切る（ボードの足と同じ）
+      var last = bars[bars.length - 1];
+      if (start === last[0]) {
+        last[2] = Math.max(last[2], price); last[3] = Math.min(last[3], price); last[4] = price; moved = true;
+      } else if (start > last[0]) {
+        var a20 = 2 / 21, a50 = 2 / 51;
+        bars.push([start, last[4], Math.max(last[4], price), Math.min(last[4], price), price,
+          last[5] + a20 * (price - last[5]), last[6] + a50 * (price - last[6])]);
+        if (bars.length > 400) bars.shift();
+        moved = true;
+      }
+    });
+    if (moved) C.最終 = hhmm(sec) + "（現在値まで）";
+    return moved;
+  }
   async function newest(title) {
     var found = await mcp.callTool("Google Drive", "search_files", {
       query: "title = '" + title + "'", excludeContentSnippets: true, pageSize: 5 }, { cache: false });
@@ -620,11 +645,15 @@ LIVE_JS = r"""
     st.textContent = pressed + " 読み込み中…";
     try {
       // ①チャートの足（毎時更新・大きい）は、前回より新しい時だけ読む
-      var cf = await newest("fx_live_latest.json"), data = null;
-      if (cf && cf.modifiedTime !== chartStamp) { data = await load(cf); chartStamp = cf.modifiedTime; }
+      var cf = null, data = null;
+      if (manual || Date.now() - lastChartCheck > 5 * 60000) {   // 足のファイルは手動時と5分ごとだけ確かめる
+        lastChartCheck = Date.now();
+        cf = await newest("fx_live_latest.json");
+        if (cf && cf.modifiedTime !== chartStamp) { data = await load(cf); chartStamp = cf.modifiedTime; }
+      }
       // ②価格（毎分更新・小さい）は毎回読む
       var pf = await newest("fx_live_prices.json"), prices = pf ? await load(pf) : null;
-      var sc = window.__fxSc ? window.__fxSc.data() : null, got = 0, newestT = 0;
+      var sc = window.__fxSc ? window.__fxSc.data() : null, got = 0, newestT = 0, redraw = false;
       for (var pair in PAIRS) {
         var el = document.querySelector('.inst[data-pair="' + pair + '"]');
         var close = el ? parseFloat(el.getAttribute("data-close")) : NaN;
@@ -636,8 +665,9 @@ LIVE_JS = r"""
         if (best) { setRate(pair, best.price, "現在 " + hhmm(best.time), close); newestT = Math.max(newestT, best.time); got++; }
         var C = sc && sc[PAIRS[pair]];
         if (C && row && row.tf) { C.tf = row.tf; C.最終 = row.最終 || ""; C.src = "更新ボタンで取得"; C.error = null; }
+        if (C && best && extendBars(C, best.price, best.time)) redraw = true;
       }
-      if (data && window.__fxSc) window.__fxSc.draw();
+      if ((data || redraw) && window.__fxSc) window.__fxSc.draw();
       var age = newestT ? Math.round((Date.now() / 1000 - newestT) / 60) : null;
       st.textContent = pressed + " に確認（" + got + "通貨）"
         + (age !== null ? "・価格は約" + age + "分前の値" : "")
@@ -647,7 +677,12 @@ LIVE_JS = r"""
     }
     busy = false; btn.disabled = false;
   }
-  btn.onclick = function () { run(true); };
+  var ticking = false;
+  function startTick() {
+    if (ticking) return; ticking = true;
+    setInterval(function () { if (document.visibilityState === "visible") run(false); }, 60000);
+  }
+  btn.onclick = function () { run(true); startTick(); };
   // 開いたときにも1回だけ自動で読む（Driveの利用を許可済みの時だけ。未許可ならボタンで）
   if (window.claude && claude.use) {
     Promise.all([claude.use("mcp"), claude.use("permissions")]).then(async function (r) {
@@ -655,7 +690,11 @@ LIVE_JS = r"""
       if (!mcp) return;
       var ok = true;
       try { if (r[1]) ok = (await r[1].state("mcp:Google Drive")) === "granted"; } catch (e) { ok = false; }
-      if (ok) run(false);
+      if (ok) {
+        run(false);
+        // 開いている間は1分ごとに現在値を読み、チャートの最後の足を伸ばす（画面が隠れている間は止める）
+        startTick();
+      }
       else st.textContent = "「現在価格に更新」を押すと、Google Drive から最新価格を読み込みます（初回は許可の確認が出ます）。";
     });
   }
