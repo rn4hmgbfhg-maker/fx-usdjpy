@@ -39,10 +39,10 @@ SL_K, TP_K, HOLD = 1.0, 1.5, 16
 RR_MIN = 1.2   # 2026-10-15: コスト込みのRRがこれを下回らないよう利確を広げる（ATRが小さくコスト比が高いペアで利益＜損失になる不具合の対策）
 
 
-def tp_pips_for(atr, cost):
-    """利確幅(pips)。基本はATR×1.5、ただし(利確−コスト)÷(損切り＋コスト)がRR_MIN以上になるまで広げる"""
-    sl = SL_K * atr
-    return max(TP_K * atr, RR_MIN * (sl + cost) + cost)
+def tp_pips_for(atr, cost, sl_k=None, tp_k=None):
+    """利確幅(pips)。基本はATR×tp_k、ただし(利確−コスト)÷(損切り＋コスト)がRR_MIN以上になるまで広げる"""
+    sl = (SL_K if sl_k is None else sl_k) * atr
+    return max((TP_K if tp_k is None else tp_k) * atr, RR_MIN * (sl + cost) + cost)
 METHODS = {"rsi_rev": "RSI行き過ぎの戻り", "bb_rev": "ボリンジャー外→内の戻り",
            "range_brk": "直近4本ブレイク", "ema_pull": "EMA20押し目・戻り"}
 
@@ -89,7 +89,11 @@ def signals(df, name):
     return s
 
 
-def simulate(df, sig, trend, pip, cost):
+def simulate(df, sig, trend, pip, cost, sl_k=None, tp_k=None, hold=None, trend_only=True, detail=False):
+    """sl_k/tp_k/hold/trend_only を省くと既定（ATR×1.0／×1.5／16本／1時間足EMA200と同方向のみ）。
+    detail=True なら [(入った足の位置, 向き, 損益pips)] を返す（時間帯別の集計用）"""
+    sl_k = SL_K if sl_k is None else sl_k
+    hold = HOLD if hold is None else hold
     o, h, l, c = (df[k].values for k in ("Open", "High", "Low", "Close"))
     atr, tr = df["atr"].values, trend.values
     out, last_exit, n = [], -1, len(df)
@@ -97,13 +101,13 @@ def simulate(df, sig, trend, pip, cost):
         if i + 1 >= n or i <= last_exit or not np.isfinite(atr[i]) or atr[i] <= 0:
             continue
         d = int(sig.values[i])
-        if tr[i] != d:
+        if trend_only and tr[i] != d:
             continue
-        sl, tp = SL_K * atr[i], tp_pips_for(atr[i], cost)
+        sl, tp = sl_k * atr[i], tp_pips_for(atr[i], cost, sl_k, tp_k)
         e = o[i + 1]
         stop, take = e - d * sl * pip, e + d * tp * pip
         pnl, jx = None, None
-        for j in range(i + 1, min(i + 1 + HOLD, n)):
+        for j in range(i + 1, min(i + 1 + hold, n)):
             if (l[j] <= stop) if d > 0 else (h[j] >= stop):
                 pnl, jx = -sl, j
                 break
@@ -111,14 +115,16 @@ def simulate(df, sig, trend, pip, cost):
                 pnl, jx = tp, j
                 break
         if pnl is None:
-            jx = min(i + HOLD, n - 1)
+            jx = min(i + hold, n - 1)
             pnl = (c[jx] - e) * d / pip
-        out.append(pnl - cost)
+        out.append((i + 1, d, pnl - cost) if detail else pnl - cost)
         last_exit = jx
-    return np.array(out)
+    return out if detail else np.array(out)
 
 
-def analyze(code, name, pip, cost, cost_note, m15, h1, now_utc):
+def analyze(code, name, pip, cost, cost_note, m15, h1, now_utc, rp=None):
+    """rp: 毎日の終値研究（scalp_board_research.py）が選んだこのペアの条件。
+    {"adopt": bool, "method": キー, "sl_k", "tp_k", "hold", "trend_only", "good_hours": [JSTの時], "date"}"""
     m15 = indicators(m15, pip)
     h1 = indicators(h1, pip)
     # 1時間足のトレンド（EMA200の4本の傾き）を15分足へ前方補完（未来を見ないよう確定済みの1時間足のみ）
@@ -135,8 +141,14 @@ def analyze(code, name, pip, cost, cost_note, m15, h1, now_utc):
     trw = trend15[trend15.index >= since]
     best = None
     tests = []
+    sl_k, tp_k, hold, t_only = SL_K, TP_K, HOLD, True
+    use_rp = bool(rp and rp.get("adopt"))
+    if use_rp:   # 研究で採用した入り方と幅で、直近60日を検証し直す（15分ごとに最新化）
+        sl_k, tp_k, hold, t_only = rp["sl_k"], rp["tp_k"], rp["hold"], rp["trend_only"]
     for k, label in METHODS.items():
-        r = simulate(win, signals(win, k), trw, pip, cost)
+        if use_rp and k != rp["method"]:
+            continue
+        r = simulate(win, signals(win, k), trw, pip, cost, sl_k, tp_k, hold, t_only)
         if len(r) == 0:
             continue
         gp, gl = r[r > 0].sum(), -r[r < 0].sum()
@@ -146,6 +158,8 @@ def analyze(code, name, pip, cost, cost_note, m15, h1, now_utc):
         tests.append(t)
         if len(r) >= 15 and (best is None or (pf or 0) > (best["pf"] or 0)):
             best = t
+    if rp and not rp.get("adopt"):
+        best = None   # 研究で優位な入り方が無い日は想定勝率を出さない（＝入る候補にしない）
 
     # 方向の合成
     slope = float(np.sign(h1["ema200"].diff(4).iloc[-1]))
@@ -166,6 +180,10 @@ def analyze(code, name, pip, cost, cost_note, m15, h1, now_utc):
         lamps.append({"method": label, "m15": s15, "h1": s1h})
     fired_with = sum(1 for x in lamps if x["m15"] == d or x["h1"] == d)
     fired_against = sum(1 for x in lamps if x["m15"] == -d or x["h1"] == -d)
+    rp_fire = None
+    if use_rp:
+        sk = int(signals(m15, rp["method"]).iloc[-1])
+        rp_fire = "同じ向き" if sk == d else ("逆向き" if sk == -d else "なし")
 
     # 時間帯（JST）別の平均値幅（直近60日・15分足1本あたり）
     rng = win["range"]
@@ -188,9 +206,15 @@ def analyze(code, name, pip, cost, cost_note, m15, h1, now_utc):
         score += 3
     if fired_against:
         score -= 3
+    good_hours = (rp or {}).get("good_hours") or []
+    in_good = bool(good_hours) and now_h in good_hours
+    if in_good:
+        score += 3
+    if rp_fire == "同じ向き":
+        score += 4
     score = float(np.clip(score, 0, 100))
 
-    sl_p, tp_p = SL_K * atr, tp_pips_for(atr, cost)
+    sl_p, tp_p = sl_k * atr, tp_pips_for(atr, cost, sl_k, tp_k)
     entry = px
     stop = entry - d * sl_p * pip
     take = entry + d * tp_p * pip
@@ -215,7 +239,10 @@ def analyze(code, name, pip, cost, cost_note, m15, h1, now_utc):
         "stop": round(stop, 5 if pip < 0.01 else 3), "take": round(take, 5 if pip < 0.01 else 3),
         "sl_pips": round(sl_p, 1), "tp_pips": round(tp_p, 1), "rr": round(rr_net, 2),
         "tp_net_pips": round(tp_p - cost, 1), "sl_net_pips": round(sl_p + cost, 1),
-        "tp_widened": bool(tp_p > TP_K * atr + 1e-9),
+        "tp_widened": bool(tp_p > tp_k * atr + 1e-9),
+        "sl_k": sl_k, "tp_k": tp_k, "hold": hold, "trend_only": t_only,
+        "research_date": (rp or {}).get("date"), "research_adopt": bool(use_rp) if rp else None,
+        "research_fire": rp_fire, "good_hours": good_hours, "in_good_hours": in_good,
         "win": round(winp, 3) if winp is not None else None,
         "pf": round(pf, 2) if best else None, "n": (best or {}).get("n"),
         "best_method": (best or {}).get("method"),
@@ -285,22 +312,44 @@ def tf_bars(m15, h1, d1, pip):
     return res
 
 
-def run(out_dir=None):
-    """主要11ペアを取得して results/scalp_board/ に ranking.json・bars.json・hours.json・meta.json を書く。
+def run(out_dir=None, force_research=False):
+    """主要11ペアを取得して results/scalp_board/ に ranking.json・bars.json・hours.json・bars_tf.json・meta.json を書く。
     signals.yml（15分ごと）の data_fetch_eurusd.py に相乗りして動く（ワークフローは編集しない）。
-    FXスキャル専用ボード（claude.ai アーティファクト）への反映は claude.ai の定期タスクが行う。"""
+    2026-10-16〜: 火〜土の朝、ニューヨーク終値の後の最初の回で「終値研究」（scalp_board_research.py）を1日1回行い、
+    その結果（params.json）でペアごとの入り方・損切り・利確・最長保有を選び直す。
+    FXスキャル専用ボード（claude.ai アーティファクト）への反映と第二の脳への記録は claude.ai の定期タスクが行う。"""
     import os
+    import scalp_board_research as sbr
     base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     out_dir = out_dir or os.path.join(base, "results", "scalp_board")
     os.makedirs(out_dir, exist_ok=True)
     now = pd.Timestamp.now(tz="UTC")
-    rows, bars, hours, errs = [], [], [], []
-    tfb = {}
+    errs, got = [], {}
     for code, name, sym, pip, cost, note in PAIRS:
         try:
-            m15 = _yahoo(sym, "15m", "60d")
-            h1 = _yahoo(sym, "60m", "90d")
-            r, b, h, _ = analyze(code, name, pip, cost, note, m15, h1, now)
+            got[code] = (_yahoo(sym, "15m", "60d"), _yahoo(sym, "60m", "90d"))
+        except Exception as e:  # noqa: BLE001
+            errs.append(f"{name}: {e}")
+    if not got:
+        print("スキャルボード: 全ペア取得失敗 " + "; ".join(errs))
+        return
+    research = None
+    try:
+        research = sbr.run({k: v[0] for k, v in got.items()}, {k: v[1] for k, v in got.items()}, now,
+                           base=base, force=force_research)
+    except Exception as e:  # noqa: BLE001
+        print(f"終値研究 失敗（既定の条件で続行）: {e}")
+    try:
+        params = json.load(open(os.path.join(out_dir, "params.json"), encoding="utf-8"))
+    except (OSError, ValueError):
+        params = {}
+    rows, bars, hours, tfb = [], [], [], {}
+    for code, name, sym, pip, cost, note in PAIRS:
+        if code not in got:
+            continue
+        m15, h1 = got[code]
+        try:
+            r, b, h, _ = analyze(code, name, pip, cost, note, m15, h1, now, (params.get("pairs") or {}).get(code))
             rows.append(r); bars += b; hours += h
             try:
                 d1 = _yahoo(sym, "1d", "1y")
@@ -310,18 +359,26 @@ def run(out_dir=None):
         except Exception as e:  # noqa: BLE001
             errs.append(f"{name}: {e}")
     if not rows:
-        print("スキャルボード: 全ペア取得失敗 " + "; ".join(errs))
+        print("スキャルボード: 全ペア計算失敗 " + "; ".join(errs))
         return
     rows.sort(key=lambda r: -r["score"])
     for i, r in enumerate(rows, 1):
         r["rank"] = i
+    try:
+        sbr.record_suggestions(base, rows, now)
+    except Exception as e:  # noqa: BLE001
+        print(f"案の控え 失敗: {e}")
     meta = {"at": now.tz_convert("Asia/Tokyo").isoformat(timespec="seconds"),
             "asof": rows[0]["bar_jst"], "pairs": len(rows), "errors": errs,
+            "research_date": params.get("date"), "research_at": params.get("at"),
+            "research_ran_now": bool(research),
             "source": "Yahoo Finance（GitHub Actions・15分ごと）"}
     for fn, obj in (("ranking.json", rows), ("bars.json", bars), ("hours.json", hours), ("bars_tf.json", tfb), ("meta.json", meta)):
         json.dump(obj, open(os.path.join(out_dir, fn), "w", encoding="utf-8"), ensure_ascii=False)
-    print(f"スキャルボード {len(rows)}/{len(PAIRS)}ペア" + (f"（失敗 {'; '.join(errs)}）" if errs else ""))
+    print(f"スキャルボード {len(rows)}/{len(PAIRS)}ペア" + (f"（失敗 {'; '.join(errs)}）" if errs else "")
+          + (f"・終値研究 {params.get('date')}" if params else ""))
 
 
 if __name__ == "__main__":
-    run(sys.argv[1] if len(sys.argv) > 1 else None)
+    # python3 src/scalp_board.py [--research]   … --research で終値研究を今すぐ行う（今日分が済んでいれば行わない）
+    run(None, force_research="--research" in sys.argv)
