@@ -1,14 +1,14 @@
 {
   "state": {
-    "position": 0,
-    "entry": null,
-    "stop": null,
-    "tp": null,
-    "units": 0,
-    "best": null,
-    "entry_date": null
+    "position": -1,
+    "entry": 157.97799682617188,
+    "stop": 158.577,
+    "tp": 156.781,
+    "units": 5000,
+    "best": 157.97799682617188,
+    "entry_date": "2026-10-15 09:00"
   },
-  "last_bar": "2026-10-15 08:00",
-  "last_close": 158.06399536132812,
-  "updated": "2026-10-15T08:49"
+  "last_bar": "2026-10-15 09:00",
+  "last_close": 157.97799682617188,
+  "updated": "2026-10-15T09:04"
 }
