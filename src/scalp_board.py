@@ -248,6 +248,7 @@ def analyze(code, name, pip, cost, cost_note, m15, h1, now_utc, rp=None):
         "pf": round(pf, 2) if best else None, "n": (best or {}).get("n"),
         "best_method": (best or {}).get("method"),
         "ev_pips": round(ev, 1) if ev is not None else None,
+        "ev_r": round(ev / (sl_p + cost), 3) if ev is not None and (sl_p + cost) > 0 else None,
         "lamps_with": fired_with, "lamps_against": fired_against,
         "lamps": "／".join(f'{x["method"]}:{"買" if x["m15"]>0 else "売" if x["m15"]<0 else "－"}(15分)・{"買" if x["h1"]>0 else "売" if x["h1"]<0 else "－"}(1時間)' for x in lamps),
         "pip": pip,
@@ -261,6 +262,15 @@ def analyze(code, name, pip, cost, cost_note, m15, h1, now_utc, rp=None):
     hours = [{"pair": name, "hour": int(hh), "range_pips": round(float(v), 2), "rel": round(float(v / overall), 2)}
              for hh, v in by_h.items()]
     return row, bars, hours, tests
+
+
+STANCE_ORDER = {"入る候補": 0, "条件待ち": 1, "様子見寄り": 2}
+
+
+def rank_key(r):
+    ev = r.get("ev_r")
+    return (STANCE_ORDER.get(r.get("stance"), 3), 0 if (ev is not None and ev > 0) else 1,
+            -(ev if ev is not None else -9), -r.get("score", 0))
 
 
 def _wil(p, n, z=1.96):
@@ -372,7 +382,10 @@ def run(out_dir=None, force_research=False):
     if not rows:
         print("スキャルボード: 全ペア計算失敗 " + "; ".join(errs))
         return
-    rows.sort(key=lambda r: -r["score"])
+    # 2026-10-16 落合さん指摘「ボード内で矛盾している（どちらが有利か不明瞭）」: 順位は
+    # ①判定（入る候補→条件待ち→様子見寄り）②期待値（損失1単位あたり＝R倍。検証勝率×手取り利益−負け率×手取り損失）
+    # ③スコア の順に並べる。期待値マイナスのペアが1位に来ないようにする（全ペアがマイナスなら見送りが有利と表示）
+    rows.sort(key=rank_key)
     for i, r in enumerate(rows, 1):
         r["rank"] = i
     try:
