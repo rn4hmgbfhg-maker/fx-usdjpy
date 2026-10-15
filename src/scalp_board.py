@@ -244,6 +244,7 @@ def analyze(code, name, pip, cost, cost_note, m15, h1, now_utc, rp=None):
         "research_date": (rp or {}).get("date"), "research_adopt": bool(use_rp) if rp else None,
         "research_fire": rp_fire, "good_hours": good_hours, "in_good_hours": in_good,
         "win": round(winp, 3) if winp is not None else None,
+        "win_lo": _wil(winp, (best or {}).get("n"))[0], "win_hi": _wil(winp, (best or {}).get("n"))[1],
         "pf": round(pf, 2) if best else None, "n": (best or {}).get("n"),
         "best_method": (best or {}).get("method"),
         "ev_pips": round(ev, 1) if ev is not None else None,
@@ -260,6 +261,16 @@ def analyze(code, name, pip, cost, cost_note, m15, h1, now_utc, rp=None):
     hours = [{"pair": name, "hour": int(hh), "range_pips": round(float(v), 2), "rel": round(float(v / overall), 2)}
              for hh, v in by_h.items()]
     return row, bars, hours, tests
+
+
+def _wil(p, n, z=1.96):
+    """想定勝率の95%の幅（ウィルソン法）"""
+    if p is None or not n:
+        return None, None
+    den = 1 + z * z / n
+    c = (p + z * z / (2 * n)) / den
+    h = z * ((p * (1 - p) / n + z * z / (4 * n * n)) ** 0.5) / den
+    return round(max(0.0, c - h), 3), round(min(1.0, c + h), 3)
 
 
 def _yahoo(sym, interval, rng):

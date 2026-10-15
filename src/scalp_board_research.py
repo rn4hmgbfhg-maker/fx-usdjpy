@@ -37,6 +37,17 @@ ADOPT_PF = 1.05                   # 前半・後半の小さい方のPFがこれ
 HOUR_MIN_N = 8                    # 時間帯の判定に要る最低回数
 
 
+def wilson(k, n, z=1.96):
+    """勝率の95%の幅（ウィルソン法）。回数が少ないほど幅が広い＝信ぴょう性が低い"""
+    if not n:
+        return None, None
+    p = k / n
+    den = 1 + z * z / n
+    c = (p + z * z / (2 * n)) / den
+    h = z * ((p * (1 - p) / n + z * z / (4 * n * n)) ** 0.5) / den
+    return round(max(0.0, c - h), 3), round(min(1.0, c + h), 3)
+
+
 def _paths(base):
     d = os.path.join(base, "results", "scalp_board")
     os.makedirs(os.path.join(d, "history"), exist_ok=True)
@@ -135,13 +146,36 @@ def grade(base, m15_by_code, now_utc):
         out.append({**x, "result": res, "pips": round(pnl - x["cost_pips"], 1)})
     if not out:
         return {"day": day, "n": 0, "note": "採点できる案なし"}
+    gpath = os.path.join(d, "graded.jsonl")
+    done_days = set()
+    if os.path.exists(gpath):
+        for ln in open(gpath, encoding="utf-8"):
+            try:
+                done_days.add(json.loads(ln).get("day"))
+            except ValueError:
+                pass
+    if day not in done_days:
+        with open(gpath, "a", encoding="utf-8") as f:
+            for x in out:
+                f.write(json.dumps({"day": day, **{k: x.get(k) for k in ("code", "pair", "rank", "stance", "dir_sign", "win", "result", "pips")}}, ensure_ascii=False) + "\n")
     df = pd.DataFrame(out)
 
     def summ(g):
-        return {"n": int(len(g)), "win": round(float((g["pips"] > 0).mean()), 3),
+        k = int((g["pips"] > 0).sum())
+        lo, hi = wilson(k, len(g))
+        return {"n": int(len(g)), "win": round(float((g["pips"] > 0).mean()), 3), "win_lo": lo, "win_hi": hi,
+                "pred": round(float(g["win"].dropna().mean()), 3) if g["win"].notna().any() else None,
                 "pips": round(float(g["pips"].sum()), 1), "tp": int((g["result"] == "利確").sum()),
                 "sl": int((g["result"] == "損切り").sum()), "to": int((g["result"] == "時間切れ").sum())}
-    res = {"day": day, **summ(df), "by_stance": {k: summ(g) for k, g in df.groupby("stance")},
+    cum = None
+    try:
+        allg = pd.DataFrame([json.loads(ln) for ln in open(gpath, encoding="utf-8") if ln.strip()])
+        if len(allg):
+            cum = {"days": int(allg["day"].nunique()), **summ(allg),
+                   "by_stance": {k: summ(g) for k, g in allg.groupby("stance")}}
+    except (OSError, ValueError):
+        pass
+    res = {"day": day, **summ(df), "cum": cum, "by_stance": {k: summ(g) for k, g in df.groupby("stance")},
            "by_pair": {k: summ(g) for k, g in df.groupby("pair")}, "rank1": summ(df[df["rank"] == 1]) if (df["rank"] == 1).any() else None}
     return res
 
@@ -183,6 +217,7 @@ def research_pair(code, name, pip, cost, m15, h1):
                         cands.append({"method": mk, "method_label": sb.METHODS[mk], "trend_only": t_only,
                                       "sl_k": sl_k, "tp_k": tp_k, "hold": hold, "n": int(len(pn)),
                                       "win": round(float((pn > 0).mean()), 3), "pf": round(_pf(pn), 2),
+                                      "win_lo": wilson(int((pn > 0).sum()), len(pn))[0], "win_hi": wilson(int((pn > 0).sum()), len(pn))[1],
                                       "pf_a": round(pa, 2), "pf_b": round(pb, 2), "robust": round(min(pa, pb), 2),
                                       "avg": round(float(pn.mean()), 2), "_idx": idx, "_pn": pn})
     cands.sort(key=lambda c: (c["robust"], c["pf"], c["n"]), reverse=True)
@@ -229,7 +264,12 @@ def note_md(today, at_jst, graderes, results, prev):
     L.append("## ① 前日のボードの案の答え合わせ")
     g = graderes or {}
     if g.get("n"):
-        L.append(f"- {g['day']}: 案 {g['n']} 件 → 勝率 {round(g['win']*100)}%・合計 {g['pips']:+.1f} pips（利確 {g['tp']}・損切り {g['sl']}・時間切れ {g['to']}）")
+        L.append(f"- {g['day']}: 案 {g['n']} 件 → 勝率 {round(g['win']*100)}%（95%の幅 {round((g['win_lo'] or 0)*100)}〜{round((g['win_hi'] or 0)*100)}%）・合計 {g['pips']:+.1f} pips（利確 {g['tp']}・損切り {g['sl']}・時間切れ {g['to']}）"
+                 + (f"・ボードが示した想定勝率の平均 {round(g['pred']*100)}%" if g.get("pred") is not None else ""))
+        c = g.get("cum")
+        if c:
+            L.append(f"- 累計（{c['days']}日）: 案 {c['n']} 件 → 実際の勝率 {round(c['win']*100)}%（95%の幅 {round((c['win_lo'] or 0)*100)}〜{round((c['win_hi'] or 0)*100)}%）・合計 {c['pips']:+.1f} pips"
+                     + (f"・想定勝率の平均 {round(c['pred']*100)}%（{'幅の中＝想定は外れていない' if c['pred'] is not None and c['win_lo'] <= c['pred'] <= c['win_hi'] else '幅の外＝想定がずれている'}）" if c.get("pred") is not None else ""))
         for k, v in (g.get("by_stance") or {}).items():
             L.append(f"  - {k}: {v['n']}件・勝率 {round(v['win']*100)}%・{v['pips']:+.1f} pips")
         if g.get("rank1"):
@@ -238,7 +278,7 @@ def note_md(today, at_jst, graderes, results, prev):
     else:
         L.append(f"- {g.get('day', '前日')}: {g.get('note', '採点なし')}")
     L += ["", "## ② 今日から使う条件（ペア別）", "",
-          "| ペア | 採用 | 入り方 | トレンド絞り | 損切り | 利確 | 最長 | 勝率 | PF（前半/後半） | 回数 | 勝てる時間帯 | 前日からの変化 |",
+          "| ペア | 採用 | 入り方 | トレンド絞り | 損切り | 利確 | 最長 | 勝率（95%の幅） | PF（前半/後半） | 回数 | 勝てる時間帯 | 前日からの変化 |",
           "|---|---|---|---|---|---|---|---|---|---|---|---|"]
     for r in results:
         p = r["pick"]
@@ -253,7 +293,7 @@ def note_md(today, at_jst, graderes, results, prev):
                         chg.append(f"{lab} {pv.get(k)}→{p[k]}")
                 if bool(pv.get("adopt")) != r["adopt"]:
                     chg.append("採用→優位なし" if pv.get("adopt") else "優位なし→採用")
-            L.append(f"| {r['pair']} | {'採用' if r['adopt'] else '優位なし'} | {p['method_label']} | {'あり' if p['trend_only'] else 'なし'} | ATR×{p['sl_k']} | ATR×{p['tp_k']} | {p['hold']}本 | {round(p['win']*100)}% | {p['pf']}（{p['pf_a']}/{p['pf_b']}） | {p['n']} | {_hour_label(r['good_hours'])} | {'、'.join(chg) if chg else ('初回' if not pv else '変化なし')} |")
+            L.append(f"| {r['pair']} | {'採用' if r['adopt'] else '優位なし'} | {p['method_label']} | {'あり' if p['trend_only'] else 'なし'} | ATR×{p['sl_k']} | ATR×{p['tp_k']} | {p['hold']}本 | {round(p['win']*100)}%（{round(p['win_lo']*100)}〜{round(p['win_hi']*100)}%） | {p['pf']}（{p['pf_a']}/{p['pf_b']}） | {p['n']} | {_hour_label(r['good_hours'])} | {'、'.join(chg) if chg else ('初回' if not pv else '変化なし')} |")
         else:
             L.append(f"| {r['pair']} | 優位なし | — | — | — | — | — | — | — | — | — | 検証できる条件なし |")
     ad = [r for r in results if r["adopt"]]
@@ -292,7 +332,7 @@ def run(m15_by_code, h1_by_code, now_utc, base=None, force=False):
         p = r["pick"]
         params["pairs"][r["code"]] = ({"adopt": r["adopt"], "method": p["method"], "sl_k": p["sl_k"], "tp_k": p["tp_k"],
                                        "hold": p["hold"], "trend_only": p["trend_only"], "good_hours": r["good_hours"] if r["adopt"] else [],
-                                       "win": p["win"], "pf": p["pf"], "robust": p["robust"], "n": p["n"], "date": today}
+                                       "win": p["win"], "win_lo": p["win_lo"], "win_hi": p["win_hi"], "pf": p["pf"], "robust": p["robust"], "n": p["n"], "date": today}
                                       if p else {"adopt": False, "date": today, "good_hours": []})
     latest = {"date": today, "at": at_jst, "grade": graderes, "results": results,
               "rules": {"grid": {"sl": GRID_SL, "tp": GRID_TP, "hold": GRID_HOLD, "trend": GRID_TREND},
