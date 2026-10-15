@@ -121,7 +121,9 @@ header.top .rate{font-family:var(--f-num);font-weight:600;font-size:clamp(1.625r
 header.top .rate small{margin-left:.15em;font-family:var(--f-ui);font-size:var(--fs-note);font-weight:400;color:var(--sub)}
 header.top .inst.sub .rate,header.top .inst.eq .eqv{font-family:var(--f-num);font-weight:600;font-size:clamp(1.25rem,5vw,var(--fs-key));line-height:1.2;font-variant-numeric:tabular-nums}
 .inst.eq .d{font-family:var(--f-num);font-size:var(--fs-note);font-weight:600}
-.inst-n{font-size:var(--fs-cap);color:var(--sub)}   /* レートの基準（日足終値）。ラベルを短く保って折り返さない */
+.inst-n{font-size:var(--fs-cap);color:var(--sub)}
+.live-bar{display:flex;flex-wrap:wrap;align-items:center;gap:var(--s2) var(--s3)}
+.inst .live-d{font-family:var(--f-num);font-size:var(--fs-cap);font-weight:600}   /* レートの基準（日足終値）。ラベルを短く保って折り返さない */
 @media (max-width:559px){.inst.eq{grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:baseline;column-gap:var(--s3)} .inst.eq .inst-l{flex-basis:100%}}
 .dlv{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
 .dlv-l{font-size:var(--fs-note);font-weight:700;color:var(--sub)}
@@ -554,6 +556,129 @@ SCALP_CARD = """
     高リスク設定のため、損失額は日足系の数倍になります。発注・決済はすべてご本人が手動で行い、
     結果はモデル成績には含まれません（別管理）。</div>
 </section>
+"""
+
+LIVE_JS = r"""
+<script>
+// 2026-10-15 落合さん指示「現在価格を表示したいので更新ボタンを。全通貨・チャートも」。
+// 価格と足は GitHub の公開リポジトリ（Actions が15分ごとに更新）から読む。発注とは無関係の表示。
+(function () {
+  var RAW = "https://raw.githubusercontent.com/rn4hmgbfhg-maker/fx-usdjpy/main/data/";
+  var PAIRS = { usdjpy: "ドル円", eurusd: "ユーロドル", eurjpy: "ユーロ円", gbpjpy: "ポンド円" };
+  var DEC = { usdjpy: 3, eurusd: 5, eurjpy: 3, gbpjpy: 3 };
+  var MULT = { usdjpy: 100, eurusd: 10000, eurjpy: 100, gbpjpy: 100 };
+  var btn = document.getElementById("live-btn"), st = document.getElementById("live-st");
+  if (!btn) return;
+  function bust() { return "?t=" + Math.floor(Date.now() / 60000); }
+  function hhmm(sec) {
+    try { return new Date(sec * 1000).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }); }
+    catch (e) { return ""; }
+  }
+  // CSV の末尾だけを読む（Range 指定。先頭の切れた1行は捨てる）
+  async function tail(path, bytes) {
+    var r = await fetch(RAW + path + bust(), { headers: { Range: "bytes=-" + bytes }, cache: "no-store" });
+    if (!r.ok && r.status !== 206) throw new Error(path + " " + r.status);
+    var lines = (await r.text()).split("\n");
+    if (r.status === 206) lines.shift();
+    var out = [];
+    lines.forEach(function (ln) {
+      var c = ln.split(",");
+      if (c.length < 5 || c[0] === "Time") return;
+      var t = Date.parse(c[0].replace(" ", "T"));
+      if (!isFinite(t)) return;
+      out.push([Math.floor(t / 60000), +c[1], +c[2], +c[3], +c[4]]);
+    });
+    return out;
+  }
+  // JST 基準で束ねる（ボードの Python 側の resample と同じ区切り）
+  function resample(bars, min) {
+    if (min === 15) return bars.slice();
+    var out = [], cur = null;
+    bars.forEach(function (b) {
+      var k = Math.floor((b[0] + 540) / min) * min - 540;
+      if (!cur || cur[0] !== k) { if (cur) out.push(cur); cur = [k, b[1], b[2], b[3], b[4]]; }
+      else { cur[2] = Math.max(cur[2], b[2]); cur[3] = Math.min(cur[3], b[3]); cur[4] = b[4]; }
+    });
+    if (cur) out.push(cur);
+    return out;
+  }
+  function withEma(bars, keep, dec) {
+    var a20 = 2 / 21, a50 = 2 / 51, e20 = null, e50 = null, f = Math.pow(10, dec);
+    var rows = bars.map(function (b) {
+      e20 = e20 === null ? b[4] : e20 + a20 * (b[4] - e20);
+      e50 = e50 === null ? b[4] : e50 + a50 * (b[4] - e50);
+      return [b[0], b[1], b[2], b[3], b[4], Math.round(e20 * f) / f, Math.round(e50 * f) / f];
+    });
+    return rows.slice(-keep);
+  }
+  function setRate(pair, price, label, close) {
+    var el = document.querySelector('.inst[data-pair="' + pair + '"]');
+    if (!el || !(price > 0)) return;
+    var r = el.querySelector(".rate"), n = el.querySelector(".inst-n"), dec = DEC[pair];
+    var small = r.querySelector("small");
+    r.firstChild.nodeValue = price.toFixed(dec);
+    if (!r.firstChild || r.firstChild.nodeType !== 3) r.insertBefore(document.createTextNode(price.toFixed(dec)), small);
+    var d = close > 0 ? (price - close) * MULT[pair] : null;
+    n.innerHTML = "";
+    n.appendChild(document.createTextNode(label + " "));
+    if (d !== null) {
+      var s = document.createElement("span");
+      s.className = "live-d " + (d >= 0 ? "up" : "down");
+      s.textContent = "日足終値比 " + (d >= 0 ? "+" : "") + d.toFixed(1) + "pips";
+      n.appendChild(s);
+    }
+  }
+  async function run(manual) {
+    btn.disabled = true;
+    st.textContent = "現在価格とチャートを取得中…";
+    var msgs = [], live = null;
+    try {
+      var r = await fetch(RAW + "live_prices.json" + bust(), { cache: "no-store" });
+      if (r.ok) live = await r.json();
+    } catch (e) { msgs.push("現在値: " + (e.message || e)); }
+    var sc = window.__fxSc ? window.__fxSc.data() : null, newest = 0, got = 0;
+    for (var pair in PAIRS) {
+      var el = document.querySelector('.inst[data-pair="' + pair + '"]');
+      var close = el ? parseFloat(el.getAttribute("data-close")) : NaN;
+      var lp = live && live.pairs && live.pairs[pair];
+      try {
+        var m15 = await tail(pair + "_15m.csv", 140000);
+        var h1 = await tail(pair + "_1h.csv", 480000);
+        var last = m15[m15.length - 1];
+        // 現在値は live_prices.json（Yahoo の現在値）。無ければ最新の15分足の終値
+        if (lp && lp.price) { setRate(pair, lp.price, "現在 " + hhmm(lp.time), close); newest = Math.max(newest, lp.time); }
+        else if (last) { setRate(pair, last[4], "15分足 " + hhmm((last[0] + 15) * 60), close); }
+        got++;
+        var C = sc && sc[PAIRS[pair]];
+        if (C && C.tf) {
+          var dec = DEC[pair];
+          C.tf["15分"] = withEma(m15, 320, dec);
+          C.tf["30分"] = withEma(resample(m15, 30), 240, dec);
+          C.tf["1時間"] = withEma(h1, 220, dec);
+          C.tf["4時間"] = withEma(resample(h1, 240), 200, dec);
+          C.tf["8時間"] = withEma(resample(h1, 480), 180, dec);
+          C.tf["12時間"] = withEma(resample(h1, 720), 160, dec);
+          C.tf["24時間"] = withEma(resample(h1, 1440), 160, dec);
+          if (last) C.最終 = hhmm(last[0] * 60) + "・更新ボタン";
+          C.error = null;
+        }
+      } catch (e) { msgs.push(PAIRS[pair] + ": " + (e.message || e)); }
+    }
+    if (window.__fxSc) window.__fxSc.draw();
+    btn.disabled = false;
+    var now = new Date().toLocaleTimeString("ja-JP", { timeZone: "Asia/Tokyo", hour: "2-digit", minute: "2-digit" });
+    if (got) {
+      st.textContent = now + " に更新（" + got + "通貨）。現在値の時刻は各通貨の下に表示"
+        + "（データは15分ごとに更新・最大15〜20分遅れ）" + (msgs.length ? "／取得できなかったもの: " + msgs.join("・") : "");
+    } else {
+      st.textContent = "取得できませんでした（" + (msgs.join("・") || "不明") + "）。表示は日足終値のままです。";
+    }
+  }
+  btn.onclick = function () { run(true); };
+  // 開いたときにも1回だけ自動で現在価格にする（失敗しても表示は日足終値のまま）
+  setTimeout(function () { run(false); }, 800);
+})();
+</script>
 """
 
 ANALYSIS_JS = r"""
@@ -1265,6 +1390,9 @@ ANALYSIS_JS = r"""
       SC.tf = st; document.querySelectorAll("#sc-wrap .sc-tabs button[data-tf]").forEach(function (o) { o.setAttribute("aria-pressed", o.dataset.tf === st ? "true" : "false"); }); } } catch (e) {}
     var ps = $("s-pair"); if (ps) SC.pair = ps.value; try { var sp = localStorage.getItem("fx_scalp_pair"); if (sp) SC.pair = sp; } catch (e) {} })();
   scDraw();
+  // 2026-10-15: 「現在価格に更新」がチャートの足を最新に差し替えて描き直すための口
+  window.__fxSc = { data: function () { return scAll; }, draw: function () { scDraw(); },
+                    pair: function () { return SC.pair; }, tf: function () { return SC.tf; } };
   var scRz = null;
   window.addEventListener("resize", function () { clearTimeout(scRz); scRz = setTimeout(scDraw, 200); });
 
@@ -2539,7 +2667,7 @@ def _eurusd_section(cfg):
             f'<span class="params">{html.escape(_res_upd)}・{html.escape(str(sr.get("期間", "")))}</span></div>'
             + _clamp("cl-eures", "c-m", res_body, "ユーロドル研究の全文を表示") + '</section>')
     # ヘッダ用。.rate の中は数字だけ（JS は最初の .rate＝ドル円を読む。ラベルは外側の span）
-    head = (f'<div class="inst sub"><span class="inst-l">ユーロドル EUR/USD</span>'
+    head = (f'<div class="inst sub" data-pair="eurusd" data-dec="5" data-close="{close:.5f}"><span class="inst-l">ユーロドル EUR/USD</span>'
             f'<span class="rate">{close:.5f}</span><span class="inst-n">日足終値</span></div>')
     return head, op_html, res_html, text, fname, eu_items
 
@@ -2650,7 +2778,7 @@ def _yenpair_section(cfg, pair="eurjpy"):
     LEG, CUR = sr.get("脚", "ユーロドル"), sr.get("通貨", "ユーロ")
     BCLS = {"eurjpy": "ej", "gbpjpy": "gj"}.get(pair, "ej")
     NTH = {"eurjpy": "3通貨目", "gbpjpy": "4通貨目"}.get(pair, "")
-    head = (f'<div class="inst sub"><span class="inst-l">{NM} {CODE}</span>'
+    head = (f'<div class="inst sub" data-pair="{pair}" data-dec="3" data-close="{float(close):.3f}"><span class="inst-l">{NM} {CODE}</span>'
             f'<span class="rate">{float(close):.3f}</span><span class="inst-n">日足終値{"" if (cfg.get(NM) or {}).get("システム") else "・研究中"}</span></div>'
             if close else "")
     adopted = bool((cfg.get(NM) or {}).get("システム"))
@@ -4030,12 +4158,13 @@ def build():
   <div class="top-id"><h1>FX運用ボード<small>ドル円・ユーロドル・ユーロ円・ポンド円</small></h1>
     <span class="meta"><span class="upd">更新 {datetime.now():%Y-%m-%d %H:%M}</span>｜生成元: {origin}</span></div>
   <div class="inst-row">
-    <div class="inst"><span class="inst-l">ドル円 USD/JPY</span><span class="rate">{close:.3f}<small>円</small></span><span class="inst-n">日足終値</span></div>
+    <div class="inst" data-pair="usdjpy" data-dec="3" data-close="{close:.3f}"><span class="inst-l">ドル円 USD/JPY</span><span class="rate">{close:.3f}<small>円</small></span><span class="inst-n">日足終値</span></div>
     {eu_head}
     {ej_head}
     {gj_head}
     <div class="inst eq"><span class="inst-l">モデル資産</span><b class="eqv">{equity_txt}</b><span class="d {_eq_cls}">{_eq_diff:+,.0f}円（{_eq_pct:+.2%}）</span></div>
   </div>
+  <div class="live-bar"><button class="abtn ghost" id="live-btn" type="button">現在価格に更新（全通貨・チャートも）</button><span class="meta-s" id="live-st">表示中の価格は日足終値（ボード作成時点）</span></div>
   {delivery}
   <p class="meta-s">配信は朝6・7・8時台の3回＋デイトレ毎時判定｜運用先: MATRIX TRADER（発注は手動）</p>
 </header>
@@ -4081,6 +4210,7 @@ def build():
 {order_data_html}
 {scalp_data_html}
 {ANALYSIS_JS}
+{LIVE_JS}
 {INBOX_JS}
 """
     os.makedirs(os.path.dirname(OUT_HTML), exist_ok=True)

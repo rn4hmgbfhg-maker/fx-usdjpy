@@ -209,6 +209,12 @@ if __name__ == "__main__":
                     print(f"{_p.name}:", _p.update_all())
                 except Exception as e:  # noqa: BLE001
                     print(f"{_pr} データ更新失敗: {e}")
+            # 2026-10-15 ボードの「現在価格に更新」ボタンが読む現在値（4通貨）
+            try:
+                _lv = data_fetch_yenpair.write_live_prices()
+                print("現在値:", {k: v.get("price") for k, v in _lv["pairs"].items()})
+            except Exception as e:  # noqa: BLE001
+                print(f"現在値の取得失敗: {e}")
         # 2026-10-13: スキャルのシグナル配信。signals.yml（15分ごと）でこのスクリプトは
         # ドル円の15分足更新（デイトレ15分）の後に走るため、両通貨の最新データがそろうここで判定する
         # （ワークフローの編集には workflow スコープが要るため、既存の手順に相乗りさせる）。

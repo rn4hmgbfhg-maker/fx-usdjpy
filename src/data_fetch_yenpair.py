@@ -184,3 +184,27 @@ def main(pair):
         p.backfill(datetime.strptime(sys.argv[sys.argv.index("--backfill") + 1], "%Y-%m-%d").date())
     else:
         print(p.update_all(full="--full" in sys.argv))
+
+
+# ------------------------------------------------- 現在価格（2026-10-15 ボードの「現在価格に更新」用）
+LIVE_JSON = os.path.join(BASE_DIR, "data", "live_prices.json")
+LIVE_SYMBOLS = {"usdjpy": "USDJPY=X", "eurusd": "EURUSD=X", "eurjpy": "EURJPY=X", "gbpjpy": "GBPJPY=X"}
+
+
+def write_live_prices(path=LIVE_JSON):
+    """4通貨の現在値（Yahoo の regularMarketPrice）を data/live_prices.json に書く。
+    Actions の15分ごとの更新（data_fetch_eurusd.py）が呼ぶ。ボードは GitHub の公開ファイルを読む。"""
+    import json
+    out = {"更新": datetime.now().astimezone().isoformat(timespec="seconds"), "pairs": {}}
+    for pair, sym in LIVE_SYMBOLS.items():
+        try:
+            r = _eu.requests.get(f"https://query1.finance.yahoo.com/v8/finance/chart/{sym}",
+                                 params={"range": "1d", "interval": "1m"}, headers=_eu._HEADERS, timeout=20)
+            r.raise_for_status()
+            m = r.json()["chart"]["result"][0]["meta"]
+            out["pairs"][pair] = {"price": float(m["regularMarketPrice"]), "time": int(m["regularMarketTime"])}
+        except Exception as e:  # noqa: BLE001
+            out["pairs"][pair] = {"error": str(e)[:80]}
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(out, f, ensure_ascii=False)
+    return out
