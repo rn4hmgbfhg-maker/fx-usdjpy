@@ -123,7 +123,8 @@ header.top .inst.sub .rate,header.top .inst.eq .eqv{font-family:var(--f-num);fon
 .inst.eq .d{font-family:var(--f-num);font-size:var(--fs-note);font-weight:600}
 .inst-n{font-size:var(--fs-cap);color:var(--sub)}
 .live-bar{display:flex;flex-wrap:wrap;align-items:center;gap:var(--s2) var(--s3)}
-.inst .live-d{font-family:var(--f-num);font-size:var(--fs-cap);font-weight:600}   /* レートの基準（日足終値）。ラベルを短く保って折り返さない */
+.inst .live-d{font-family:var(--f-num);font-size:var(--fs-cap);font-weight:600}
+.abtn.live{background:var(--down);color:var(--btn-ink)}   /* 2026-10-15 落合さん指示「赤いボタン」。文字色は明暗とも4.5以上 */   /* レートの基準（日足終値）。ラベルを短く保って折り返さない */
 @media (max-width:559px){.inst.eq{grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:baseline;column-gap:var(--s3)} .inst.eq .inst-l{flex-basis:100%}}
 .dlv{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
 .dlv-l{font-size:var(--fs-note);font-weight:700;color:var(--sub)}
@@ -4133,7 +4134,7 @@ def build():
     {gj_head}
     <div class="inst eq"><span class="inst-l">モデル資産</span><b class="eqv">{equity_txt}</b><span class="d {_eq_cls}">{_eq_diff:+,.0f}円（{_eq_pct:+.2%}）</span></div>
   </div>
-  <div class="live-bar"><button class="abtn ghost" id="live-btn" type="button">現在価格に更新（全通貨・チャートも）</button><span class="meta-s" id="live-st">表示中の価格は日足終値（ボード作成時点）</span></div>
+  <div class="live-bar"><button class="abtn live" id="live-btn" type="button">現在価格に更新</button><span class="meta-s" id="live-st">表示中の価格は日足終値（ボード作成時点）</span></div>
   {delivery}
   <p class="meta-s">配信は朝6・7・8時台の3回＋デイトレ毎時判定｜運用先: MATRIX TRADER（発注は手動）</p>
 </header>
