@@ -52,7 +52,7 @@ BOARD_CSS = """
   --warn-bg:#FFF3D1; --warn-ink:#5E4200; --warn-line:#E0B23A;
   --alert-bg:#FDEBEE; --alert-ink:#8F1630; --alert-line:#E79AAB;
   --btn:#1F4E79; --btn-ink:#FFFFFF; --focus:#1D5FB0;
-  --pair-uj:#1F4E79; --pair-eu:#0E6B66; --pair-ej:#8A4B0F;
+  --pair-uj:#1F4E79; --pair-eu:#0E6B66; --pair-ej:#8A4B0F; --pair-gj:#6B3FA0;
   --f-ui:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Hiragino Kaku Gothic ProN","BIZ UDPGothic","Yu Gothic UI","Yu Gothic",Meiryo,"Noto Sans JP",sans-serif;
   --f-num:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,Consolas,"Hiragino Sans","BIZ UDGothic",monospace;
   --f-slip:"BIZ UDGothic","Osaka-Mono","MS Gothic","Noto Sans Mono CJK JP",ui-monospace,"SF Mono",Menlo,monospace;
@@ -75,7 +75,7 @@ BOARD_CSS = """
   --warn-bg:#33290F; --warn-ink:#F3D27B; --warn-line:#8A6A1E;
   --alert-bg:#3A1A22; --alert-ink:#FFB3C0; --alert-line:#8C3A4A;
   --btn:#8FB6DE; --btn-ink:#0B1420; --focus:#8FB6DE;
-  --pair-uj:#8FB6DE; --pair-eu:#5CC9BE; --pair-ej:#E0A458;
+  --pair-uj:#8FB6DE; --pair-eu:#5CC9BE; --pair-ej:#E0A458; --pair-gj:#C3A2F0;
 } }
 :root[data-theme="dark"] {
   color-scheme: dark;
@@ -90,7 +90,7 @@ BOARD_CSS = """
   --warn-bg:#33290F; --warn-ink:#F3D27B; --warn-line:#8A6A1E;
   --alert-bg:#3A1A22; --alert-ink:#FFB3C0; --alert-line:#8C3A4A;
   --btn:#8FB6DE; --btn-ink:#0B1420; --focus:#8FB6DE;
-  --pair-uj:#8FB6DE; --pair-eu:#5CC9BE; --pair-ej:#E0A458;
+  --pair-uj:#8FB6DE; --pair-eu:#5CC9BE; --pair-ej:#E0A458; --pair-gj:#C3A2F0;
 }
 /* 計算済みのコントラスト比（文字/背景）
    明: ink/panel 15.8・sub/chipbg 6.3・act-ink/act 9.1・buy/buy-bg 5.2・sell/sell-bg 5.5・up/chipbg 5.0・down/panel 6.7・gold/panel 5.8・info 9.5・warn 8.4・alert 7.9・btn 8.7
@@ -183,7 +183,7 @@ nav.jump .cnt{display:inline-grid;place-items:center;min-width:1.5em;height:1.5e
 .badges{display:flex;flex-wrap:wrap;gap:4px}
 .badge{display:inline-flex;align-items:center;padding:1px 8px;border:1px solid var(--line-strong);border-radius:var(--r1);color:var(--sub);font-size:var(--fs-cap);font-weight:700;letter-spacing:.04em;line-height:1.6;white-space:nowrap}
 .badge.pair{font-family:var(--f-num);color:var(--pair-uj);border-color:currentColor}
-.badge.pair.eu{color:var(--pair-eu)} .badge.pair.ej{color:var(--pair-ej)}
+.badge.pair.eu{color:var(--pair-eu)} .badge.pair.ej{color:var(--pair-ej)} .badge.pair.gj{color:var(--pair-gj)}
 .badge.trial{border-style:dashed}
 .badge.risk{background:var(--alert-bg);color:var(--alert-ink);border-color:var(--alert-line)}
 .badge.new{background:var(--info-bg);color:var(--info-ink);border-color:transparent}
@@ -324,7 +324,7 @@ svg .dot{stroke:var(--act);stroke-width:9;stroke-linecap:round;vector-effect:non
 .fbox.key{background:var(--info-bg);color:var(--info-ink);border-left:4px solid var(--navy);font-size:var(--fs-body)}
 .fbox.key .l{color:var(--info-ink)}
 .fbox.guide{background:var(--panel);border:1px dashed var(--line-strong)}
-.fbox.guide.uj{border-left:4px solid var(--pair-uj)} .fbox.guide.eu{border-left:4px solid var(--pair-eu)} .fbox.guide.ej{border-left:4px solid var(--pair-ej)}
+.fbox.guide.uj{border-left:4px solid var(--pair-uj)} .fbox.guide.eu{border-left:4px solid var(--pair-eu)} .fbox.guide.ej{border-left:4px solid var(--pair-ej)} .fbox.guide.gj{border-left:4px solid var(--pair-gj)}
 .guide-row{display:grid;grid-template-columns:minmax(0,1fr);gap:var(--s2)}
 @media (min-width:720px){.guide-row{grid-template-columns:repeat(2,minmax(0,1fr))}}
 ul.focus{margin:0;padding-left:1.2em;font-size:var(--fs-body);line-height:1.65}
@@ -522,6 +522,7 @@ SCALP_CARD = """
       <option value="ドル円">ドル円（USD/JPY）</option>
       <option value="ユーロドル">ユーロドル（EUR/USD）</option>
       <option value="ユーロ円">ユーロ円（EUR/JPY・研究中）</option>
+      <option value="ポンド円">ポンド円（GBP/JPY・研究中）</option>
     </select>
     <label class="params" for="s-risk">1回のリスク</label>
     <select id="s-risk"></select>
@@ -545,7 +546,7 @@ SCALP_CARD = """
   </div>
   <div class="aout" id="s-out"></div>
   <div class="aout" id="s-log"></div>
-  <details class="fold"><summary>スキャル研究の詳しい表（ドル円・ユーロドル・ユーロ円／時間足別の検証）</summary>
+  <details class="fold"><summary>スキャル研究の詳しい表（ドル円・ユーロドル・ユーロ円・ポンド円／時間足別の検証）</summary>
   __SCALP_RESEARCH__
   </details>
   <div class="note">※ボードの時点のレート・ファンダ・テクニカル合議を材料にした<b>案</b>です。
@@ -1159,8 +1160,8 @@ ANALYSIS_JS = r"""
     var el = $("sc-sig"); if (!el) return;
     var sgs = C.signals || [], last = sgs[sgs.length - 1], now = Date.now();
     var upd = C.sig_updated ? "（最終判定 " + esc(fmtAt(C.sig_updated)) + "・15分ごと・ボードは最大1時間遅れ。正式な通知はメール）" : "";
-    if (SC.pair === "ユーロ円" && !sgs.length) {   // 2026-10-15 ユーロ円は研究中＝シグナル配信の対象外
-      el.innerHTML = "<div class='k'>★ シグナル配信（正式）</div><div>ユーロ円は研究中のため、シグナル配信はまだありません（売買ルールの採用後に開始）。下のチャートとペーパー売買は研究の確認用です。</div>";
+    if ((SC.pair === "ユーロ円" || SC.pair === "ポンド円") && !sgs.length) {   // 2026-10-15 クロス円は研究中＝シグナル配信の対象外
+      el.innerHTML = "<div class='k'>★ シグナル配信（正式）</div><div>" + SC.pair + "は研究中のため、シグナル配信はまだありません（売買ルールの採用後に開始）。下のチャートとペーパー売買は研究の確認用です。</div>";
       return;
     }
     if (last && now - Date.parse(last.sent_at) < 15 * 60000) {
@@ -1284,11 +1285,14 @@ ANALYSIS_JS = r"""
         ? { name: p, code: "EUR/USD", mult: 10000, dec: 5, unit: "ドル", jpy: ujRate, zone: "±0.0015ドル", other: "ドル円" }
         : p === "ユーロ円"
         ? { name: p, code: "EUR/JPY", mult: 100, dec: 3, unit: "円", jpy: 1, zone: "±0.15円", other: "ドル円" }
+        : p === "ポンド円"
+        ? { name: p, code: "GBP/JPY", mult: 100, dec: 3, unit: "円", jpy: 1, zone: "±0.20円", other: "ドル円" }
         : { name: "ドル円", code: "USD/JPY", mult: 100, dec: 3, unit: "円", jpy: 1, zone: "±0.15円", other: "ユーロドル" };
     }
     var refs = db ? { "ドル円": db.doc("analysis/scalp"), "ユーロドル": db.doc("analysis/scalp_eurusd"),
-                      "ユーロ円": db.doc("analysis/scalp_eurjpy") } : null;   // 2026-10-15 ユーロ円追加
-    var lastBy = { "ドル円": null, "ユーロドル": null, "ユーロ円": null };
+                      "ユーロ円": db.doc("analysis/scalp_eurjpy"),
+                      "ポンド円": db.doc("analysis/scalp_gbpjpy") } : null;   // 2026-10-15 ユーロ円・ポンド円追加
+    var lastBy = { "ドル円": null, "ユーロドル": null, "ユーロ円": null, "ポンド円": null };
     var last = null, ref = null, sd = null;
     function selectPair() {
       var p = pairSel.value;
@@ -1479,7 +1483,8 @@ ANALYSIS_JS = r"""
       var p = [];
       p.push("対象の通貨ペアは【" + S.name + "（" + S.code + "）】。価格は小数" + S.dec + "桁・単位は" + S.unit
         + "・1pip＝" + (S.mult === 100 ? "0.01円" : "0.0001ドル") + "。相手の通貨（" + S.other
-        + "）は" + (S.name === "ユーロ円" ? "円" : "ドル") + "の動きを確認する材料として使う（ボードに両方の値動き・研究が載っている）。");
+        + "）は" + (S.name === "ユーロ円" || S.name === "ポンド円" ? "円" : "ドル") + "の動きを確認する材料として使う（ボードに両方の値動き・研究が載っている）。");
+      if (S.name === "ポンド円") p.push("ポンド円はドル円×ポンドドルで決まる通貨（2026-10-15 研究開始・日足の売買ルールは未採用）。値動きが大きく（ドル円の約1.3倍）、スプレッドもドル円の約4倍＝往復コスト1.5pipsで検証している。損切りは12pipsではなくATRに合わせて15〜25pips、利確はその1.2〜1.5倍にする。値動きの約7割はドル円の脚（円の強弱）、約3割はポンドの材料（英国の指標・BOE）。BOE・英CPI・日銀・介入警戒の★5級は避ける。スキャル研究のポンド円欄の上位条件（前半・後半ともPF1.1以上）に合うときだけ自信『中』以上。");
       if (S.name === "ユーロ円") p.push("ユーロ円はドル円×ユーロドルで決まる通貨（2026-10-15 研究開始・日足の売買ルールは未採用）。値動きの大半はドル円の脚（円の強弱）で、ドル円と同じ向きに動いている時は『円全体が動いている』。ドル円とユーロドルが逆に動いてユーロ円が動かない日（打ち消し）は様子見寄り。ECB・ユーロ圏CPI・日銀・介入警戒の★5級は両方とも避ける。スキャル研究のユーロ円欄の上位条件（前半・後半ともPF1.1以上のもの）に合うときだけ自信『中』以上。");
       if (S.name === "ユーロドル") p.push("ユーロドルはドル円より短い足の優位性が小さい（15分足はPF1未満）。前半・後半ともPF1.1以上の条件（例: 4時間足『EMA20押し目/戻り・EMA200と同方向』、30分足『RSI行き過ぎの戻り・EMA200と同方向』）に合えば自信『中』以上、PF1.0以上の条件に下の決まりで2つ合えば自信『低』で案を出してよい。ECB・ユーロ圏CPIなどユーロ側の★5級も避ける。");
       p.push("あなたは" + S.name + "のスキャルピング（数分〜数十分で5〜20pips程度を狙う超短期売買）の案を作る担当です。下の【運用ボードの内容】だけを材料にします。数字はボードの値を使い、無い数字は作らず『不明』と書くこと。");
@@ -1492,7 +1497,7 @@ ANALYSIS_JS = r"""
       if (sd && sd.値動き) p.push("【直近の値動き（15分・30分・1時間・4時間・日足の指標と直近バー。時刻はJST）】\n" + JSON.stringify(sd.値動き).slice(0, 16000));
       if (logs.length) p.push("【これまでの案と結果（新しい順・最大10件）】\n" + JSON.stringify(logs.slice(0, 10).map(function (x) {
         return { 通貨: x.pair || "ドル円", 時刻: x.at, 売買: x.verdict, 結果: x.outcome, エントリー: x.entry, 損切り: x.stop, 利確: x.take_profit }; })));
-      p.push("他の通貨ペア（ユーロ円・ポンド円・豪ドル円・" + S.other + "）については、ここでは数値は書かず、ファンダ（ドル全面主導かどうか等）から『円安寄り／円高寄り／中立』の方向だけを一言で。");
+      p.push("他の通貨ペア（" + ["ドル円", "ユーロドル", "ユーロ円", "ポンド円", "豪ドル円"].filter(function (x) { return x !== S.name; }).join("・") + "）については、ここでは数値は書かず、ファンダ（ドル全面主導かどうか等）から『円安寄り／円高寄り／中立』の方向だけを一言で。");
       p.push("出力は次のJSONオブジェクトのみ:\n" + JSON.stringify({
         verdict: "買／売／見送り", confidence: "高／中／低", headline: "1行の結論（40字以内）",
         win_rate: 54, win_rate_basis: "例: 1時間足『RSI行き過ぎの戻り・EMA200と同方向』勝率54%（118回）、06-07時台の時間帯勝率53%、RSIが条件と逆で-5",
@@ -1529,7 +1534,7 @@ ANALYSIS_JS = r"""
         if (SC.histCol) {
           try {
             var r0 = result || {};
-            await SC.histCol.doc(String(doc.at).replace(/[^0-9A-Za-z]/g, "") + (runPair === "ユーロドル" ? "eu" : runPair === "ユーロ円" ? "ej" : "uj")).set(JSON.parse(JSON.stringify({
+            await SC.histCol.doc(String(doc.at).replace(/[^0-9A-Za-z]/g, "") + (runPair === "ユーロドル" ? "eu" : runPair === "ユーロ円" ? "ej" : runPair === "ポンド円" ? "gj" : "uj")).set(JSON.parse(JSON.stringify({
               at: doc.at, pair: runPair, verdict: r0.verdict || "見送り", confidence: r0.confidence || "",
               entry: r0.entry, stop: r0.stop, take_profit: r0.take_profit, rate: rate, riskRate: riskRate,
               headline: r0.headline || "", win_rate: r0.win_rate != null ? Number(r0.win_rate) : null })));
@@ -2209,6 +2214,7 @@ def _scalp_chart(pair="usdjpy", days=10):
         import research_scalp as rs                          # noqa: PLC0415
         cfgp = rs.PAIRS[pair]
         rs.MULT = cfgp["MULT"]
+        rs.COST_PIPS = cfgp.get("cost", 0.8)     # 2026-10-15 ポンド円はコストが大きい
         dec = 5 if pair == "eurusd" else 3
         m15, h1 = rs._load_pair(pair)
         res = json.load(open(R("results", cfgp["out"]), encoding="utf-8"))
@@ -2217,7 +2223,7 @@ def _scalp_chart(pair="usdjpy", days=10):
         # 2026-10-13: 正式なシグナル配信（scalp_engine.py）の履歴
         try:
             book = json.load(open(R("results", "scalp_signals.json"), encoding="utf-8"))
-            code = {"eurusd": "EUR/USD", "eurjpy": "EUR/JPY"}.get(pair, "USD/JPY")
+            code = {"eurusd": "EUR/USD", "eurjpy": "EUR/JPY", "gbpjpy": "GBP/JPY"}.get(pair, "USD/JPY")
             out["signals"] = [{k: r.get(k) for k in ("sent_at", "tf", "side", "d", "entry", "stop", "tp", "win", "rule",
                                                        "hold_min", "result", "pips", "fill", "exit", "why", "out_at",
                                                        "sl_pips", "tp_pips", "band_win")}
@@ -2350,7 +2356,7 @@ def _scalp_research_html(sr, pair_name="ドル円"):
                 '（python3 src/research_scalp.py で作成）。</p>')
     rows, cross = "", ""
     other = {"ドル円": "ユーロドル"}.get(pair_name, "ドル円")
-    who = "円" if pair_name == "ユーロ円" else "ドル"
+    who = "円" if pair_name in ("ユーロ円", "ポンド円") else "ドル"
     for tf, rep in (sr.get("時間足別") or {}).items():
         for c in (rep.get("相手通貨で確認した場合") or [])[:1]:
             mark = "<b>改善</b>" if c.get("改善") else "変化小・悪化"
@@ -2536,18 +2542,23 @@ def _eurusd_section(cfg):
     return head, op_html, res_html, text, fname, eu_items
 
 
-def _eurjpy_section(cfg):
-    """ユーロ円（3通貨目・2026-10-15 研究開始）のヘッダのレートと研究カード。
+def _yenpair_section(cfg, pair="eurjpy"):
+    """クロス円（ユーロ円・ポンド円＝2026-10-15 研究開始）のヘッダのレートと研究カード。
     売買ルールは落合さんの採用判断まで未採用＝発注カード・指示書は出さない（研究と表示のみ）。"""
     try:
-        sr = json.load(open(R("results", "research_eurjpy_latest.json"), encoding="utf-8"))
+        sr = json.load(open(R("results", f"research_{pair}_latest.json"), encoding="utf-8"))
     except (OSError, ValueError):
         return "", ""
     close = sr.get("終値")
-    head = (f'<div class="inst sub"><span class="inst-l">ユーロ円 EUR/JPY</span>'
+    NM = sr.get("通貨ペア") or {"eurjpy": "ユーロ円", "gbpjpy": "ポンド円"}.get(pair, pair)
+    CODE = {"eurjpy": "EUR/JPY", "gbpjpy": "GBP/JPY"}.get(pair, pair.upper())
+    LEG, CUR = sr.get("脚", "ユーロドル"), sr.get("通貨", "ユーロ")
+    BCLS = {"eurjpy": "ej", "gbpjpy": "gj"}.get(pair, "ej")
+    NTH = {"eurjpy": "3通貨目", "gbpjpy": "4通貨目"}.get(pair, "")
+    head = (f'<div class="inst sub"><span class="inst-l">{NM} {CODE}</span>'
             f'<span class="rate">{float(close):.3f}</span><span class="inst-n">日足終値・研究中</span></div>'
             if close else "")
-    adopted = bool((cfg.get("ユーロ円") or {}).get("システム"))
+    adopted = bool((cfg.get(NM) or {}).get("システム"))
     fam_rows = ""
     for fam, r in (sr.get("型ごとの探索") or {}).items():
         t = (r.get("上位") or [None])[0]
@@ -2569,17 +2580,17 @@ def _eurjpy_section(cfg):
         cand += (f'<li>{"・".join(missing)}: 採用基準（前半・後半ともPF1.10以上、かつ近い設定でも崩れない）を'
                  f'満たす型がなく<b>候補なし</b></li>')
     usd_rows = ""
-    for nm, v in (sr.get("ドル円の現行パラメータをユーロ円に当てた場合") or {}).items():
+    for nm, v in (sr.get("ドル円の現行パラメータを当てた場合") or sr.get("ドル円の現行パラメータをユーロ円に当てた場合") or {}).items():
         usd_rows += (f'<li>ドル円の{html.escape(nm)}（{html.escape(_eu_label(v.get("設定", {})))}）をそのまま当てると'
                      f' PF{v.get("PF全")}（前半{v.get("PF前")}/後半{v.get("PF後")}）・{v.get("取引数")}回</li>')
-    rel = sr.get("ドル円・ユーロドルとの関係") or {}
+    rel = sr.get("関係") or sr.get("ドル円・ユーロドルとの関係") or {}
     corr = rel.get("日次相関") or {}
     share = rel.get("主役の割合(直近60日)") or {}
     contrib = rel.get("値動きの寄与(直近250日)") or {}
     lead = rel.get("1時間足の先行遅行(相関)") or {}
-    corr_txt = "／".join(f'{k} ドル円{v.get("ドル円")}・ユーロドル{v.get("ユーロドル")}' for k, v in corr.items())
+    corr_txt = "／".join(f'{k} ドル円{v.get("ドル円")}・{LEG}{v.get(LEG)}' for k, v in corr.items())
     syn_rows = ""
-    for nm, v in (sr.get("相乗効果(ドル円日足×ユーロ円確認)") or {}).items():
+    for nm, v in (sr.get("相乗効果") or sr.get("相乗効果(ドル円日足×ユーロ円確認)") or {}).items():
         base = v["比較"].get("現行", {})
         best_k, best = max(((kk, vv) for kk, vv in v["比較"].items() if kk != "現行"), key=lambda x: x[1]["スコア"])
         syn_rows += (f'<li>{html.escape(nm)}: 現行 スコア{base.get("スコア")}（PF{base.get("PF全")}・{base.get("取引数")}回）'
@@ -2597,23 +2608,23 @@ def _eurjpy_section(cfg):
         f'<p class="note">※「周辺の平均」＝設定を1段ずらした近い設定の平均スコア。1.0未満は当たり外れの設定（たまたま）の'
         f'疑いが強く採用しない。{html.escape(str(sr.get("前提", "")))}。</p>'
         f'<ul class="focus">{usd_rows}</ul>'
-        f'<h4 class="fh">ドル円・ユーロドルとの関係（ユーロ円＝ドル円×ユーロドル）</h4><ul class="focus">'
+        f'<h4 class="fh">ドル円・{LEG}との関係（{NM}＝ドル円×{LEG}）</h4><ul class="focus">'
         f'<li>日次の相関: {html.escape(corr_txt)}</li>'
-        f'<li>値動きの寄与（直近250日）: ドル円の脚 {contrib.get("ドル円の脚")}／ユーロドルの脚 {contrib.get("ユーロドルの脚")}'
-        f'（1に近いほどその脚でユーロ円の動きが説明できる＝いまは<b>円の強弱が主役</b>かどうか）</li>'
-        f'<li>直近60日の主役: 円主導 {share.get("円主導", 0):.0%}／ユーロ主導 {share.get("ユーロ主導", 0):.0%}'
-        f'／円・ユーロ同時 {share.get("円・ユーロ同時", 0):.0%}／打ち消し（ドルだけ動いた）{share.get("打ち消し(ドル主導)", 0):.0%}'
+        f'<li>値動きの寄与（直近250日）: ドル円の脚 {contrib.get("ドル円の脚")}／{LEG}の脚 {contrib.get(LEG + "の脚")}'
+        f'（1に近いほどその脚で{NM}の動きが説明できる＝いまは<b>円の強弱が主役</b>かどうか）</li>'
+        f'<li>直近60日の主役: 円主導 {share.get("円主導", 0):.0%}／{CUR}主導 {share.get(CUR + "主導", 0):.0%}'
+        f'／円・{CUR}同時 {share.get("円・" + CUR + "同時", 0):.0%}／打ち消し（ドルだけ動いた）{share.get("打ち消し(ドル主導)", 0):.0%}'
         f'／小動き {share.get("小動き・その他", 0):.0%}　最新日: <b>{html.escape(str(rel.get("最近の主役", "")))}</b></li>'
-        f'<li>1時間足の先行: ユーロ円1本前→ドル円 {lead.get("ユーロ円1本前→ドル円")}／ドル円1本前→ユーロ円 {lead.get("ドル円1本前→ユーロ円")}'
+        f'<li>1時間足の先行: {NM}1本前→ドル円 {lead.get(NM + "1本前→ドル円")}／ドル円1本前→{NM} {lead.get("ドル円1本前→" + NM)}'
         f'（ほぼ0＝先に動いて予告する関係は無い。同時 {lead.get("同時")}）</li></ul>'
-        f'<h4 class="fh">相乗効果の検証（ドル円の日足売買を「ユーロ円も同じ向き＝円全体が動いている」時だけにしたら）</h4>'
+        f'<h4 class="fh">相乗効果の検証（ドル円の日足売買を「{NM}も同じ向き＝円全体が動いている」時だけにしたら）</h4>'
         f'<ul class="focus">{syn_rows}</ul>'
         f'<p class="note">※採用基準（スコア1.05倍以上・取引数6割以上）に届かなければ現行のまま。'
-        f'スキャルの研究はスキャルピング欄（通貨ペアで「ユーロ円」を選ぶ）を参照。</p>')
-    res_html = (f'<section class="card span2" id="eurjpy-research"><div class="card-head"><h3>ユーロ円研究'
-                f' <span class="badge pair ej">EUR/JPY</span><span class="badge new">3通貨目・研究中</span></h3>'
+        f'スキャルの研究はスキャルピング欄（通貨ペアで「{NM}」を選ぶ）を参照。</p>')
+    res_html = (f'<section class="card span2" id="{pair}-research"><div class="card-head"><h3>{NM}研究'
+                f' <span class="badge pair {BCLS}">{CODE}</span><span class="badge new">{NTH}・研究中</span></h3>'
                 f'<span class="params">{html.escape(upd)}・{html.escape(str(sr.get("期間", "")))}</span></div>'
-                + _clamp("cl-ejres", "c-m", body, "ユーロ円研究の全文を表示") + '</section>')
+                + _clamp(f"cl-{pair}res", "c-m", body, f"{NM}研究の全文を表示") + '</section>')
     return head, res_html
 
 
@@ -2701,7 +2712,9 @@ def build():
     scalp_research = _rj("research_scalp_latest.json")
     scalp_research_eu = _rj("research_scalp_eurusd_latest.json")
     scalp_research_ej = _rj("research_scalp_eurjpy_latest.json")      # 2026-10-15 ユーロ円（研究中）
-    ej_head, ej_res_html = _eurjpy_section(cfg)
+    scalp_research_gj = _rj("research_scalp_gbpjpy_latest.json")      # 2026-10-15 ポンド円（研究中）
+    ej_head, ej_res_html = _yenpair_section(cfg, "eurjpy")
+    gj_head, gj_res_html = _yenpair_section(cfg, "gbpjpy")
     eu_head, eu_op_html, eu_res_html, eu_text, eu_fname, eu_items = _eurusd_section(cfg)
     # pre.order の要素・クラス・本文はそのまま（JS が倍率で書き換え、Drive へ書き出す）。
     # 並びはドル円の指示書の直後（Drive 調整版の連結順＝ドル円→ユーロドルを保つ）。
@@ -2715,19 +2728,22 @@ def build():
     scalp_card = SCALP_CARD.replace("__SCALP_RESEARCH__",
                                     _scalp_research_html(scalp_research, "ドル円")
                                     + _scalp_research_html(scalp_research_eu, "ユーロドル")
-                                    + _scalp_research_html(scalp_research_ej, "ユーロ円"))
+                                    + _scalp_research_html(scalp_research_ej, "ユーロ円")
+                                    + _scalp_research_html(scalp_research_gj, "ポンド円"))
     scalp_data_html = ('<script type="application/json" id="scalp-data">'
                        + json.dumps({"ドル円": {"研究": scalp_research, "値動き": _scalp_snapshot("usdjpy")},
                                      "ユーロドル": {"研究": scalp_research_eu,
                                                "値動き": _scalp_snapshot("eurusd")},
                                      "ユーロ円": {"研究": scalp_research_ej,
-                                              "値動き": _scalp_snapshot("eurjpy")}},
+                                              "値動き": _scalp_snapshot("eurjpy")},
+                                     "ポンド円": {"研究": scalp_research_gj,
+                                              "値動き": _scalp_snapshot("gbpjpy")}},
                                     ensure_ascii=False).replace("</", "<\\/")
                        + "</script>"
                        # 2026-10-13: スキャルのチャート用（ローソク・EMA・ペーパートレード）。分析の材料とは別枠
                        + '<script type="application/json" id="scalp-chart">'
                        + json.dumps({"ドル円": _scalp_chart("usdjpy"), "ユーロドル": _scalp_chart("eurusd"),
-                                   "ユーロ円": _scalp_chart("eurjpy")},
+                                   "ユーロ円": _scalp_chart("eurjpy"), "ポンド円": _scalp_chart("gbpjpy")},
                                     ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/")
                        + "</script>")
     # 本日の配信メタ（各ステージの実際の生成時刻・遅延印・完成率）
@@ -3590,7 +3606,8 @@ def build():
         # （スキャル分析の AI はここを画面の文字＝boardText から読む）。
         for key, ttl, gcls in (("スキャル指針", "スキャル指針・ドル円", "uj"),
                                ("スキャル指針_ユーロドル", "スキャル指針・ユーロドル", "eu"),
-                               ("スキャル指針_ユーロ円", "スキャル指針・ユーロ円", "ej")):
+                               ("スキャル指針_ユーロ円", "スキャル指針・ユーロ円", "ej"),
+                               ("スキャル指針_ポンド円", "スキャル指針・ポンド円", "gj")):
             g = news.get(key)
             if not (isinstance(g, dict) and g):
                 continue
@@ -3612,12 +3629,14 @@ def build():
                      for k, v in eu_f.items() if v]
             eu_fund_html = ('<div class="fbox"><div class="l">ユーロドルのファンダ（ECB・ユーロ圏・ドルとの関係）</div>'
                             + "<br>".join(parts) + "</div>")
-        ej_f = news.get("ユーロ円")                                  # 2026-10-15 ユーロ円
-        if isinstance(ej_f, dict) and ej_f:
-            parts = [f"<b>{html.escape(k)}</b>: {html.escape(chr(12289).join(map(str, v)) if isinstance(v, list) else str(v))}"
-                     for k, v in ej_f.items() if v]
-            eu_fund_html += ('<div class="fbox"><div class="l">ユーロ円のファンダ（円とユーロ・ECBと日銀）</div>'
-                             + "<br>".join(parts) + "</div>")
+        for _k, _ttl in (("ユーロ円", "ユーロ円のファンダ（円とユーロ・ECBと日銀）"),        # 2026-10-15
+                         ("ポンド円", "ポンド円のファンダ（円とポンド・BOEと日銀）")):
+            ej_f = news.get(_k)
+            if isinstance(ej_f, dict) and ej_f:
+                parts = [f"<b>{html.escape(k)}</b>: {html.escape(chr(12289).join(map(str, v)) if isinstance(v, list) else str(v))}"
+                         for k, v in ej_f.items() if v]
+                eu_fund_html += (f'<div class="fbox"><div class="l">{_ttl}</div>'
+                                 + "<br>".join(parts) + "</div>")
         themes = news.get("テーマ") or []
         items = "".join(_theme_row(t) for t in themes[:8])
         # 上位3件は出したまま、4〜8件目は高さ制限で畳む（innerText には残る）
@@ -3900,12 +3919,13 @@ def build():
 </style>
 <div class="wrap">
 <header class="top">
-  <div class="top-id"><h1>FX運用ボード<small>ドル円・ユーロドル・ユーロ円（研究中）</small></h1>
+  <div class="top-id"><h1>FX運用ボード<small>ドル円・ユーロドル／研究中: ユーロ円・ポンド円</small></h1>
     <span class="meta"><span class="upd">更新 {datetime.now():%Y-%m-%d %H:%M}</span>｜生成元: {origin}</span></div>
   <div class="inst-row">
     <div class="inst"><span class="inst-l">ドル円 USD/JPY</span><span class="rate">{close:.3f}<small>円</small></span><span class="inst-n">日足終値</span></div>
     {eu_head}
     {ej_head}
+    {gj_head}
     <div class="inst eq"><span class="inst-l">モデル資産</span><b class="eqv">{equity_txt}</b><span class="d {_eq_cls}">{_eq_diff:+,.0f}円（{_eq_pct:+.2%}）</span></div>
   </div>
   {delivery}
@@ -3929,9 +3949,10 @@ def build():
 <h2 class="grp" id="g-perf">成績<small>モデル資産・勝率・決済履歴</small></h2>
 {perf_card}
 {trades_card}
-<h2 class="grp" id="g-log">記録・研究<small>ユーロドル研究・ユーロ円研究・直近の記録・研究ログ</small></h2>
+<h2 class="grp" id="g-log">記録・研究<small>ユーロドル研究・ユーロ円研究・ポンド円研究・直近の記録・研究ログ</small></h2>
 {eu_res_html}
 {ej_res_html}
+{gj_res_html}
 <section class="card half">
   <h3>直近の記録</h3>
   <div class="tablewrap"><table>

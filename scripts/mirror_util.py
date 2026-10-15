@@ -39,6 +39,11 @@ RESEARCH_PATHS = [
     "results/research_eurjpy_log.csv",
     "results/research_scalp_eurjpy_latest.json",
     "results/research_scalp_eurjpy_log.csv",
+    # 2026-10-15 ポンド円（4通貨目・研究中）
+    "results/research_gbpjpy_latest.json",
+    "results/research_gbpjpy_log.csv",
+    "results/research_scalp_gbpjpy_latest.json",
+    "results/research_scalp_gbpjpy_log.csv",
 ]
 MAC_PATHS = FUND_PATHS + RESEARCH_PATHS
 BACKUP_ROOT = "backup/mirror_discard"

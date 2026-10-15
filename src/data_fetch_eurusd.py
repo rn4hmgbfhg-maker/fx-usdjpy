@@ -199,13 +199,16 @@ if __name__ == "__main__":
         print(update_all(full="--full" in sys.argv))
         # 2026-10-15: ユーロ円（3通貨目・研究中）のデータもここで更新する（ワークフローの編集には
         # workflow スコープが要るため、スキャル判定と同じく既存の手順に相乗りさせる）。
+        # 2026-10-15 ポンド円（4通貨目・研究中）も同じく相乗り。
         if "--no-eurjpy" not in sys.argv:
-            try:
-                sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-                import data_fetch_eurjpy
-                print("ユーロ円:", data_fetch_eurjpy.update_all())
-            except Exception as e:  # noqa: BLE001
-                print(f"ユーロ円データ更新失敗: {e}")
+            sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+            import data_fetch_yenpair
+            for _pr in ("eurjpy", "gbpjpy"):
+                try:
+                    _p = data_fetch_yenpair.Pair(_pr)
+                    print(f"{_p.name}:", _p.update_all())
+                except Exception as e:  # noqa: BLE001
+                    print(f"{_pr} データ更新失敗: {e}")
         # 2026-10-13: スキャルのシグナル配信。signals.yml（15分ごと）でこのスクリプトは
         # ドル円の15分足更新（デイトレ15分）の後に走るため、両通貨の最新データがそろうここで判定する
         # （ワークフローの編集には workflow スコープが要るため、既存の手順に相乗りさせる）。
