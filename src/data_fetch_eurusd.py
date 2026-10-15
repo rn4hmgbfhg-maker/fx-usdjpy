@@ -225,3 +225,11 @@ if __name__ == "__main__":
                 scalp_engine.run()
             except Exception as e:  # noqa: BLE001
                 print(f"スキャル判定失敗: {e}")
+        # 2026-10-15: FXスキャル専用ボード（MATRIX TRADER 主要11ペアの順位・今入るなら・RR）のデータ。
+        # スキャル判定と同じくワークフローを編集せずに相乗りする。失敗しても既存の判定には影響しない。
+        if "--no-scalp-board" not in sys.argv:
+            try:
+                import scalp_board
+                scalp_board.run()
+            except Exception as e:  # noqa: BLE001
+                print(f"スキャルボード生成失敗: {e}")
