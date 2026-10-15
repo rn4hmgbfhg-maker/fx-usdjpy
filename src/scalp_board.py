@@ -259,6 +259,32 @@ def _yahoo(sym, interval, rng):
     raise RuntimeError(f"{sym} {interval} 取得失敗: {last}")
 
 
+# 2026-10-15: チャートの時間足切り替え用（ボードで 15分/30分/1時間/4時間/8時間/12時間/日足 を描く）。
+# 30分は15分足から、8時間・12時間は4時間足からボード側で束ねる。EMA計算の助走分（+50本）を含める。
+TF_KEEP = {"15m": 242, "1h": 170, "4h": 290, "1d": 140}
+
+
+def _compact(df, minutes, pip):
+    """[[足の終わり(JST・YYYY-MM-DDTHH:MM), 始, 高, 安, 終], ...]（pipの1/10単位で丸め）"""
+    dg = 6 if pip < 0.01 else 4
+    out = []
+    for t, r in df.iterrows():
+        end = (t + pd.Timedelta(minutes=minutes)).tz_convert("Asia/Tokyo").strftime("%Y-%m-%dT%H:%M")
+        out.append([end] + [round(float(r[k]), dg) for k in ("Open", "High", "Low", "Close")])
+    return out
+
+
+def tf_bars(m15, h1, d1, pip):
+    h4 = h1.resample("4h", label="left", closed="left").agg(
+        {"Open": "first", "High": "max", "Low": "min", "Close": "last"}).dropna()
+    res = {"15m": _compact(m15.iloc[-TF_KEEP["15m"]:], 15, pip),
+           "1h": _compact(h1.iloc[-TF_KEEP["1h"]:], 60, pip),
+           "4h": _compact(h4.iloc[-TF_KEEP["4h"]:], 240, pip)}
+    if d1 is not None and len(d1):
+        res["1d"] = _compact(d1.iloc[-TF_KEEP["1d"]:], 0, pip)   # 日足は日付だけ使う
+    return res
+
+
 def run(out_dir=None):
     """主要11ペアを取得して results/scalp_board/ に ranking.json・bars.json・hours.json・meta.json を書く。
     signals.yml（15分ごと）の data_fetch_eurusd.py に相乗りして動く（ワークフローは編集しない）。
@@ -269,12 +295,18 @@ def run(out_dir=None):
     os.makedirs(out_dir, exist_ok=True)
     now = pd.Timestamp.now(tz="UTC")
     rows, bars, hours, errs = [], [], [], []
+    tfb = {}
     for code, name, sym, pip, cost, note in PAIRS:
         try:
             m15 = _yahoo(sym, "15m", "60d")
             h1 = _yahoo(sym, "60m", "90d")
             r, b, h, _ = analyze(code, name, pip, cost, note, m15, h1, now)
             rows.append(r); bars += b; hours += h
+            try:
+                d1 = _yahoo(sym, "1d", "1y")
+            except Exception:  # noqa: BLE001
+                d1 = None
+            tfb[code] = tf_bars(m15, h1, d1, pip)
         except Exception as e:  # noqa: BLE001
             errs.append(f"{name}: {e}")
     if not rows:
@@ -286,7 +318,7 @@ def run(out_dir=None):
     meta = {"at": now.tz_convert("Asia/Tokyo").isoformat(timespec="seconds"),
             "asof": rows[0]["bar_jst"], "pairs": len(rows), "errors": errs,
             "source": "Yahoo Finance（GitHub Actions・15分ごと）"}
-    for fn, obj in (("ranking.json", rows), ("bars.json", bars), ("hours.json", hours), ("meta.json", meta)):
+    for fn, obj in (("ranking.json", rows), ("bars.json", bars), ("hours.json", hours), ("bars_tf.json", tfb), ("meta.json", meta)):
         json.dump(obj, open(os.path.join(out_dir, fn), "w", encoding="utf-8"), ensure_ascii=False)
     print(f"スキャルボード {len(rows)}/{len(PAIRS)}ペア" + (f"（失敗 {'; '.join(errs)}）" if errs else ""))
 
