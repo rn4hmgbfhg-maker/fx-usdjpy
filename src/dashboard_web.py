@@ -600,38 +600,50 @@ LIVE_JS = r"""
     not_in_manifest: "この画面でGoogle Driveが許可されていません",
     approval_required: "Google Driveの利用を許可してください（ボタンを押すと確認が出ます）",
     not_granted: "この画面ではGoogle Driveを使えません" };
+  var chartStamp = null;
+  async function newest(title) {
+    var found = await mcp.callTool("Google Drive", "search_files", {
+      query: "title = '" + title + "'", excludeContentSnippets: true, pageSize: 5 }, { cache: false });
+    var files = ((found.payload && found.payload.files) || []).slice().sort(function (a, b) {
+      return String(b.modifiedTime).localeCompare(String(a.modifiedTime)); });
+    return files[0] || null;
+  }
+  async function load(file) {
+    var dl = await mcp.callTool("Google Drive", "download_file_content", { fileId: file.id }, { cache: false });
+    return JSON.parse(b64utf8((dl.payload && dl.payload.content) || ""));
+  }
   async function run(manual) {
     if (busy) return;
     if (!mcp) { st.textContent = "この画面ではGoogle Driveを使えないため、日足終値のままです（claude.ai で開いてください）。"; return; }
     busy = true; btn.disabled = true;
-    st.textContent = "現在価格とチャートを読み込み中…";
+    var pressed = new Date().toLocaleTimeString("ja-JP", { timeZone: "Asia/Tokyo", hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    st.textContent = pressed + " 読み込み中…";
     try {
-      var found = await mcp.callTool("Google Drive", "search_files", {
-        query: "title = 'fx_live_latest.json'", excludeContentSnippets: true, pageSize: 5 }, { cache: false });
-      var files = ((found.payload && found.payload.files) || []).slice().sort(function (a, b) {
-        return String(b.modifiedTime).localeCompare(String(a.modifiedTime)); });
-      if (!files.length) throw { message: "Driveに fx_live_latest.json が見つかりません" };
-      var dl = await mcp.callTool("Google Drive", "download_file_content", { fileId: files[0].id }, { cache: false });
-      var data = JSON.parse(b64utf8((dl.payload && dl.payload.content) || ""));
-      var sc = window.__fxSc ? window.__fxSc.data() : null, got = 0, newest = 0;
+      // ①チャートの足（毎時更新・大きい）は、前回より新しい時だけ読む
+      var cf = await newest("fx_live_latest.json"), data = null;
+      if (cf && cf.modifiedTime !== chartStamp) { data = await load(cf); chartStamp = cf.modifiedTime; }
+      // ②価格（毎分更新・小さい）は毎回読む
+      var pf = await newest("fx_live_prices.json"), prices = pf ? await load(pf) : null;
+      var sc = window.__fxSc ? window.__fxSc.data() : null, got = 0, newestT = 0;
       for (var pair in PAIRS) {
-        var row = data.pairs && data.pairs[pair];
-        if (!row) continue;
         var el = document.querySelector('.inst[data-pair="' + pair + '"]');
         var close = el ? parseFloat(el.getAttribute("data-close")) : NaN;
-        var tf15 = row.tf && row.tf["15分"], last = tf15 && tf15[tf15.length - 1];
-        if (row.price) { setRate(pair, row.price, "現在 " + hhmm(row.time), close); newest = Math.max(newest, row.time); got++; }
-        else if (last) { setRate(pair, last[4], "15分足 " + hhmm((last[0] + 15) * 60), close); got++; }
+        var row = data && data.pairs && data.pairs[pair];
+        var pp = prices && prices.pairs && prices.pairs[pair];
+        var best = null;
+        if (pp && pp.price) best = pp;
+        if (row && row.price && (!best || row.time > best.time)) best = { price: row.price, time: row.time };
+        if (best) { setRate(pair, best.price, "現在 " + hhmm(best.time), close); newestT = Math.max(newestT, best.time); got++; }
         var C = sc && sc[PAIRS[pair]];
-        if (C && row.tf) { C.tf = row.tf; C.最終 = row.最終 || ""; C.src = "更新ボタンで取得"; C.error = null; }
+        if (C && row && row.tf) { C.tf = row.tf; C.最終 = row.最終 || ""; C.src = "更新ボタンで取得"; C.error = null; }
       }
-      if (window.__fxSc) window.__fxSc.draw();
-      var age = newest ? Math.round((Date.now() / 1000 - newest) / 60) : null;
-      st.textContent = "読み込み完了（" + got + "通貨・データ作成 " + String(data.更新 || "").slice(5, 16).replace("T", " ")
-        + (age !== null ? "・現在値は約" + age + "分前" : "") + "）"
-        + (age !== null && age > 90 ? "／★データが古い：Macの毎時タスクが止まっていないか確認" : "");
+      if (data && window.__fxSc) window.__fxSc.draw();
+      var age = newestT ? Math.round((Date.now() / 1000 - newestT) / 60) : null;
+      st.textContent = pressed + " に確認（" + got + "通貨）"
+        + (age !== null ? "・価格は約" + age + "分前の値" : "")
+        + (age !== null && age > 10 ? "／★価格の自動書き込み（Macの毎分の処理）が動いていない可能性" : "");
     } catch (e) {
-      st.textContent = "読み込めませんでした（" + (WHY[e && e.code] || (e && (e.message || e.code)) || "不明") + "）。表示は日足終値のままです。";
+      st.textContent = pressed + " 読み込めませんでした（" + (WHY[e && e.code] || (e && (e.message || e.code)) || "不明") + "）。";
     }
     busy = false; btn.disabled = false;
   }

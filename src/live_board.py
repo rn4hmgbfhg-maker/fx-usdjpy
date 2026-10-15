@@ -67,15 +67,44 @@ def build():
     return out
 
 
-def write(out_dir=None):
+def _out_dir(out_dir):
     if out_dir is None:
         import local_settings                                    # noqa: PLC0415
         gd = local_settings.get("drive_dir")
         if not gd or not os.path.isdir(gd):
-            return "Driveフォルダなし: スキップ"
+            return None
         out_dir = os.path.join(gd, "ライブ価格")
     os.makedirs(out_dir, exist_ok=True)
+    return out_dir
+
+
+def write_prices(out_dir=None):
+    """価格だけの小さいファイル fx_live_prices.json（約0.5KB）。launchd が毎分書く（2026-10-15
+    落合さん指摘「更新ボタンを押しても時刻が更新されない」＝毎時の書き込みだけでは古いままだった）。"""
+    import data_fetch_yenpair as dyp                             # noqa: PLC0415
+    out_dir = _out_dir(out_dir)
+    if not out_dir:
+        return "Driveフォルダなし: スキップ"
+    live = dyp.write_live_prices(path=os.devnull)
+    data = json.dumps(live, ensure_ascii=False, separators=(",", ":"))
+    p = os.path.join(out_dir, "fx_live_prices.json")
+    try:
+        with open(p, "w", encoding="utf-8") as f:
+            f.write(data)
+        return f"上書き: {p}"
+    except PermissionError:
+        return "上書き不可（launchd の権限）: スキップ"
+
+
+def write(out_dir=None):
+    out_dir = _out_dir(out_dir)
+    if not out_dir:
+        return "Driveフォルダなし: スキップ"
     data = json.dumps(build(), ensure_ascii=False, separators=(",", ":"))
+    try:
+        write_prices(out_dir)
+    except Exception:                                            # noqa: BLE001
+        pass
     p = os.path.join(out_dir, "fx_live_latest.json")
     try:
         with open(p, "w", encoding="utf-8") as f:
@@ -89,4 +118,17 @@ def write(out_dir=None):
 
 if __name__ == "__main__":
     od = sys.argv[sys.argv.index("--out") + 1] if "--out" in sys.argv else None
-    print(write(od))
+    if "--prices-only" in sys.argv:
+        msg = write_prices(od)
+        if "スキップ" in msg:   # 毎分のログを汚さないよう、失敗は1日1回だけ
+            base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            mark = os.path.join(base, "logs", ".live_prices_skip_day")
+            today = f"{datetime.now():%F}"
+            os.makedirs(os.path.dirname(mark), exist_ok=True)
+            if not os.path.exists(mark) or open(mark).read() != today:
+                open(mark, "w").write(today)
+                with open(os.path.join(base, "logs", "live_prices.log"), "a", encoding="utf-8") as f:
+                    f.write(f"{datetime.now():%F %T} {msg}\n")
+        print(msg)
+    else:
+        print(write(od))
