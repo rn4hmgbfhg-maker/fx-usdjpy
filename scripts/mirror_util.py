@@ -34,6 +34,11 @@ RESEARCH_PATHS = [
     "results/research_eurusd_log.csv",
     "results/research_scalp_eurusd_latest.json",
     "results/research_scalp_eurusd_log.csv",
+    # 2026-10-15 ユーロ円（3通貨目・研究中。研究は Mac が書き手）
+    "results/research_eurjpy_latest.json",
+    "results/research_eurjpy_log.csv",
+    "results/research_scalp_eurjpy_latest.json",
+    "results/research_scalp_eurjpy_log.csv",
 ]
 MAC_PATHS = FUND_PATHS + RESEARCH_PATHS
 BACKUP_ROOT = "backup/mirror_discard"

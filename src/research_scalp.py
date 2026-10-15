@@ -39,7 +39,10 @@ LOG_CSV = os.path.join(RES, "research_scalp_log.csv")
 # 2通貨対応（2026-10-12 ユーロドル追加）。MULT＝価格差→pips の倍率
 PAIRS = {"usdjpy": {"名": "ドル円", "MULT": 100, "out": "research_scalp_latest.json", "log": "research_scalp_log.csv"},
          "eurusd": {"名": "ユーロドル", "MULT": 10000, "out": "research_scalp_eurusd_latest.json",
-                    "log": "research_scalp_eurusd_log.csv"}}
+                    "log": "research_scalp_eurusd_log.csv"},
+         # 2026-10-15 ユーロ円追加（円の通貨なので pips はドル円と同じ 0.01円）
+         "eurjpy": {"名": "ユーロ円", "MULT": 100, "out": "research_scalp_eurjpy_latest.json",
+                    "log": "research_scalp_eurjpy_log.csv"}}
 MULT = 100
 
 COST_PIPS = 0.8
@@ -190,9 +193,12 @@ def label(m):
 
 def _load_pair(pair):
     """(15分足, 1時間足) を JST index で返す。1時間足以上は1時間足の方が長い履歴を持つことがある。"""
-    if pair == "eurusd":
+    if pair in ("eurusd", "eurjpy"):
         sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-        import data_fetch_eurusd as dfe                               # noqa: PLC0415
+        if pair == "eurusd":
+            import data_fetch_eurusd as dfe                           # noqa: PLC0415
+        else:
+            import data_fetch_eurjpy as dfe                           # noqa: PLC0415
         m15 = dfe.load_intraday("15m").tz_convert("Asia/Tokyo")
         h1 = dfe.load_intraday("1h").tz_convert("Asia/Tokyo")
         return m15, h1
@@ -229,7 +235,7 @@ def run(quick=False, pair="usdjpy"):
     if quick:
         m15 = m15[m15.index >= m15.index[-1] - pd.Timedelta(days=365)]
     try:
-        other = "eurusd" if pair == "usdjpy" else "usdjpy"
+        other = {"usdjpy": "eurusd", "eurusd": "usdjpy", "eurjpy": "usdjpy"}[pair]
         other_h1 = _load_pair(other)[1]
     except Exception:                                                # noqa: BLE001
         other_h1 = None
@@ -275,6 +281,10 @@ def run(quick=False, pair="usdjpy"):
         cross_rows = []
         if other_h1 is not None and top:
             cx = _cross_trend(other_h1, df.index)
+            if pair == "eurjpy":
+                # ユーロ円の相手はドル円。円安ならどちらも上向き＝同じ向きの時だけ入る
+                # （simulate は「相手の向き＝自分の逆」で通すので符号を反転して渡す）
+                cx = -cx
             for m in top[:3]:
                 t2 = simulate(df, signals(df, m["入り方"]), m["損切りATR"], m["利確ATR"],
                               m["保有本数"], m["順行のみ"], cross=cx)
@@ -342,8 +352,8 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--quick", action="store_true")
     ap.add_argument("--pair", choices=list(PAIRS), default=None,
-                    help="省略時はドル円→ユーロドルの順に両方")
+                    help="省略時はドル円→ユーロドル→ユーロ円の順に全部")
     a = ap.parse_args()
-    for p in ([a.pair] if a.pair else ["usdjpy", "eurusd"]):
+    for p in ([a.pair] if a.pair else ["usdjpy", "eurusd", "eurjpy"]):
         print(f"##### {PAIRS[p]['名']} #####")
         run(quick=a.quick, pair=p)

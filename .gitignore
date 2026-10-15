@@ -24,3 +24,6 @@ scripts/set_mail_password.command
 
 # ユーロドル15分足の長期履歴（研究専用・Macのみ・大きい）
 data/eurusd_15m_hist.csv
+
+# ユーロ円15分足の長期履歴（研究専用・Macのみ・大きい）
+data/eurjpy_15m_hist.csv
