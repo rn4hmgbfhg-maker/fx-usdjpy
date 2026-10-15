@@ -622,7 +622,7 @@ LIVE_JS = r"""
         if (row.price) { setRate(pair, row.price, "現在 " + hhmm(row.time), close); newest = Math.max(newest, row.time); got++; }
         else if (last) { setRate(pair, last[4], "15分足 " + hhmm((last[0] + 15) * 60), close); got++; }
         var C = sc && sc[PAIRS[pair]];
-        if (C && row.tf) { C.tf = row.tf; C.最終 = (row.最終 || "") + "・更新ボタン"; C.error = null; }
+        if (C && row.tf) { C.tf = row.tf; C.最終 = row.最終 || ""; C.src = "更新ボタンで取得"; C.error = null; }
       }
       if (window.__fxSc) window.__fxSc.draw();
       var age = newest ? Math.round((Date.now() / 1000 - newest) / 60) : null;
@@ -1133,7 +1133,7 @@ ANALYSIS_JS = r"""
     var zl = $("sc-zoomlbl");
     if (zl) zl.textContent = n + "本（" + scT(bars[0][0]).slice(0, 5) + "〜）";
     svg.setAttribute("viewBox", "0 0 " + VW + " 320");
-    $("sc-title").textContent = SC.pair + " " + SC.tf + "足（最終 " + (C.最終 || "") + "・ボード更新時点）";
+    $("sc-title").textContent = SC.pair + " " + SC.tf + "足（最終 " + (C.最終 || "") + "・" + (C.src || "ボード更新時点") + "）";
     var X0 = 8, X1 = VW - 68, Y0 = 10, Y1 = 290, W = (X1 - X0) / n;
     var hi = -Infinity, lo = Infinity;
     bars.forEach(function (b) { hi = Math.max(hi, b[2]); lo = Math.min(lo, b[3]); });
