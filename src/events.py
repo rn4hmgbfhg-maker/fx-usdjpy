@@ -131,6 +131,12 @@ JP_NAMES.update({"Main Refinancing Rate": "ECB政策金利", "ECB Press Conferen
                  "Deposit Facility Rate": "ECB預金金利", "CPI Flash Estimate": "ユーロ圏CPI速報"})
 
 
+# ポンド側の★5級（2026-10-15 ポンド円追加）。BOEの政策金利・議事要旨と英CPI。
+STAR5_GBP = ["official bank rate", "monetary policy summary", "mpc official bank rate votes", "cpi y/y"]
+JP_NAMES.update({"Official Bank Rate": "BOE政策金利", "Monetary Policy Summary": "BOE金融政策要旨",
+                 "MPC Official Bank Rate Votes": "BOE投票内訳"})
+
+
 def upcoming_events(hours=24, currencies=("USD", "JPY")):
     """(JST日時, 通貨, 英名, 日本語補足) のリスト。取得失敗は None。
     currencies: 対象通貨。ユーロドルは ("USD", "EUR")。"""
@@ -156,6 +162,9 @@ def upcoming_events(hours=24, currencies=("USD", "JPY")):
             t = e.get("title", "")
             if e.get("country") == "EUR":
                 if not any(p in t.lower() for p in STAR5_EUR):
+                    continue
+            elif e.get("country") == "GBP":
+                if not any(p in t.lower() for p in STAR5_GBP):
                     continue
             elif not _is_star5(t):
                 continue  # ★4以下は警戒対象外

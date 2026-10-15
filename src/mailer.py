@@ -125,14 +125,14 @@ def instruction_text(d):
         return f.read().rstrip()
 
 
-def eu_instruction(d):
-    """ユーロドル最終確定の (本文, 発注件数)。無ければ (None, 0)。"""
-    p = os.path.join(ORDERS_DIR, f"{d.isoformat()}_ユーロドル指示_確定.txt")
+def eu_instruction(d, nm="ユーロドル"):
+    """ユーロドル（2026-10-15〜 ユーロ円・ポンド円も）最終確定の (本文, 発注件数)。無ければ (None, 0)。"""
+    p = os.path.join(ORDERS_DIR, f"{d.isoformat()}_{nm}指示_確定.txt")
     if not os.path.exists(p):
         return None, 0
     body = open(p, encoding="utf-8").read().rstrip()
     n = 0
-    jp = os.path.join(ORDERS_DIR, f"{d.isoformat()}_ユーロドル発注_確定.json")
+    jp = os.path.join(ORDERS_DIR, f"{d.isoformat()}_{nm}発注_確定.json")
     try:
         data = json.load(open(jp, encoding="utf-8"))
         n = sum(1 for v in data.get("操作", {}).values() for op in v if op.get("種別") != "要確認")
@@ -164,16 +164,21 @@ def compose(d):
     n_uj = order_count(d)
     # 2026-10-12: ユーロドル追加（2通貨運用）。同じメールに続けて載せ、件数も合算する。
     eu_body, n_eu = eu_instruction(d)
-    n = n_uj + n_eu
+    # 2026-10-15 クロス円（ユーロ円・ポンド円）も同じメールに続けて載せる
+    yp = {nm: eu_instruction(d, nm) for nm in ("ユーロ円", "ポンド円")}
+    n = n_uj + n_eu + sum(v[1] for v in yp.values())
     head = f"{d:%-m/%-d}" if os.name != "nt" else f"{d.month}/{d.day}"
-    subject = (f"【FX最終確定】{head} 発注{n}件（ドル円{n_uj}・ユーロドル{n_eu}）" if n
-               else f"【FX最終確定】{head} 発注不要（ドル円・ユーロドル）")
+    _cnt = f"ドル円{n_uj}・ユーロドル{n_eu}" + "".join(f"・{k}{v[1]}" for k, v in yp.items())
+    subject = (f"【FX最終確定】{head} 発注{n}件（{_cnt}）" if n
+               else f"【FX最終確定】{head} 発注不要（ドル円・ユーロドル・ユーロ円・ポンド円）")
     if eu_body:
         body = body + "\n\n" + "#" * 46 + "\n" + eu_body
     else:
         body = body + "\n\n※ユーロドルの最終確定指示書は未生成（ボードで確認）"
-    text = (f"ドル円・ユーロドル 最終確定指示 {d.isoformat()}\n"
-            f"発注作業: {n}件（ドル円{n_uj}件・ユーロドル{n_eu}件）\n"
+    for k, (yb, _n) in yp.items():
+        body += ("\n\n" + "#" * 46 + "\n" + yb) if yb else f"\n\n※{k}の最終確定指示書は未生成（ボードで確認）"
+    text = (f"ドル円・ユーロドル・ユーロ円・ポンド円 最終確定指示 {d.isoformat()}\n"
+            f"発注作業: {n}件（{_cnt.replace('・', '件・')}件）\n"
             f"運用ボード: {BOARD_URL}\n"
             + "=" * 46 + "\n\n" + body + "\n\n" + "=" * 46 + "\n"
             "発注はMATRIX TRADER（Mac版アプリ）でご本人が手動転記・送信のこと。\n"

@@ -151,6 +151,45 @@ def run_eurusd(target):
     return ok_all
 
 
+YP_ENGINE = os.path.join(BASE_DIR, "src", "yenpair_engine.py")
+YP_PAIRS = {"eurjpy": "ユーロ円", "gbpjpy": "ポンド円"}      # 2026-10-15 落合さん承認（B＝両方採用）
+
+
+def yp_order_path(stage, nm, d=None):
+    d = d or date.today()
+    return os.path.join(ORDERS_DIR, f"{d.isoformat()}_{nm}指示_{TAG[stage]}.txt")
+
+
+def run_yenpairs(target):
+    """クロス円（ユーロ円・ポンド円）の未生成ステージを生成（冪等）。ユーロドルと同じ扱い。"""
+    ok_all = True
+    for pair, nm in YP_PAIRS.items():
+        for st in range(1, target + 1):
+            if os.path.exists(yp_order_path(st, nm)):
+                print(f"[{nm} {LABEL[st]}] 生成済み（スキップ）")
+                continue
+            started = time.time()
+            out, rc = "", -1
+            for attempt in range(2):
+                try:
+                    p = subprocess.run([sys.executable, YP_ENGINE, "--pair", pair, "--stage", str(st)],
+                                       cwd=BASE_DIR, capture_output=True, text=True, timeout=STAGE_TIMEOUT_SEC)
+                    out, rc = (p.stdout or "") + (p.stderr or ""), p.returncode
+                except subprocess.TimeoutExpired:
+                    out, rc = f"{STAGE_TIMEOUT_SEC}秒でタイムアウト", -1
+                if rc == 0 and os.path.exists(yp_order_path(st, nm)):
+                    break
+                time.sleep(30)
+            ok = rc == 0 and os.path.exists(yp_order_path(st, nm))
+            ok_all = ok_all and ok
+            print(f"[{nm} {LABEL[st]}] {'成功' if ok else '★失敗'}")
+            append_run_log([datetime.now().isoformat(timespec="seconds"), date.today().isoformat(),
+                            f"{nm}{LABEL[st]}", "成功" if ok else "失敗",
+                            f"{time.time() - started:.0f}",
+                            "" if ok else (out.strip().splitlines() or ["出力なし"])[-1][:200]])
+    return ok_all
+
+
 def _mark_backfill(stage):
     """定刻に出せず後から生成した指示書には、その旨を明記しておく。"""
     try:
@@ -228,6 +267,12 @@ def main():
         eu_ok = run_eurusd(target)
         if not eu_ok:
             print("[ユーロドル] ★失敗（ドル円の配信は継続）")
+        # 2026-10-15 クロス円（ユーロ円・ポンド円）。失敗してもドル円・ユーロドルには影響させない
+        try:
+            if not run_yenpairs(target):
+                print("[クロス円] ★失敗（ドル円・ユーロドルの配信は継続）")
+        except Exception as e:                                  # noqa: BLE001
+            print(f"[クロス円] ★失敗: {type(e).__name__}: {e}")
 
     # 最終確定はメールでも本人宛に自動送信する（2026-08-12 ユーザー指示）。
     # 失敗してもシグナル配信は続ける（メールは冗長経路であり必須経路ではない）。
@@ -287,6 +332,13 @@ def main():
                 print(f.read().rstrip())
         else:
             print("★ユーロドル指示書を生成できていません。通知で報告すること。")
+        for _nm in YP_PAIRS.values():
+            print(f"\n=== 本日の{_nm}指示書（対象ステージ） ===")
+            if os.path.exists(yp_order_path(target, _nm)):
+                with open(yp_order_path(target, _nm), encoding="utf-8") as f:
+                    print(f.read().rstrip())
+            else:
+                print(f"★{_nm}指示書を生成できていません。通知で報告すること。")
 
     sys.exit(0 if ok_all and (args.check or stage_done(target)) else 1)
 

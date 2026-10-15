@@ -521,8 +521,8 @@ SCALP_CARD = """
     <select id="s-pair">
       <option value="ドル円">ドル円（USD/JPY）</option>
       <option value="ユーロドル">ユーロドル（EUR/USD）</option>
-      <option value="ユーロ円">ユーロ円（EUR/JPY・研究中）</option>
-      <option value="ポンド円">ポンド円（GBP/JPY・研究中）</option>
+      <option value="ユーロ円">ユーロ円（EUR/JPY）</option>
+      <option value="ポンド円">ポンド円（GBP/JPY）</option>
     </select>
     <label class="params" for="s-risk">1回のリスク</label>
     <select id="s-risk"></select>
@@ -1161,7 +1161,7 @@ ANALYSIS_JS = r"""
     var sgs = C.signals || [], last = sgs[sgs.length - 1], now = Date.now();
     var upd = C.sig_updated ? "（最終判定 " + esc(fmtAt(C.sig_updated)) + "・15分ごと・ボードは最大1時間遅れ。正式な通知はメール）" : "";
     if ((SC.pair === "ユーロ円" || SC.pair === "ポンド円") && !sgs.length) {   // 2026-10-15 クロス円は研究中＝シグナル配信の対象外
-      el.innerHTML = "<div class='k'>★ シグナル配信（正式）</div><div>" + SC.pair + "は研究中のため、シグナル配信はまだありません（売買ルールの採用後に開始）。下のチャートとペーパー売買は研究の確認用です。</div>";
+      el.innerHTML = "<div class='k'>★ シグナル配信（正式）</div><div>" + SC.pair + "のスキャルはシグナル配信の対象外です（日足の売買ルールのみ運用中・2026-10-15〜）。下のチャートとペーパー売買は研究の確認用です。</div>";
       return;
     }
     if (last && now - Date.parse(last.sent_at) < 15 * 60000) {
@@ -1484,8 +1484,8 @@ ANALYSIS_JS = r"""
       p.push("対象の通貨ペアは【" + S.name + "（" + S.code + "）】。価格は小数" + S.dec + "桁・単位は" + S.unit
         + "・1pip＝" + (S.mult === 100 ? "0.01円" : "0.0001ドル") + "。相手の通貨（" + S.other
         + "）は" + (S.name === "ユーロ円" || S.name === "ポンド円" ? "円" : "ドル") + "の動きを確認する材料として使う（ボードに両方の値動き・研究が載っている）。");
-      if (S.name === "ポンド円") p.push("ポンド円はドル円×ポンドドルで決まる通貨（2026-10-15 研究開始・日足の売買ルールは未採用）。値動きが大きく（ドル円の約1.3倍）、スプレッドもドル円の約4倍＝往復コスト1.5pipsで検証している。損切りは12pipsではなくATRに合わせて15〜25pips、利確はその1.2〜1.5倍にする。値動きの約7割はドル円の脚（円の強弱）、約3割はポンドの材料（英国の指標・BOE）。BOE・英CPI・日銀・介入警戒の★5級は避ける。スキャル研究のポンド円欄の上位条件（前半・後半ともPF1.1以上）に合うときだけ自信『中』以上。");
-      if (S.name === "ユーロ円") p.push("ユーロ円はドル円×ユーロドルで決まる通貨（2026-10-15 研究開始・日足の売買ルールは未採用）。値動きの大半はドル円の脚（円の強弱）で、ドル円と同じ向きに動いている時は『円全体が動いている』。ドル円とユーロドルが逆に動いてユーロ円が動かない日（打ち消し）は様子見寄り。ECB・ユーロ圏CPI・日銀・介入警戒の★5級は両方とも避ける。スキャル研究のユーロ円欄の上位条件（前半・後半ともPF1.1以上のもの）に合うときだけ自信『中』以上。");
+      if (S.name === "ポンド円") p.push("ポンド円はドル円×ポンドドルで決まる通貨（2026-10-15 運用開始・日足は押し目戻り1本。スキャルはシグナル配信の対象外で、この案は参考）。値動きが大きく（ドル円の約1.3倍）、スプレッドもドル円の約4倍＝往復コスト1.5pipsで検証している。損切りは12pipsではなくATRに合わせて15〜25pips、利確はその1.2〜1.5倍にする。値動きの約7割はドル円の脚（円の強弱）、約3割はポンドの材料（英国の指標・BOE）。BOE・英CPI・日銀・介入警戒の★5級は避ける。スキャル研究のポンド円欄の上位条件（前半・後半ともPF1.1以上）に合うときだけ自信『中』以上。");
+      if (S.name === "ユーロ円") p.push("ユーロ円はドル円×ユーロドルで決まる通貨（2026-10-15 運用開始・日足は押し目戻り1本。スキャルはシグナル配信の対象外で、この案は参考）。値動きの大半はドル円の脚（円の強弱）で、ドル円と同じ向きに動いている時は『円全体が動いている』。ドル円とユーロドルが逆に動いてユーロ円が動かない日（打ち消し）は様子見寄り。ECB・ユーロ圏CPI・日銀・介入警戒の★5級は両方とも避ける。スキャル研究のユーロ円欄の上位条件（前半・後半ともPF1.1以上のもの）に合うときだけ自信『中』以上。");
       if (S.name === "ユーロドル") p.push("ユーロドルはドル円より短い足の優位性が小さい（15分足はPF1未満）。前半・後半ともPF1.1以上の条件（例: 4時間足『EMA20押し目/戻り・EMA200と同方向』、30分足『RSI行き過ぎの戻り・EMA200と同方向』）に合えば自信『中』以上、PF1.0以上の条件に下の決まりで2つ合えば自信『低』で案を出してよい。ECB・ユーロ圏CPIなどユーロ側の★5級も避ける。");
       p.push("あなたは" + S.name + "のスキャルピング（数分〜数十分で5〜20pips程度を狙う超短期売買）の案を作る担当です。下の【運用ボードの内容】だけを材料にします。数字はボードの値を使い、無い数字は作らず『不明』と書くこと。");
       p.push("読む人は専門家ではありません。専門用語は避け、短い文で。これは本人のツール内の案であり投資助言ではない。");
@@ -2142,6 +2142,8 @@ def _today_html(rows, order_json, is_flash, action_count, near_exit, stale_day="
         label = (r[5] if len(r) > 5 else "") or _TODO_LABEL.get(st, st)
         eu = pair == "eu"
         badge = ('<span class="badge pair eu">EUR/USD</span>' if eu
+                 else '<span class="badge pair ej">EUR/JPY</span>' if pair == "ej"
+                 else '<span class="badge pair gj">GBP/JPY</span>' if pair == "gj"
                  else '<span class="badge pair">USD/JPY</span>')
         px_html = f'<span class="todo-px">{px}</span>' if px else ""
         lis += (f'<li class="todo-row {st}">{badge}'
@@ -2542,6 +2544,99 @@ def _eurusd_section(cfg):
     return head, op_html, res_html, text, fname, eu_items
 
 
+def _yenpair_ops(cfg, pair):
+    """クロス円（ユーロ円・ポンド円＝2026-10-15 落合さん承認で運用開始）の運用タイル一式。
+    ユーロドルの _eurusd_section の運用部分と同じ作り。戻り値: (運用HTML, 指示書テキスト, ファイル名, 今日の発注の項目)"""
+    NM = {"eurjpy": "ユーロ円", "gbpjpy": "ポンド円"}[pair]
+    CODE = {"eurjpy": "EUR/JPY", "gbpjpy": "GBP/JPY"}[pair]
+    BCLS = {"eurjpy": "ej", "gbpjpy": "gj"}[pair]
+    ecfg = cfg.get(NM) or {}
+    if not (ecfg.get("有効") and ecfg.get("システム")):
+        return "", "", "", []
+    try:
+        import data_fetch_yenpair as dyp                    # noqa: PLC0415
+        import yenpair_engine as eng                         # noqa: PLC0415
+        eng.set_pair(pair)
+        px = dyp.Pair(pair).load_daily()
+        close = float(px["Close"].iloc[-1])
+        sw = eng.swap_cfg(cfg)
+    except Exception as e:                                   # noqa: BLE001
+        return (f'<section class="card span2"><h3>{NM}</h3><p class="note">'
+                f'データを読めません（{html.escape(str(e)[:120])}）</p></section>'), "", "", []
+    state = {}
+    sp = R("results", f"state_{pair}.json")
+    if os.path.exists(sp):
+        state = json.load(open(sp, encoding="utf-8"))
+    odir = R("results", "orders")
+    text, fname = "", ""
+    if os.path.isdir(odir):
+        fs = sorted(f for f in os.listdir(odir) if f"_{NM}指示_" in f)
+        if fs:
+            day = max(f[:10] for f in fs)
+            rank = {"速報1": 1, "速報2": 2, "確定": 3}
+            todays = sorted((f for f in fs if f.startswith(day)),
+                            key=lambda f: rank.get(f.rsplit("_", 1)[-1].replace(".txt", ""), 0))
+            fname = todays[-1]
+            text = open(os.path.join(odir, fname), encoding="utf-8").read().strip()
+    acts = {k.replace(f"{NM} ", ""): v for k, v in _parse_order_actions(
+        text, [f"{NM} {n}" for n in (ecfg.get("システム") or {})]).items()} if text else {}
+    a_pips = float(atr(px).iloc[-1]) / eng.PIP
+    cards, items, tot_risk, tot_pnl = [], [], 0.0, 0.0
+    for name, scfg in (ecfg.get("システム") or {}).items():
+        if not scfg.get("有効", True):
+            continue
+        st = state.get(name, {})
+        pos = int(st.get("position", 0) or 0)
+        act, cls = acts.get(name, ("指示書待ち" if not text else "待機", "flat"))
+        act_disp = _act_disp(act, pos)
+        units = float(st.get("units") or 0)
+        pos_html = ('<span class="pos flat">ポジションなし</span>' if not pos else
+                    f'<span class="pos {"buy" if pos > 0 else "sell"}">{"買" if pos > 0 else "売"} {units:,.0f}通貨</span>')
+        kvs, stop_v = "", None
+        if pos and st.get("stop"):
+            stop, entry = float(st["stop"]), float(st.get("entry") or close)
+            stop_v = stop
+            w = risk.order_widths(pos, close, stop=stop, units=units, entry=entry, pip=eng.PIP, jpy=1.0)
+            ppl = units * (close - entry) * pos
+            sy, sd = swap.accrued(pos, units, st.get("entry_date"), sw=sw)
+            tot_pnl += ppl + sy
+            tot_risk += (w["損切り到達額円"] or 0) + sy
+            _hit = w["損切り到達額円"] + sy
+            kvs = (_kv("ストップ", f'{stop:.3f}')
+                   + _kv("逆指値まで（日足終値から）", f'{w["損切り幅pips"]:.0f}', "pips")
+                   + _kv("到達なら", f'{_hit:+,.0f}', "円", cls="up" if _hit >= 0 else "down")
+                   + _kv("含み", f'{ppl + sy:+,.0f}', "円", small=f'スワップ {sy:+,.0f}円・{sd}日',
+                         cls="up" if ppl + sy >= 0 else "down"))
+        exit_txt = html.escape(eng.exit_line_text(scfg, px, pos).strip()) if pos else ""
+        _need = " need" if cls in ("buy", "sell", "gold") else ""
+        _side = " side-buy" if pos > 0 else " side-sell" if pos < 0 else ""
+        kvs_html = f'<div class="kvs">{kvs}</div>' if kvs else ""
+        exit_html = (f'<div class="exit"><span class="k">決済ライン</span>{exit_txt}</div>' if exit_txt else "")
+        cards.append(
+            f'<article class="card tile {BCLS}{_need}{_side}"><div class="tile-h">'
+            f'<h3>{NM} {html.escape(name)}</h3>'
+            f'<span class="badges"><span class="badge pair {BCLS}">{CODE}</span><span class="badge">日足</span></span>'
+            f'<span class="params">{html.escape(eng.describe(scfg))}・リスク{float(scfg["リスク率"]):.1%}</span></div>'
+            f'<div class="tile-s"><div class="action {cls}">{html.escape(act_disp)}</div>{pos_html}</div>'
+            f'{kvs_html}{exit_html}</article>')
+        items.append({"name": f"{NM} {name}", "act": act_disp, "cls": cls, "pos": pos,
+                      "units": units, "stop": stop_v, "pair": BCLS, "nm": NM, "dec": 3})
+    risk_line = (f'<p class="note">{NM}建玉の合計: 含み {tot_pnl:+,.0f}円／全ストップ到達で {tot_risk:+,.0f}円'
+                 f'（ドル円の「リスクと損益」とは別計上）</p>') if state else ""
+    _swc = ecfg.get("スワップポイント") or {}
+    _swy = _swc.get("円_1万通貨_1日") or {}
+    sw_src = (f'1万通貨・1日 買{_swy.get("買", 0):+.0f}円／売{_swy.get("売", 0):+.0f}円'
+              + ("（推定値・JFX公表値で要上書き）" if _swc.get("推定") else ""))
+    op_html = (f'<div class="subgrp span2"><h3>{NM} <span class="badge pair {BCLS}">{CODE}</span>'
+               f'<span class="badge new">{ecfg.get("採用日", "")} 採用</span></h3>'
+               f'<span class="params">終値 {close:.3f}円・ATR {a_pips:.0f}pips</span>'
+               f'{risk_line}'
+               f'<p class="note">※円建てのため円換算なし。発注は MATRIX TRADER で<b>通貨ペアを {CODE} に切り替えて</b>手動で。'
+               f'スワップは{html.escape(sw_src)}</p></div>'
+               + "".join(cards))
+    return op_html, text, fname, items
+
+
 def _yenpair_section(cfg, pair="eurjpy"):
     """クロス円（ユーロ円・ポンド円＝2026-10-15 研究開始）のヘッダのレートと研究カード。
     売買ルールは落合さんの採用判断まで未採用＝発注カード・指示書は出さない（研究と表示のみ）。"""
@@ -2556,7 +2651,7 @@ def _yenpair_section(cfg, pair="eurjpy"):
     BCLS = {"eurjpy": "ej", "gbpjpy": "gj"}.get(pair, "ej")
     NTH = {"eurjpy": "3通貨目", "gbpjpy": "4通貨目"}.get(pair, "")
     head = (f'<div class="inst sub"><span class="inst-l">{NM} {CODE}</span>'
-            f'<span class="rate">{float(close):.3f}</span><span class="inst-n">日足終値・研究中</span></div>'
+            f'<span class="rate">{float(close):.3f}</span><span class="inst-n">日足終値{"" if (cfg.get(NM) or {}).get("システム") else "・研究中"}</span></div>'
             if close else "")
     adopted = bool((cfg.get(NM) or {}).get("システム"))
     fam_rows = ""
@@ -2597,7 +2692,7 @@ def _yenpair_section(cfg, pair="eurjpy"):
                      f' → 最良「{html.escape(best_k)}」スコア{best.get("スコア")}（PF{best.get("PF全")}・{best.get("取引数")}回）'
                      f'＝{html.escape(v.get("判定", ""))}</li>')
     upd = str(sr.get("更新", ""))[:16].replace("T", " ")
-    status = ("採用済み（指示書はユーロドルと同じ形で配信）" if adopted
+    status = (f"採用済み（{(cfg.get(NM) or {}).get('採用日', '')}〜・朝6〜8時の指示書で配信。上の『ポジションとリスク』に運用タイル）" if adopted
               else "研究のみ。売買ルールは<b>未採用</b>（採用は落合さんの判断。発注カード・指示書はまだ出ない）")
     body = (
         f'<p class="note">状態: {status}。毎朝8時の日次研究で更新。</p>'
@@ -2622,7 +2717,7 @@ def _yenpair_section(cfg, pair="eurjpy"):
         f'<p class="note">※採用基準（スコア1.05倍以上・取引数6割以上）に届かなければ現行のまま。'
         f'スキャルの研究はスキャルピング欄（通貨ペアで「{NM}」を選ぶ）を参照。</p>')
     res_html = (f'<section class="card span2" id="{pair}-research"><div class="card-head"><h3>{NM}研究'
-                f' <span class="badge pair {BCLS}">{CODE}</span><span class="badge new">{NTH}・研究中</span></h3>'
+                f' <span class="badge pair {BCLS}">{CODE}</span><span class="badge new">{NTH}{"" if (cfg.get(NM) or {}).get("システム") else "・研究中"}</span></h3>'
                 f'<span class="params">{html.escape(upd)}・{html.escape(str(sr.get("期間", "")))}</span></div>'
                 + _clamp(f"cl-{pair}res", "c-m", body, f"{NM}研究の全文を表示") + '</section>')
     return head, res_html
@@ -2715,7 +2810,20 @@ def build():
     scalp_research_gj = _rj("research_scalp_gbpjpy_latest.json")      # 2026-10-15 ポンド円（研究中）
     ej_head, ej_res_html = _yenpair_section(cfg, "eurjpy")
     gj_head, gj_res_html = _yenpair_section(cfg, "gbpjpy")
+    # 2026-10-15 クロス円の運用（落合さん承認）。ユーロドルと同じく別計上・指示書は別枠
+    yp_op_html, yp_order_html, yp_items = "", "", []
+    for _pr in ("eurjpy", "gbpjpy"):
+        _op, _tx, _fn, _its = _yenpair_ops(cfg, _pr)
+        yp_op_html += _op
+        yp_items += _its
+        if _tx:
+            _nm = _its[0]["nm"] if _its else _pr
+            yp_order_html += (f'<section class="card span2 orderbox" id="order-{_pr}"><div class="card-head">'
+                              f'<h3>本日の{_nm}注文指示書（{"最終確定" if "確定" in _fn else "速報・参考"}）</h3></div>'
+                              + _clamp(f"cl-order-{_pr}", "c-l", f'<pre class="order">{html.escape(_tx)}</pre>',
+                                       f"{_nm}指示書の全文を表示") + '</section>')
     eu_head, eu_op_html, eu_res_html, eu_text, eu_fname, eu_items = _eurusd_section(cfg)
+    eu_items = eu_items + yp_items          # 2026-10-15 クロス円も「今日の発注」に並べる（件数は別枠）
     # pre.order の要素・クラス・本文はそのまま（JS が倍率で書き換え、Drive へ書き出す）。
     # 並びはドル円の指示書の直後（Drive 調整版の連結順＝ドル円→ユーロドルを保つ）。
     eu_order_html = ('<section class="card span2 orderbox" id="order-eu"><div class="card-head">'
@@ -3776,7 +3884,7 @@ def build():
            f'{order_json.get("段階", "")}分' if order_json else "")
     eu_need = sum(1 for it in eu_items
                   if it["cls"] in ("buy", "sell", "gold") and it["act"] != "指示書待ち")
-    _eu_sfx = f'（ユーロドルは別に{eu_need}件）' if eu_need else ""
+    _eu_sfx = f'（ユーロドル・クロス円は別に{eu_need}件）' if eu_need else ""
     if is_flash:
         banner = ('<div class="banner flash">速報配信中——正式な発注判断は'
                   '8時すぎの【最終確定】で</div>')
@@ -3830,17 +3938,17 @@ def build():
             _what = "朝6時台の配信で最初の指示書が出ます"   # 札（指示書待ち）と同じ語を重ねない
         elif it["cls"] in ("buy", "sell", "gold"):
             _st = "act"
-            _what = f'{it["act"]}・ユーロドルの指示書（原文）どおりに'
+            _what = f'{it["act"]}・{it.get("nm", "ユーロドル")}の指示書（原文）どおりに'
         else:
             _st = "none"
             if it["pos"]:
-                _stp = f'{it["stop"]:.5f}' if it["stop"] else "（未設定）"
+                _stp = f'{it["stop"]:.{it.get("dec", 5)}f}' if it["stop"] else "（未設定）"
                 _what = (f'{it["act"]}・{"買" if it["pos"] > 0 else "売"} {it["units"]:,.0f}通貨・'
                          f'逆指値 {_stp} が置かれているか確認')
             else:
                 _what = f'{it["act"]}（ポジションなし）'
         _lbl = "確認のみ" if (_st == "none" and it["pos"]) else ""
-        today_rows.append((_st, "eu", it["name"], html.escape(_what), "", _lbl))
+        today_rows.append((_st, it.get("pair", "eu"), it["name"], html.escape(_what), "", _lbl))
     today_html = _today_html(today_rows, order_json, is_flash, action_count, near_exit,
                              stale_day=_stale_day, basis_close=close)
     # 指示書の原文（pre.order の要素・クラス・本文はそのまま。高さ制限で畳むだけ）
@@ -3919,7 +4027,7 @@ def build():
 </style>
 <div class="wrap">
 <header class="top">
-  <div class="top-id"><h1>FX運用ボード<small>ドル円・ユーロドル／研究中: ユーロ円・ポンド円</small></h1>
+  <div class="top-id"><h1>FX運用ボード<small>ドル円・ユーロドル・ユーロ円・ポンド円</small></h1>
     <span class="meta"><span class="upd">更新 {datetime.now():%Y-%m-%d %H:%M}</span>｜生成元: {origin}</span></div>
   <div class="inst-row">
     <div class="inst"><span class="inst-l">ドル円 USD/JPY</span><span class="rate">{close:.3f}<small>円</small></span><span class="inst-n">日足終値</span></div>
@@ -3937,10 +4045,12 @@ def build():
 {today_html}
 {order_box}
 {eu_order_html}
+{yp_order_html}
 <h2 class="grp" id="g-pos">ポジションとリスク<small>保有中の建玉・{_nsys}システムの状態</small></h2>
 {rr_card}
 {''.join(sys_cards)}
 {eu_op_html}
+{yp_op_html}
 <h2 class="grp" id="g-tools">分析・スキャル<small>ボタンで動く道具</small></h2>
 {ANALYSIS_CARD}
 {scalp_card}
