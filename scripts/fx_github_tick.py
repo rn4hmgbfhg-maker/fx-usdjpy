@@ -99,3 +99,17 @@ if __name__ == "__main__":
     changed = mirror()
     if changed or "--force-drive" in sys.argv:
         drive()
+    # 2026-10-15 ボードの「現在価格に更新」用の最新価格・足を Drive へ（上書きできる時だけ）
+    if not weekend():
+        try:
+            sys.path.insert(0, os.path.join(BASE, "src"))
+            import live_board
+            msg = live_board.write()
+            if "スキップ" in msg:
+                mark = "logs/.live_skip_day"
+                today = f"{datetime.now():%F}"
+                if not os.path.exists(mark) or open(mark).read() != today:
+                    open(mark, "w").write(today)
+                    log(f"ライブ価格: {msg}")
+        except Exception as e:  # noqa: BLE001
+            log(f"ライブ価格の書き出し失敗: {e}")
