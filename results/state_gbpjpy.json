@@ -1,11 +1,11 @@
 {
   "押し目戻り": {
-    "position": 0,
-    "entry": null,
-    "stop": null,
-    "units": 0,
-    "best": null,
-    "entry_date": null,
-    "jpy_at_entry": null
+    "position": -1,
+    "entry": 210.34100341796875,
+    "stop": 215.416,
+    "units": 1000,
+    "best": 210.34100341796875,
+    "entry_date": "2026-10-19",
+    "jpy_at_entry": 1.0
   }
 }
