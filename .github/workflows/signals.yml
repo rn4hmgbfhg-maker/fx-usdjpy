@@ -20,7 +20,7 @@ concurrency:
 jobs:
   signals:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 345
     env:
       TZ: Asia/Tokyo
       FX_GMAIL_APP_PASSWORD: ${{ secrets.FX_GMAIL_APP_PASSWORD }}
@@ -40,62 +40,26 @@ jobs:
 
       - run: pip install -r requirements.txt
 
-      - name: デイトレ15分
-        run: python3 src/run_intraday15.py
-        continue-on-error: true
-
-      - name: デイトレ2H
-        run: python3 src/run_intraday.py
-        continue-on-error: true
-
-      # 2026-10-12: ユーロドル追加（2通貨運用）。データは毎回更新（ボードのスキャル分析が
-      # 15分足・1時間足を読むため）。日足の判定は run_morning.py の中でドル円の後に行う。
-      - name: ユーロドル データ更新
-        run: python3 src/data_fetch_eurusd.py
-        continue-on-error: true
-
-      - name: 日足2システム（JST6-8時台のみ・ドル円→ユーロドル）
+      # 2026-10-19: GitHub の cron は実測2〜5時間に1回しか動かず、15分ごとの起動は Mac（launchd）頼みだった。
+      # 10/17 早朝に Mac 側が止まり、シグナル・ボード・現在値がすべて止まった（落合さん指摘「更新スキームが壊れてる」）。
+      # 1回の起動の中で15分ごとに処理を繰り返し（最長5時間半）、次の cron 起動へつなぐ。Mac が動いていれば
+      # Mac の起動分は待ち行列に入り、ループ終了後にそのまま引き継ぐ（同時には走らない）。
+      - name: 15分ごとループ（1回の起動で最長5時間半）
         run: |
-          H=$(TZ=Asia/Tokyo date +%H)
-          if [ "$H" -ge 6 ] && [ "$H" -le 8 ]; then
-            python3 src/run_morning.py
-          else
-            echo "JST ${H}時のため日足2システムはスキップ"
-          fi
-        continue-on-error: true
-
-      # 2026-09-22: エンジンは自分で即時メールを送るので、送信に成功した項目はここで既読化する。
-      # 送信に失敗した項目だけ「未通知」に残し、Mac側の毎時タスクの取りこぼし防止プッシュへ回す。
-      - name: メール送信済みの通知キューを既読化
-        run: |
-          python3 src/intraday15_engine.py --ack-mailed
-          python3 src/intraday_engine.py --ack-mailed
-        continue-on-error: true
-
-      - name: 状態と結果をコミット
-        run: |
-          git config user.name  "fx-actions"
-          git config user.email "actions@users.noreply.github.com"
-          # 2026-10-13: state_eurusd.json は確定ステージで初めて作られるため、速報①②の時点では
-          # 未作成。git add に存在しないパスを渡すと全体が失敗し変更なしと誤判定されるため
-          # (state系は個別に存在確認・results/dataは常にある前提でまとめて add)。
-          for f in state.json state_intraday.json state_intraday15.json state_eurusd.json; do
-            [ -f "$f" ] && git add -- "$f"
+          START=$(date +%s)
+          while true; do
+            git pull -q --rebase -X theirs origin main || git rebase --abort 2>/dev/null || true
+            pip install -q -r requirements.txt || true
+            bash scripts/actions_tick.sh || echo "⚠この回の処理に失敗（次の回へ）"
+            # 休場（JST 土9:00〜月6:00）に入ったら終える
+            DOW=$(TZ=Asia/Tokyo date +%u); HH=$(TZ=Asia/Tokyo date +%H)
+            if { [ "$DOW" = 6 ] && [ "$HH" -ge 9 ]; } || [ "$DOW" = 7 ] || { [ "$DOW" = 1 ] && [ "$HH" -lt 6 ]; }; then
+              echo "休場のため終了"; break
+            fi
+            # 次の :04 / :19 / :34 / :49（JST）まで待つ。合計5時間半を超えるなら終えて次の起動へ
+            NOW=$(date +%s); M=$(( (NOW / 60) % 15 )); S=$(( NOW % 60 ))
+            WAIT=$(( ((4 - M + 15) % 15) * 60 - S )); [ "$WAIT" -le 30 ] && WAIT=$(( WAIT + 900 ))
+            if [ $(( NOW + WAIT - START )) -gt 19800 ]; then echo "5時間半に達したため終了"; break; fi
+            echo "次の回まで ${WAIT}秒待機"
+            sleep "$WAIT"
           done
-          git add -A -- results data 2>/dev/null || true
-          if git diff --staged --quiet; then
-            echo "変更なし"
-          else
-            git commit -m "signals $(TZ=Asia/Tokyo date +'%F %H:%M JST')"
-            # 2026-09-22: Mac側の push（研究成果・パラメータ）や同時起動の別ランと衝突すると
-            # "fetch first" で push が落ちるため、先に取り込んでから押す（3回まで再試行）。
-            # 衝突時は本ランの計算結果（-X theirs＝再適用側）を優先する。
-            for i in 1 2 3; do
-              if git pull --rebase -X theirs -q origin main && git push; then
-                break
-              fi
-              git rebase --abort 2>/dev/null || true
-              echo "push 再試行 $i"
-              sleep 5
-            done
-          fi
