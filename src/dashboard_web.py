@@ -643,44 +643,82 @@ LIVE_JS = r"""
     running = runInner(manual).finally(function () { running = null; });
     return running;
   }
+  // 2026-10-19: Mac が止まると Drive の価格ファイルも止まり、ボードの現在値・チャートが古いままになった
+  // （落合さん指摘「更新スキームが壊れてる」）。Drive の値が5分より古い・読めないときは、
+  // Twelve Data コネクタ（get_quote）から直接現在値を取る。呼び出し回数の上限（無料枠 8回/分・800回/日）を
+  // 守るため、自動更新ではスキャル欄で選んでいるペアだけを3分おき、ボタンを押したときは4通貨すべてを取る。
+  var TD_SYM = { usdjpy: "USD/JPY", eurusd: "EUR/USD", eurjpy: "EUR/JPY", gbpjpy: "GBP/JPY" };
+  var tdLast = {}, tdNote = "";
+  function parseQuote(payload) {
+    var txt = payload && (payload.result || payload);
+    if (typeof txt !== "string") return null;
+    var lines = txt.trim().split("\n"); if (lines.length < 2) return null;
+    var h = lines[0].split(";"), v = lines[1].split(";"), o = {};
+    h.forEach(function (k, i) { o[k] = v[i]; });
+    var price = parseFloat(o.close), t = parseInt(o.last_quote_at || o.timestamp, 10);
+    return price > 0 && t > 0 ? { price: price, time: t, src: "Twelve Data" } : null;
+  }
+  async function tdQuote(pair) {
+    var r = await mcp.callTool("Twelve Data", "get_quote", { symbol: TD_SYM[pair] }, { cache: false });
+    return parseQuote(r.payload);
+  }
+  function selectedPair() {
+    var sp = document.getElementById("s-pair"), v = sp ? sp.value : "ドル円";
+    return { "ドル円": "usdjpy", "ユーロドル": "eurusd", "ユーロ円": "eurjpy", "ポンド円": "gbpjpy" }[v] || "usdjpy";
+  }
   async function runInner(manual) {
     if (busy) return;
-    if (!mcp) { st.textContent = "この画面ではGoogle Driveを使えないため、日足終値のままです（claude.ai で開いてください）。"; return; }
+    if (!mcp) { st.textContent = "この画面では現在値を読めないため、ボード作成時点の値です（claude.ai で開いてください）。"; return; }
     busy = true; btn.disabled = true;
     var pressed = new Date().toLocaleTimeString("ja-JP", { timeZone: "Asia/Tokyo", hour: "2-digit", minute: "2-digit", second: "2-digit" });
     st.textContent = pressed + " 読み込み中…";
+    var data = null, prices = null, driveErr = null;
     try {
-      // ①チャートの足（毎時更新・大きい）は、前回より新しい時だけ読む
-      var cf = null, data = null;
-      if (manual || Date.now() - lastChartCheck > 5 * 60000) {   // 足のファイルは手動時と5分ごとだけ確かめる
+      // ①チャートの足（Mac が書く大きいファイル）は、手動時と5分ごとに、新しくなっていれば読む
+      if (manual || Date.now() - lastChartCheck > 5 * 60000) {
         lastChartCheck = Date.now();
-        cf = await newest("fx_live_latest.json");
+        var cf = await newest("fx_live_latest.json");
         if (cf && cf.modifiedTime !== chartStamp) { data = await load(cf); chartStamp = cf.modifiedTime; }
       }
-      // ②価格（毎分更新・小さい）は毎回読む
-      var pf = await newest("fx_live_prices.json"), prices = pf ? await load(pf) : null;
-      var sc = window.__fxSc ? window.__fxSc.data() : null, got = 0, newestT = 0, redraw = false;
-      for (var pair in PAIRS) {
-        var el = document.querySelector('.inst[data-pair="' + pair + '"]');
-        var close = el ? parseFloat(el.getAttribute("data-close")) : NaN;
-        var row = data && data.pairs && data.pairs[pair];
-        var pp = prices && prices.pairs && prices.pairs[pair];
-        var best = null;
-        if (pp && pp.price) best = pp;
-        if (row && row.price && (!best || row.time > best.time)) best = { price: row.price, time: row.time };
-        if (best) { setRate(pair, best.price, "現在 " + hhmm(best.time), close); newestT = Math.max(newestT, best.time); got++; latest[pair] = best; }
-        var C = sc && sc[PAIRS[pair]];
-        if (C && row && row.tf) { C.tf = row.tf; C.最終 = row.最終 || ""; C.src = "更新ボタンで取得"; C.error = null; }
-        if (C && best && extendBars(C, best.price, best.time)) redraw = true;
+      // ②価格（Mac が毎分書く小さいファイル）
+      var pf = await newest("fx_live_prices.json"); prices = pf ? await load(pf) : null;
+    } catch (e) { driveErr = e; }
+    var sc = window.__fxSc ? window.__fxSc.data() : null, got = 0, newestT = 0, redraw = false, srcs = {}, tdErr = null;
+    var nowS = Date.now() / 1000, sel = selectedPair();
+    for (var pair in PAIRS) {
+      var el = document.querySelector('.inst[data-pair="' + pair + '"]');
+      var close = el ? parseFloat(el.getAttribute("data-close")) : NaN;
+      var row = data && data.pairs && data.pairs[pair];
+      var pp = prices && prices.pairs && prices.pairs[pair];
+      var best = null;
+      if (pp && pp.price) best = { price: pp.price, time: pp.time, src: "Mac" };
+      if (row && row.price && (!best || row.time > best.time)) best = { price: row.price, time: row.time, src: "Mac" };
+      // Drive の値が無い・5分より古いときは Twelve Data から取る
+      if ((!best || nowS - best.time > 300) && (manual || (pair === sel && Date.now() - (tdLast[pair] || 0) > 180000))) {
+        try {
+          tdLast[pair] = Date.now();
+          var q = await tdQuote(pair);
+          if (q && (!best || q.time > best.time)) best = q;
+        } catch (e) { tdErr = e; }
+      } else if (latest[pair] && latest[pair].src === "Twelve Data" && (!best || latest[pair].time > best.time)) {
+        best = latest[pair];   // 前回 Twelve Data で取った値のほうが新しければそれを使う
       }
-      if ((data || redraw) && window.__fxSc) window.__fxSc.draw();
-      var age = newestT ? Math.round((Date.now() / 1000 - newestT) / 60) : null;
-      st.textContent = pressed + " に確認（" + got + "通貨）"
-        + (age !== null ? "・価格は約" + age + "分前の値" : "")
-        + (age !== null && age > 10 ? "／★価格の自動書き込み（Macの毎分の処理）が動いていない可能性" : "");
-    } catch (e) {
-      st.textContent = pressed + " 読み込めませんでした（" + (WHY[e && e.code] || (e && (e.message || e.code)) || "不明") + "）。";
+      if (best) {
+        setRate(pair, best.price, "現在 " + hhmm(best.time), close);
+        newestT = Math.max(newestT, best.time); got++; latest[pair] = best; srcs[best.src] = 1;
+      }
+      var C = sc && sc[PAIRS[pair]];
+      if (C && row && row.tf) { C.tf = row.tf; C.最終 = row.最終 || ""; C.src = "更新ボタンで取得"; C.error = null; }
+      if (C && best && extendBars(C, best.price, best.time)) redraw = true;
     }
+    if ((data || redraw) && window.__fxSc) window.__fxSc.draw();
+    var age = newestT ? Math.round((nowS - newestT) / 60) : null;
+    var why = function (e) { return WHY[e && e.code] || (e && (e.message || e.code)) || "不明"; };
+    st.textContent = pressed + " に確認（" + got + "通貨・" + (Object.keys(srcs).join("＋") || "取得なし") + "）"
+      + (age !== null ? "・価格は約" + age + "分前の値" : "")
+      + (prices && prices.更新 && nowS - Date.parse(prices.更新) / 1000 > 600 ? "／★Mac の価格の書き込みが止まっています（Twelve Data で補っています）" : "")
+      + (driveErr && !got ? "／Drive: " + why(driveErr) : "")
+      + (tdErr ? "／Twelve Data: " + why(tdErr) : "");
     busy = false; btn.disabled = false;
   }
   var ticking = false;
@@ -695,7 +733,7 @@ LIVE_JS = r"""
   window.__fxLive = {
     refresh: async function () {
       if (!mcp && mcpReady) { try { await mcpReady; } catch (e) {} }
-      if (!mcp) return { ok: false, why: "Google Driveを使えないため、ボード作成時点の足で分析します" };
+      if (!mcp) return { ok: false, why: "現在値を読めないため、ボード作成時点の足で分析します" };
       await run(true); startTick();
       return { ok: true };
     },
@@ -708,7 +746,12 @@ LIVE_JS = r"""
       mcp = r[0];
       if (!mcp) return;
       var ok = true;
-      try { if (r[1]) ok = (await r[1].state("mcp:Google Drive")) === "granted"; } catch (e) { ok = false; }
+      try {
+        if (r[1]) {
+          var g1 = await r[1].state("mcp:Google Drive"), g2 = await r[1].state("mcp:Twelve Data");
+          ok = g1 === "granted" || g2 === "granted";
+        }
+      } catch (e) { ok = false; }
       if (ok) {
         run(false);
         // 開いている間は1分ごとに現在値を読み、チャートの最後の足を伸ばす（画面が隠れている間は止める）
