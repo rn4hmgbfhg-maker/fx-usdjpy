@@ -122,9 +122,12 @@ def simulate(df, sig, trend, pip, cost, sl_k=None, tp_k=None, hold=None, trend_o
     return out if detail else np.array(out)
 
 
-def analyze(code, name, pip, cost, cost_note, m15, h1, now_utc, rp=None):
+def analyze(code, name, pip, cost, cost_note, m15, h1, now_utc, rp=None, ctx=None):
     """rp: 毎日の終値研究（scalp_board_research.py）が選んだこのペアの条件。
-    {"adopt": bool, "method": キー, "sl_k", "tp_k", "hold", "trend_only", "good_hours": [JSTの時], "date"}"""
+    {"adopt": bool, "method": キー, "sl_k", "tp_k", "hold", "trend_only", "good_hours": [JSTの時], "date"}
+    ctx: 自己実行（scalp_board_paper.py）の結果 {"calib": 補正係数, "gate_ok": このペアの通行証, "guard": 通常/慎重/停止}"""
+    import scalp_board_paper as sp
+    ctx = ctx or {}
     m15 = indicators(m15, pip)
     h1 = indicators(h1, pip)
     # 1時間足のトレンド（EMA200の4本の傾き）を15分足へ前方補完（未来を見ないよう確定済みの1時間足のみ）
@@ -158,6 +161,9 @@ def analyze(code, name, pip, cost, cost_note, m15, h1, now_utc, rp=None):
         tests.append(t)
         if len(r) >= 15 and (best is None or (pf or 0) > (best["pf"] or 0)):
             best = t
+    if use_rp and rp.get("win") is not None and rp.get("n"):
+        # 2026-10-20：自己実行（毎日の振り返り）と同じ数字にそろえるため、想定勝率・PF・回数はその日の終値研究の値を使う
+        best = {"method": METHODS[rp["method"]], "n": int(rp["n"]), "win": float(rp["win"]), "pf": rp.get("pf"), "avg": None}
     if rp and not rp.get("adopt"):
         best = None   # 研究で優位な入り方が無い日は想定勝率を出さない（＝入る候補にしない）
 
@@ -171,6 +177,7 @@ def analyze(code, name, pip, cost, cost_note, m15, h1, now_utc, rp=None):
     comp = 0.5 * t1h + 0.3 * ema15 + 0.2 * momc
     d = 1 if comp >= 0 else -1
     align = abs(comp)
+    d_comp = d
 
     # 点灯中のシグナル（確定足）
     lamps = []
@@ -181,9 +188,13 @@ def analyze(code, name, pip, cost, cost_note, m15, h1, now_utc, rp=None):
     fired_with = sum(1 for x in lamps if x["m15"] == d or x["h1"] == d)
     fired_against = sum(1 for x in lamps if x["m15"] == -d or x["h1"] == -d)
     rp_fire = None
+    fire = False
     if use_rp:
         sk = int(signals(m15, rp["method"]).iloc[-1])
         rp_fire = "同じ向き" if sk == d else ("逆向き" if sk == -d else "なし")
+        # 2026-10-20：検証と同じ場面（研究の入り方が点灯＋トレンド絞り）だけを入る候補にし、向きもその入り方に合わせる
+        tr_now = float(trend15.iloc[-1])
+        fire = sk != 0 and ((not t_only) or tr_now == sk)
 
     # 時間帯（JST）別の平均値幅（直近60日・15分足1本あたり）
     rng = win["range"]
@@ -214,14 +225,19 @@ def analyze(code, name, pip, cost, cost_note, m15, h1, now_utc, rp=None):
         score += 4
     score = float(np.clip(score, 0, 100))
 
+    if fire:
+        d = sk
     sl_p, tp_p = sl_k * atr, tp_pips_for(atr, cost, sl_k, tp_k)
     entry = px
     stop = entry - d * sl_p * pip
     take = entry + d * tp_p * pip
     rr_net = (tp_p - cost) / (sl_p + cost)
     winp = (best or {}).get("win")
-    ev = (winp * (tp_p - cost) - (1 - winp) * (sl_p + cost)) if winp is not None else None
-    stance = "入る候補" if align >= 0.6 and (winp or 0) > 0.5 and (ev or 0) > 0 else ("条件待ち" if align >= 0.35 else "様子見寄り")
+    be = sp.breakeven(tp_p, sl_p, cost)
+    win_adj = sp.win_adjusted(winp, (best or {}).get("n"), be, ctx.get("calib", 1.0))
+    ev = (win_adj * (tp_p - cost) - (1 - win_adj) * (sl_p + cost)) if win_adj is not None else None
+    ev_r0 = ev / (sl_p + cost) if ev is not None and (sl_p + cost) > 0 else None
+    _pre, stance = sp.stance_of(align, fire, ev_r0, ctx.get("gate_ok"), ctx.get("guard", "通常"))
     age_min = int((pd.Timestamp(now_utc) - (m15.index[-1] + pd.Timedelta(minutes=15))).total_seconds() // 60)
 
     row = {
@@ -243,6 +259,9 @@ def analyze(code, name, pip, cost, cost_note, m15, h1, now_utc, rp=None):
         "sl_k": sl_k, "tp_k": tp_k, "hold": hold, "trend_only": t_only,
         "research_date": (rp or {}).get("date"), "research_adopt": bool(use_rp) if rp else None,
         "research_fire": rp_fire, "good_hours": good_hours, "in_good_hours": in_good,
+        "fire": bool(fire), "dir_comp": d_comp, "win_adj": round(win_adj, 3) if win_adj is not None else None,
+        "breakeven": round(be, 3), "calib": ctx.get("calib", 1.0), "gate_ok": ctx.get("gate_ok"),
+        "gate_note": ctx.get("gate_note"), "guard": ctx.get("guard", "通常"),
         "win": round(winp, 3) if winp is not None else None,
         "win_lo": _wil(winp, (best or {}).get("n"))[0], "win_hi": _wil(winp, (best or {}).get("n"))[1],
         "pf": round(pf, 2) if best else None, "n": (best or {}).get("n"),
@@ -370,7 +389,11 @@ def run(out_dir=None, force_research=False):
             continue
         m15, h1 = got[code]
         try:
-            r, b, h, _ = analyze(code, name, pip, cost, note, m15, h1, now, (params.get("pairs") or {}).get(code))
+            g = (params.get("gate") or {}).get(code)
+            ctx = {"calib": params.get("calib", 1.0), "guard": (params.get("guard") or {}).get("state", "通常"),
+                   "gate_ok": None if g is None else bool(g.get("ok")),
+                   "gate_note": None if g is None else f"直近30日の自己実行 {g.get('n', 0)}回・{g.get('pips', 0):+.1f}pips・PF {g.get('pf')}"}
+            r, b, h, _ = analyze(code, name, pip, cost, note, m15, h1, now, (params.get("pairs") or {}).get(code), ctx)
             rows.append(r); bars += b; hours += h
             try:
                 d1 = _yahoo(sym, "1d", "1y")

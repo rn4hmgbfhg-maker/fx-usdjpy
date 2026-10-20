@@ -305,6 +305,28 @@ def note_md(today, at_jst, graderes, results, prev):
     return "\n".join(L) + "\n"
 
 
+def paper_md(p):
+    def line(x, label):
+        if not x or not x.get("n"):
+            return f"- {label}: まだ記録なし"
+        return (f"- {label}: {x['n']}回・勝率 {round((x.get('win') or 0) * 100)}%・{x.get('pips', 0):+.1f} pips"
+                + (f"（1万通貨で {x['yen']:+,}円）" if x.get("yen") is not None else "") + (f"・PF {x['pf']}" if x.get("pf") else "")
+                + (f"・想定勝率の平均 {round(x['pred'] * 100)}%" if x.get("pred") else ""))
+    out = ["", "## ④ 自己実行（紙の上の売買）と月次の守り", ""]
+    out.append(line(p.get("month"), f"今月（{(p.get('month') or {}).get('ym', '')}）ボードの表示どおりに入った場合"))
+    out.append(line(p.get("shadow30"), "直近30日・守りを掛けない場合（仕組みの実力）"))
+    if p.get("init"):
+        out.append(line(p.get("init_follow"), "初期化（前40日で条件を選び、後20日で試験）"))
+    g = p.get("guard") or {}
+    out.append(f"- 守りの状態: **{g.get('state', '通常')}**（{g.get('reason', '')}）")
+    out.append(f"- 想定勝率の補正係数: {p.get('calib', 1.0)}（実際の勝率÷ボードの想定勝率）")
+    ok = [c for c, v in (p.get("gate") or {}).items() if v.get("ok")]
+    out.append(f"- 入る候補にできるペア（通行証）: {'・'.join(ok) if ok else 'なし（自己実行の記録がそろうまで入る候補は出ません）'}")
+    for k, v in (p.get("rules") or {}).items():
+        out.append(f"  - 決まり（{k}）: {v}")
+    return "\n".join(out) + "\n"
+
+
 def run(m15_by_code, h1_by_code, now_utc, base=None, force=False):
     base = base or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     due, today = is_due(base, now_utc, force)
@@ -337,7 +359,21 @@ def run(m15_by_code, h1_by_code, now_utc, base=None, force=False):
     latest = {"date": today, "at": at_jst, "grade": graderes, "results": results,
               "rules": {"grid": {"sl": GRID_SL, "tp": GRID_TP, "hold": GRID_HOLD, "trend": GRID_TREND},
                         "adopt_pf": ADOPT_PF, "min_n": MIN_N, "rr_min": sb.RR_MIN}}
+    # 2026-10-20 自己実行（紙の上の売買）と自己解析：通行証・補正係数・月次の守りを作り、今日の条件に載せる
+    paper = None
+    try:
+        import scalp_board_paper as sp
+        paper = sp.run(m15_by_code, h1_by_code, params["pairs"], now_utc, d, research_fn=research_pair)
+        params["gate"] = paper.get("gate") or {}
+        params["calib"] = paper.get("calib", 1.0)
+        params["guard"] = paper.get("guard") or {"state": "通常"}
+        latest["paper"] = {k: paper.get(k) for k in ("at", "rules", "gate", "calib", "guard", "month", "by_month",
+                                                       "shadow30", "shadow_all", "follow_all", "init", "init_follow", "last_trades")}
+    except Exception as e:  # noqa: BLE001
+        print(f"自己実行 失敗（守りなしで続行）: {e}")
     note = note_md(today, at_jst, graderes, results, prev)
+    if paper:
+        note += paper_md(paper)
     json.dump(params, open(os.path.join(d, "params.json"), "w", encoding="utf-8"), ensure_ascii=False, indent=1)
     json.dump(latest, open(os.path.join(d, "research_latest.json"), "w", encoding="utf-8"), ensure_ascii=False)
     open(os.path.join(d, "research_note.md"), "w", encoding="utf-8").write(note)
