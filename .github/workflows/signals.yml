@@ -25,6 +25,9 @@ jobs:
       TZ: Asia/Tokyo
       FX_GMAIL_APP_PASSWORD: ${{ secrets.FX_GMAIL_APP_PASSWORD }}
       FX_GMAIL_ACCOUNT: ${{ secrets.FX_GMAIL_ACCOUNT }}
+      # OANDA 自動発注（auto_order.json のモードが live のときだけ使う）
+      OANDA_API_TOKEN: ${{ secrets.OANDA_API_TOKEN }}
+      OANDA_ACCOUNT_ID: ${{ secrets.OANDA_ACCOUNT_ID }}
 
     steps:
       - uses: actions/checkout@v4

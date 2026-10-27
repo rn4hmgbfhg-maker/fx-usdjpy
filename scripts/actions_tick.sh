@@ -19,6 +19,10 @@ fi
 python3 src/intraday15_engine.py --ack-mailed || true
 python3 src/intraday_engine.py --ack-mailed || true
 
+# 2026-10-28: OANDA 自動発注（注文係）。各エンジンの判定が出そろった後に1回照合する。
+# モードは auto_order.json（off／dry=注文を出さない試運転／live=本番）
+python3 src/oanda_exec.py || echo "⚠自動発注 失敗"
+
 git config user.name  "fx-actions"
 git config user.email "actions@users.noreply.github.com"
 for f in state.json state_intraday.json state_intraday15.json state_eurusd.json; do
