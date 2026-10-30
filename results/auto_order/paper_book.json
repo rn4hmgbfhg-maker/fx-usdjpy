@@ -1,7 +1,16 @@
 {
   "balance": 999335.0,
-  "next_id": 3,
-  "trades": {},
+  "next_id": 4,
+  "trades": {
+    "P3": {
+      "tag": "fxauto_dt15",
+      "comment": "2026-10-30 10:00|-1",
+      "units": -4000,
+      "price": 157.35800170898438,
+      "sl": 157.978,
+      "tp": 156.117
+    }
+  },
   "closed": {
     "P1": {
       "units": 5000,
