@@ -1,5 +1,5 @@
 {
- "at": "2026-11-06 07:04",
+ "at": "2026-11-07 07:04",
  "rules": {
   "gate": "直近30日の影の記録が10回以上・合計プラス・PF1.1以上のペアだけ入る候補",
   "calib": "直近30日の影の記録が30回以上で、実際の勝率÷想定勝率（回数で1.0へ引き寄せ・0.7〜1.05）を想定勝率に掛ける",
@@ -8,30 +8,30 @@
  },
  "gate": {
   "USDJPY": {
-   "n": 19,
-   "win": 0.474,
-   "pips": -5.3,
-   "yen": -530,
-   "pf": 0.96,
+   "n": 17,
+   "win": 0.529,
+   "pips": 23.1,
+   "yen": 2310,
+   "pf": 1.21,
    "pred": 0.473,
-   "ok": false
+   "ok": true
   },
   "EURJPY": {
-   "n": 21,
-   "win": 0.286,
-   "pips": -68.9,
-   "yen": -6890,
-   "pf": 0.58,
-   "pred": 0.421,
+   "n": 24,
+   "win": 0.333,
+   "pips": -31.7,
+   "yen": -3170,
+   "pf": 0.83,
+   "pred": 0.418,
    "ok": false
   },
   "GBPJPY": {
-   "n": 45,
-   "win": 0.444,
-   "pips": -74.7,
-   "yen": -7470,
-   "pf": 0.84,
-   "pred": 0.526,
+   "n": 43,
+   "win": 0.442,
+   "pips": -95.9,
+   "yen": -9590,
+   "pf": 0.79,
+   "pred": 0.528,
    "ok": false
   },
   "AUDJPY": {
@@ -47,19 +47,19 @@
    "ok": false
   },
   "CHFJPY": {
-   "n": 34,
-   "win": 0.471,
-   "pips": 87.4,
-   "yen": 8740,
-   "pf": 1.25,
-   "pred": 0.511,
+   "n": 31,
+   "win": 0.452,
+   "pips": 44.1,
+   "yen": 4410,
+   "pf": 1.13,
+   "pred": 0.512,
    "ok": true
   },
   "EURUSD": {
    "n": 16,
    "win": 0.438,
    "pips": 12.9,
-   "yen": 2034,
+   "yen": 2044,
    "pf": 1.18,
    "pred": 0.505,
    "ok": true
@@ -77,7 +77,7 @@
    "ok": false
   }
  },
- "calib": 0.89,
+ "calib": 0.903,
  "guard": {
   "state": "停止",
   "reason": "今月の記録が -70.7 pips（-40以下）のため、月末まで入る候補を出しません"
@@ -112,20 +112,20 @@
   }
  ],
  "shadow30": {
-  "n": 135,
-  "win": 0.43,
-  "pips": -48.6,
-  "yen": -4116,
+  "n": 131,
+  "win": 0.435,
+  "pips": -47.5,
+  "yen": -3996,
   "pf": 0.96,
-  "pred": 0.496
+  "pred": 0.494
  },
  "shadow_all": {
-  "n": 168,
-  "win": 0.464,
-  "pips": 243.8,
-  "yen": 23798,
-  "pf": 1.17,
-  "pred": 0.494
+  "n": 172,
+  "win": 0.465,
+  "pips": 275.1,
+  "yen": 26920,
+  "pf": 1.18,
+  "pred": 0.491
  },
  "follow_all": {
   "n": 45,
@@ -139,7 +139,7 @@
   "n": 186,
   "win": 0.484,
   "pips": 464.8,
-  "yen": 45246,
+  "yen": 45229,
   "pf": 1.27,
   "pred": 0.485
  },
@@ -147,87 +147,11 @@
   "n": 93,
   "win": 0.484,
   "pips": 232.4,
-  "yen": 22623,
+  "yen": 22615,
   "pf": 1.27,
   "pred": 0.485
  },
  "last_trades": [
-  {
-   "book": "shadow",
-   "label": "本番",
-   "code": "CHFJPY",
-   "pair": "フラン/円",
-   "signal_end": "2026-11-04 07:30",
-   "exit_end": "2026-11-04 07:45",
-   "dir_sign": 1,
-   "entry": 192.99001,
-   "sl_pips": 21.9,
-   "tp_pips": 35.0,
-   "hold": 16,
-   "win_pred": 0.485,
-   "ev_r": 0.068,
-   "result": "利確",
-   "pips": 31.0,
-   "cost": 4.0,
-   "yen": 3100.0
-  },
-  {
-   "book": "shadow",
-   "label": "本番",
-   "code": "CHFJPY",
-   "pair": "フラン/円",
-   "signal_end": "2026-11-04 08:15",
-   "exit_end": "2026-11-04 10:15",
-   "dir_sign": 1,
-   "entry": 193.298,
-   "sl_pips": 31.4,
-   "tp_pips": 46.5,
-   "hold": 16,
-   "win_pred": 0.485,
-   "ev_r": 0.068,
-   "result": "利確",
-   "pips": 42.5,
-   "cost": 4.0,
-   "yen": 4250.0
-  },
-  {
-   "book": "shadow",
-   "label": "本番",
-   "code": "EURJPY",
-   "pair": "ユーロ/円",
-   "signal_end": "2026-11-04 11:15",
-   "exit_end": "2026-11-04 13:15",
-   "dir_sign": 1,
-   "entry": 177.297,
-   "sl_pips": 25.3,
-   "tp_pips": 33.7,
-   "hold": 8,
-   "win_pred": 0.452,
-   "ev_r": 0.008,
-   "result": "時間切れ",
-   "pips": -11.3,
-   "cost": 1.2,
-   "yen": -1130.0
-  },
-  {
-   "book": "shadow",
-   "label": "本番",
-   "code": "EURJPY",
-   "pair": "ユーロ/円",
-   "signal_end": "2026-11-04 18:00",
-   "exit_end": "2026-11-04 18:30",
-   "dir_sign": -1,
-   "entry": 177.94501,
-   "sl_pips": 21.5,
-   "tp_pips": 28.6,
-   "hold": 8,
-   "win_pred": 0.453,
-   "ev_r": 0.001,
-   "result": "損切り",
-   "pips": -22.7,
-   "cost": 1.2,
-   "yen": -2270.0
-  },
   {
    "book": "shadow",
    "label": "本番",
@@ -264,7 +188,7 @@
    "result": "利確",
    "pips": 15.4,
    "cost": 1.2,
-   "yen": 2427.9640563964845
+   "yen": 2440.1299530029296
   },
   {
    "book": "shadow",
@@ -340,7 +264,7 @@
    "result": "損切り",
    "pips": -9.7,
    "cost": 1.2,
-   "yen": -1529.3020355224608
+   "yen": -1536.9649703979492
   },
   {
    "book": "shadow",
@@ -359,7 +283,7 @@
    "result": "利確",
    "pips": 12.0,
    "cost": 1.2,
-   "yen": 1891.9200439453125
+   "yen": 1901.3999633789062
   },
   {
    "book": "shadow",
@@ -379,6 +303,82 @@
    "pips": -13.5,
    "cost": 1.2,
    "yen": -1350.0
+  },
+  {
+   "book": "shadow",
+   "label": "本番",
+   "code": "EURJPY",
+   "pair": "ユーロ/円",
+   "signal_end": "2026-11-06 07:00",
+   "exit_end": "2026-11-06 07:45",
+   "dir_sign": 1,
+   "entry": 176.864,
+   "sl_pips": 11.0,
+   "tp_pips": 22.1,
+   "hold": 8,
+   "win_pred": 0.397,
+   "ev_r": 0.074,
+   "result": "損切り",
+   "pips": -12.2,
+   "cost": 1.2,
+   "yen": -1220.0
+  },
+  {
+   "book": "shadow",
+   "label": "本番",
+   "code": "EURJPY",
+   "pair": "ユーロ/円",
+   "signal_end": "2026-11-06 08:45",
+   "exit_end": "2026-11-06 09:30",
+   "dir_sign": 1,
+   "entry": 176.73399,
+   "sl_pips": 15.8,
+   "tp_pips": 31.6,
+   "hold": 8,
+   "win_pred": 0.396,
+   "ev_r": 0.104,
+   "result": "利確",
+   "pips": 30.4,
+   "cost": 1.2,
+   "yen": 3040.0
+  },
+  {
+   "book": "shadow",
+   "label": "本番",
+   "code": "EURJPY",
+   "pair": "ユーロ/円",
+   "signal_end": "2026-11-06 17:00",
+   "exit_end": "2026-11-06 18:00",
+   "dir_sign": 1,
+   "entry": 176.515,
+   "sl_pips": 15.9,
+   "tp_pips": 31.7,
+   "hold": 8,
+   "win_pred": 0.396,
+   "ev_r": 0.104,
+   "result": "利確",
+   "pips": 30.5,
+   "cost": 1.2,
+   "yen": 3050.0
+  },
+  {
+   "book": "shadow",
+   "label": "本番",
+   "code": "EURJPY",
+   "pair": "ユーロ/円",
+   "signal_end": "2026-11-06 23:45",
+   "exit_end": "2026-11-07 01:15",
+   "dir_sign": 1,
+   "entry": 176.508,
+   "sl_pips": 16.2,
+   "tp_pips": 32.5,
+   "hold": 8,
+   "win_pred": 0.396,
+   "ev_r": 0.106,
+   "result": "損切り",
+   "pips": -17.4,
+   "cost": 1.2,
+   "yen": -1739.9999999999998
   }
  ]
 }
