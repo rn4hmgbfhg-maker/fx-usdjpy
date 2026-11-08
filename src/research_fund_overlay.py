@@ -94,7 +94,11 @@ def oos_series():
         chg = m[name].diff() if name in rf.YIELD_KEYS else m[name].pct_change()
         cors[name] = ret.rolling(rf.CORR_SHORT).corr(chg)
     cdf = pd.DataFrame(cors)
-    top = cdf.abs().idxmax(axis=1, skipna=True)
+    # 全項目が欠けた日は pandas 3 の idxmax が例外を出すため、値のある日だけで求める
+    # （2026-11-09。欠けた日は従来どおり label() が None を返して除外される）
+    _abs = cdf.abs()
+    _ok = _abs.notna().any(axis=1)
+    top = _abs[_ok].idxmax(axis=1, skipna=True).reindex(cdf.index)
     topv = cdf.abs().max(axis=1)
 
     def label(d):

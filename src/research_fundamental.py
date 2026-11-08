@@ -269,7 +269,9 @@ def walk_forward_range(feat: pd.DataFrame, rng: pd.Series):
     mae, mae_n = np.mean(np.abs(a - p)), np.mean(np.abs(a - n))
     return {
         "検証日数": len(p),
-        "順位相関": float(pd.Series(p).corr(pd.Series(a), method="spearman")),
+        # 順位相関（スピアマン）＝順位どうしのピアソン相関。method="spearman" は scipy が
+        # 必要で、scipy の無い GitHub Actions では 10/17 以降ここで落ちていた（2026-11-09）
+        "順位相関": float(pd.Series(p).rank().corr(pd.Series(a).rank())),
         "誤差改善率": float(1 - mae / mae_n) if mae_n else 0.0,
     }
 
@@ -560,4 +562,7 @@ def main():
 
 
 if __name__ == "__main__":
-    sys.exit(0 if main() else 0)
+    # 2026-11-09: 例外で落ちても成功扱いになり、10/17〜11/9 の停止に誰も気付けなかった。
+    # 例外はそのまま上げて終了コード1にする（ワークフロー側の鮮度点検でも検知する）。
+    main()
+    sys.exit(0)

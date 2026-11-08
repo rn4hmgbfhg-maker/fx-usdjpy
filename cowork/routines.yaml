@@ -164,6 +164,11 @@ routines:
   - id: fundamental
     name: "FXドル円 ファンダ・予測研究"
     description: "平日6/9/12/15/18/21時台にニュース収集と定量研究を行う。発注判断は一切しない"
+    # 2026-11-09: Mac 停止で 10/16 から止まっていたため、Mac から外した。
+    #   定性ニュース＝クラウド定期タスク「FXドル円 ファンダ・予測研究（クラウド）」
+    #   定量研究・本運用ゲート＝GitHub Actions fx-fundamental（.github/workflows/fundamental.yml）
+    #   停止の見張り＝scripts/fund_health.py（同ワークフロー内・古ければ赤＋本人へメール）
+    #   この routine を Mac に再登録しないこと（二重実行になる）。
     schedule:
       cron: "10 6,9,12,15,18,21 * * 1-5"
       timezone: Asia/Tokyo

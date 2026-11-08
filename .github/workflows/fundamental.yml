@@ -1,0 +1,71 @@
+name: fx-fundamental
+
+# ファンダ定量研究＋本運用ゲート判定＋停止の見張り（2026-11-09 新設）
+# これまで Mac の Cowork 定期タスク（平日6:10）が担当していたが、Mac 停止で 10/16 から止まっていた。
+# 定性ニュース（Web検索）はクラウド定期タスクが results/fundamental_news.json を push する。
+on:
+  schedule:
+    - cron: '20 21 * * 0-5'   # UTC 21:20 = JST 6:20（月〜土）＝NYクローズ後の朝の判定
+    - cron: '20 4 * * 1-5'    # UTC 4:20 = JST 13:20（月〜金）＝昼の見張り（ニュースの鮮度）
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: fx-fundamental
+  cancel-in-progress: false
+
+jobs:
+  fundamental:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      TZ: Asia/Tokyo
+      FX_GMAIL_APP_PASSWORD: ${{ secrets.FX_GMAIL_APP_PASSWORD }}
+      FX_MAIL_TO: ${{ secrets.FX_MAIL_TO }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - name: ファンダ定量研究（レジーム・翌日予測・前向き採点）
+        id: quant
+        run: python3 src/research_fundamental.py
+        continue-on-error: true
+
+      - name: 本運用ゲート判定（fund_overlay → fund_live の自動昇格・降格）
+        id: overlay
+        run: python3 src/research_fund_overlay.py
+        continue-on-error: true
+
+      - name: 研究結果をコミット
+        run: |
+          git config user.name  "fx-actions"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A results data
+          if git diff --staged --quiet; then
+            echo "変更なし"
+          else
+            git commit -q -m "fundamental $(TZ=Asia/Tokyo date +'%F %H:%M JST')"
+            for i in 1 2 3; do
+              if git pull --rebase -X theirs -q origin main && git push -q; then break; fi
+              git rebase --abort 2>/dev/null || true
+              echo "push 再試行 $i"; sleep 5
+            done
+          fi
+
+      - name: 停止の見張り（古ければ赤にして本人へメール）
+        run: |
+          git pull -q --ff-only origin main || true
+          python3 scripts/fund_health.py
+          if [ "${{ steps.quant.outcome }}" = "failure" ] || [ "${{ steps.overlay.outcome }}" = "failure" ]; then
+            echo "::error::研究スクリプトが失敗しました（上のログを参照）"
+            exit 1
+          fi
