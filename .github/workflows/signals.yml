@@ -12,6 +12,7 @@ on:
 
 permissions:
   contents: write
+  actions: write   # 2026-11-10 追加: ループ終了時に次の起動を自分でかけるため
 
 concurrency:
   group: fx-signals
@@ -20,7 +21,7 @@ concurrency:
 jobs:
   signals:
     runs-on: ubuntu-latest
-    timeout-minutes: 345
+    timeout-minutes: 360
     env:
       TZ: Asia/Tokyo
       FX_GMAIL_APP_PASSWORD: ${{ secrets.FX_GMAIL_APP_PASSWORD }}
@@ -48,6 +49,7 @@ jobs:
       # 1回の起動の中で15分ごとに処理を繰り返し（最長5時間半）、次の cron 起動へつなぐ。Mac が動いていれば
       # Mac の起動分は待ち行列に入り、ループ終了後にそのまま引き継ぐ（同時には走らない）。
       - name: 15分ごとループ（1回の起動で最長5時間半）
+        timeout-minutes: 340   # 途中で固まっても、次の手順（次の起動）まで必ず届くようにする
         run: |
           START=$(date +%s)
           while true; do
@@ -66,3 +68,24 @@ jobs:
             echo "次の回まで ${WAIT}秒待機"
             sleep "$WAIT"
           done
+
+      # 2026-11-10: cron は時刻の保証がなく、11/9 17:41 起動分が 23:19 に終わったあと次の起動が10時間以上来ず更新が止まった。
+      # ループが終わったら自分で次の起動をかけ、cron に頼らない（cron は月曜朝の最初の起動と予備として残す）。
+      # 同じ concurrency グループなので、次の起動はこのジョブの終了を待って始まる。手動で取り消したときは動かない。
+      - name: 次の起動をかける（休場中はかけない）
+        if: ${{ !cancelled() }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          DOW=$(TZ=Asia/Tokyo date +%u); HH=$(TZ=Asia/Tokyo date +%H)
+          if { [ "$DOW" = 6 ] && [ "$HH" -ge 9 ]; } || [ "$DOW" = 7 ] || { [ "$DOW" = 1 ] && [ "$HH" -lt 6 ]; }; then
+            echo "休場のため次の起動はかけない"; exit 0
+          fi
+          for i in 1 2 3 4 5; do
+            if gh workflow run signals.yml --ref main -R "$GITHUB_REPOSITORY"; then
+              echo "次の起動をかけました（${i}回目で成功）"; exit 0
+            fi
+            echo "次の起動に失敗（${i}回目）"
+            [ "$i" -lt 5 ] && sleep 120
+          done
+          echo "::warning::次の起動をかけられませんでした（cron の起動を待ちます）"
