@@ -1,6 +1,6 @@
 {
   "balance": 998358.0,
-  "next_id": 19,
+  "next_id": 21,
   "trades": {
     "P17": {
       "tag": "fxauto_dt15",
@@ -17,6 +17,22 @@
       "price": 159.8300018310547,
       "sl": 159.092,
       "tp": 161.306
+    },
+    "P19": {
+      "tag": "fxauto_long",
+      "comment": "2026-11-11|1",
+      "units": 2000,
+      "price": 159.68899536132812,
+      "sl": 156.11,
+      "tp": null
+    },
+    "P20": {
+      "tag": "fxauto_swing",
+      "comment": "2026-11-11|1",
+      "units": 3000,
+      "price": 159.68899536132812,
+      "sl": 158.164,
+      "tp": null
     }
   },
   "closed": {
