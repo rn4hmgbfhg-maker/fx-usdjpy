@@ -25,7 +25,7 @@ results/fundamental_news.json に書き込み、本スクリプトが読み込�
 
 使い方:
   python3 src/research_fundamental.py            # 採点→研究→当日の予測を記録
-  python3 src/research_fundamental.py --no-log   # 記録せず研究結果だけ表示
+  python3 src/research_fundamental.py --no-log   # 記録・採点・マクロ保存をせず fundamental_latest.json だけ更新
 """
 import argparse
 import json
@@ -85,8 +85,11 @@ def fetch_close(symbol: str, range_str: str = "10y") -> pd.Series:
     return s[~s.index.duplicated(keep="last")].dropna()
 
 
-def update_macro(force: bool = False) -> pd.DataFrame:
-    """マクロ系列を取得して data/macro_daily.csv にマージ保存する。"""
+def update_macro(force: bool = False, save: bool = True) -> pd.DataFrame:
+    """マクロ系列を取得して data/macro_daily.csv にマージ保存する。
+
+    save=False（--no-log）のときは取得・マージだけ行い、ファイルは書かない。
+    """
     frames, failed = {}, []
     for name, sym in MACRO_SYMBOLS.items():
         try:
@@ -100,8 +103,9 @@ def update_macro(force: bool = False) -> pd.DataFrame:
                              name="Date")
         new = new.combine_first(old) if len(new) else old
     new = new.sort_index()
-    os.makedirs(DATA_DIR, exist_ok=True)
-    new.to_csv(MACRO_CSV)
+    if save:
+        os.makedirs(DATA_DIR, exist_ok=True)
+        new.to_csv(MACRO_CSV)
     if failed:
         print(f"  ※マクロ取得失敗: {', '.join(failed)}（既存データで継続）")
     return new
@@ -355,8 +359,11 @@ def bucket_edge(wf: pd.DataFrame, ret_next: pd.Series) -> pd.DataFrame:
 
 
 # ---------------------------------------------------------------- 前向き採点
-def score_forecast_log(px: pd.Series) -> dict:
-    """過去に記録した予測を実測で採点する（真の前向き検証）。"""
+def score_forecast_log(px: pd.Series, save: bool = True) -> dict:
+    """過去に記録した予測を実測で採点する（真の前向き検証）。
+
+    save=False（--no-log）のときは採点をメモリ上だけで行い、ファイルは書かない。
+    """
     if not os.path.exists(FORECAST_LOG):
         return {"件数": 0, "的中率": None}
     log = pd.read_csv(FORECAST_LOG)
@@ -377,7 +384,7 @@ def score_forecast_log(px: pd.Series) -> dict:
         log.at[i, "実測方向"] = realized
         log.at[i, "的中"] = int(realized == int(row["予測方向"]))
         changed = True
-    if changed:
+    if changed and save:
         log.to_csv(FORECAST_LOG, index=False)
     done = log[log["的中"].notna()]
     if not len(done):
@@ -435,16 +442,17 @@ def load_news() -> dict:
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--no-log", action="store_true",
-                    help="予測をforecast_log.csvへ記録しない")
+                    help="読み取り専用で実行（forecast_log.csv・macro_daily.csv を書かず、"
+                         "fundamental_latest.json だけ更新する）")
     args = ap.parse_args()
 
     print("=== ファンダ・予測研究 ===")
-    macro = update_macro()
+    macro = update_macro(save=not args.no_log)
     px = load_usdjpy()
     print(f"データ: ドル円日足{len(px)}本 {px.index[0]} -> {px.index[-1]}"
           f" ／ マクロ{macro.shape[1]}系列")
 
-    fwd = score_forecast_log(px)
+    fwd = score_forecast_log(px, save=not args.no_log)
 
     corr = correlations(px, macro)
     print("\n--- ① マクロ連関（ドル円 日次変化との相関）---")
