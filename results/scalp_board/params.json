@@ -1,6 +1,6 @@
 {
- "date": "2026-11-13",
- "at": "2026-11-13 07:04",
+ "date": "2026-11-14",
+ "at": "2026-11-14 07:04",
  "pairs": {
   "USDJPY": {
    "adopt": false,
@@ -10,51 +10,45 @@
    "hold": 8,
    "trend_only": true,
    "good_hours": [],
-   "win": 0.342,
-   "win_lo": 0.263,
-   "win_hi": 0.43,
-   "pf": 1.01,
-   "robust": 0.87,
-   "n": 120,
-   "date": "2026-11-13"
+   "win": 0.368,
+   "win_lo": 0.286,
+   "win_hi": 0.458,
+   "pf": 1.11,
+   "robust": 0.94,
+   "n": 117,
+   "date": "2026-11-14"
   },
   "EURJPY": {
    "adopt": true,
-   "method": "bb_rev",
-   "sl_k": 1.0,
+   "method": "rsi_rev",
+   "sl_k": 1.5,
    "tp_k": 2.0,
-   "hold": 8,
-   "trend_only": false,
-   "good_hours": [
-    1,
-    6,
-    8,
-    17,
-    19
-   ],
-   "win": 0.455,
-   "win_lo": 0.389,
-   "win_hi": 0.522,
-   "pf": 1.23,
+   "hold": 32,
+   "trend_only": true,
+   "good_hours": [],
+   "win": 0.46,
+   "win_lo": 0.33,
+   "win_hi": 0.596,
+   "pf": 1.11,
    "robust": 1.1,
-   "n": 211,
-   "date": "2026-11-13"
+   "n": 50,
+   "date": "2026-11-14"
   },
   "GBPJPY": {
    "adopt": false,
-   "method": "bb_rev",
+   "method": "rsi_rev",
    "sl_k": 1.5,
    "tp_k": 1.0,
-   "hold": 8,
-   "trend_only": true,
+   "hold": 32,
+   "trend_only": false,
    "good_hours": [],
-   "win": 0.459,
-   "win_lo": 0.368,
-   "win_hi": 0.552,
-   "pf": 0.93,
-   "robust": 0.9,
-   "n": 109,
-   "date": "2026-11-13"
+   "win": 0.44,
+   "win_lo": 0.347,
+   "win_hi": 0.538,
+   "pf": 1.0,
+   "robust": 0.94,
+   "n": 100,
+   "date": "2026-11-14"
   },
   "AUDJPY": {
    "adopt": false,
@@ -64,13 +58,13 @@
    "hold": 32,
    "trend_only": false,
    "good_hours": [],
-   "win": 0.311,
-   "win_lo": 0.254,
-   "win_hi": 0.374,
-   "pf": 1.0,
-   "robust": 0.92,
+   "win": 0.307,
+   "win_lo": 0.25,
+   "win_hi": 0.37,
+   "pf": 0.99,
+   "robust": 0.96,
    "n": 225,
-   "date": "2026-11-13"
+   "date": "2026-11-14"
   },
   "NZDJPY": {
    "adopt": false,
@@ -80,13 +74,13 @@
    "hold": 8,
    "trend_only": false,
    "good_hours": [],
-   "win": 0.438,
-   "win_lo": 0.372,
-   "win_hi": 0.507,
-   "pf": 0.84,
+   "win": 0.433,
+   "win_lo": 0.367,
+   "win_hi": 0.502,
+   "pf": 0.81,
    "robust": 0.79,
    "n": 203,
-   "date": "2026-11-13"
+   "date": "2026-11-14"
   },
   "CADJPY": {
    "adopt": false,
@@ -96,32 +90,33 @@
    "hold": 32,
    "trend_only": false,
    "good_hours": [],
-   "win": 0.408,
-   "win_lo": 0.338,
-   "win_hi": 0.482,
-   "pf": 0.84,
-   "robust": 0.81,
-   "n": 174,
-   "date": "2026-11-13"
+   "win": 0.404,
+   "win_lo": 0.333,
+   "win_hi": 0.478,
+   "pf": 0.83,
+   "robust": 0.82,
+   "n": 171,
+   "date": "2026-11-14"
   },
   "CHFJPY": {
    "adopt": true,
    "method": "bb_rev",
-   "sl_k": 1.5,
-   "tp_k": 1.0,
-   "hold": 8,
+   "sl_k": 0.75,
+   "tp_k": 1.5,
+   "hold": 32,
    "trend_only": true,
    "good_hours": [
-    17,
-    23
+    0,
+    7,
+    17
    ],
-   "win": 0.542,
-   "win_lo": 0.442,
-   "win_hi": 0.638,
-   "pf": 1.26,
-   "robust": 1.12,
-   "n": 96,
-   "date": "2026-11-13"
+   "win": 0.451,
+   "win_lo": 0.358,
+   "win_hi": 0.548,
+   "pf": 1.08,
+   "robust": 1.05,
+   "n": 102,
+   "date": "2026-11-14"
   },
   "EURUSD": {
    "adopt": false,
@@ -135,9 +130,9 @@
    "win_lo": 0.314,
    "win_hi": 0.567,
    "pf": 1.04,
-   "robust": 0.91,
+   "robust": 1.02,
    "n": 55,
-   "date": "2026-11-13"
+   "date": "2026-11-14"
   },
   "GBPUSD": {
    "adopt": false,
@@ -147,13 +142,13 @@
    "hold": 32,
    "trend_only": true,
    "good_hours": [],
-   "win": 0.434,
-   "win_lo": 0.341,
-   "win_hi": 0.533,
-   "pf": 1.04,
-   "robust": 1.04,
-   "n": 99,
-   "date": "2026-11-13"
+   "win": 0.427,
+   "win_lo": 0.336,
+   "win_hi": 0.524,
+   "pf": 0.97,
+   "robust": 0.95,
+   "n": 103,
+   "date": "2026-11-14"
   },
   "AUDUSD": {
    "adopt": false,
@@ -163,57 +158,57 @@
    "hold": 32,
    "trend_only": true,
    "good_hours": [],
-   "win": 0.442,
-   "win_lo": 0.342,
-   "win_hi": 0.547,
-   "pf": 1.06,
-   "robust": 0.99,
+   "win": 0.453,
+   "win_lo": 0.353,
+   "win_hi": 0.558,
+   "pf": 1.12,
+   "robust": 0.98,
    "n": 86,
-   "date": "2026-11-13"
+   "date": "2026-11-14"
   },
   "EURGBP": {
    "adopt": false,
-   "method": "ema_pull",
+   "method": "rsi_rev",
    "sl_k": 1.5,
    "tp_k": 1.0,
    "hold": 32,
-   "trend_only": true,
+   "trend_only": false,
    "good_hours": [],
-   "win": 0.385,
-   "win_lo": 0.294,
-   "win_hi": 0.485,
-   "pf": 0.62,
-   "robust": 0.61,
-   "n": 96,
-   "date": "2026-11-13"
+   "win": 0.317,
+   "win_lo": 0.234,
+   "win_hi": 0.413,
+   "pf": 0.63,
+   "robust": 0.6,
+   "n": 101,
+   "date": "2026-11-14"
   }
  },
  "gate": {
   "USDJPY": {
-   "n": 9,
-   "win": 0.556,
-   "pips": -1.0,
-   "yen": -100,
-   "pf": 0.98,
-   "pred": 0.468,
+   "n": 7,
+   "win": 0.571,
+   "pips": 5.0,
+   "yen": 500,
+   "pf": 1.1,
+   "pred": 0.466,
    "ok": false
   },
   "EURJPY": {
-   "n": 42,
-   "win": 0.357,
-   "pips": -60.9,
-   "yen": -6090,
-   "pf": 0.8,
+   "n": 41,
+   "win": 0.341,
+   "pips": -78.7,
+   "yen": -7870,
+   "pf": 0.74,
    "pred": 0.418,
    "ok": false
   },
   "GBPJPY": {
-   "n": 38,
-   "win": 0.447,
-   "pips": -85.7,
-   "yen": -8570,
-   "pf": 0.77,
-   "pred": 0.532,
+   "n": 35,
+   "win": 0.429,
+   "pips": -93.4,
+   "yen": -9340,
+   "pf": 0.73,
+   "pred": 0.534,
    "ok": false
   },
   "AUDJPY": {
@@ -229,11 +224,11 @@
    "ok": false
   },
   "CHFJPY": {
-   "n": 28,
-   "win": 0.536,
-   "pips": 123.2,
-   "yen": 12320,
-   "pf": 1.45,
+   "n": 27,
+   "win": 0.556,
+   "pips": 148.4,
+   "yen": 14840,
+   "pf": 1.6,
    "pred": 0.51,
    "ok": true
   },
@@ -241,7 +236,7 @@
    "n": 15,
    "win": 0.467,
    "pips": 18.0,
-   "yen": 2877,
+   "yen": 2874,
    "pf": 1.26,
    "pred": 0.503,
    "ok": true
@@ -259,7 +254,7 @@
    "ok": false
   }
  },
- "calib": 0.939,
+ "calib": 0.928,
  "guard": {
   "state": "停止",
   "reason": "今月の記録が -70.7 pips（-40以下）のため、月末まで入る候補を出しません"
